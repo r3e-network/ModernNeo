@@ -25,7 +25,7 @@ namespace Neo.Network.P2P.Payloads
     /// <summary>
     /// Represents a block.
     /// </summary>
-    public sealed class Block : IEquatable<Block>, IInventory
+    public sealed class Block : IEquatable<Block>, IInventory, Core.Interfaces.IBlockData
     {
         /// <summary>
         /// The header of the block.
@@ -88,6 +88,9 @@ namespace Neo.Network.P2P.Payloads
         InventoryType IInventory.InventoryType => InventoryType.Block;
 
         public int Size => Header.Size + Transactions.GetVarSize();
+
+        /// <inheritdoc/>
+        public int TransactionsCount => Transactions.Length;
 
         Witness[] IVerifiable.Witnesses
         {

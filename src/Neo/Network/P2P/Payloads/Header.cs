@@ -25,7 +25,7 @@ namespace Neo.Network.P2P.Payloads
     /// <summary>
     /// Represents the header of a block.
     /// </summary>
-    public sealed class Header : IEquatable<Header>, IVerifiable
+    public sealed class Header : IEquatable<Header>, IVerifiable, Core.Interfaces.IHeaderData
     {
         /// <summary>
         /// The version of the block.

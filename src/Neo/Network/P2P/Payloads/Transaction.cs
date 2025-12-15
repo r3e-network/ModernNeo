@@ -34,7 +34,7 @@ namespace Neo.Network.P2P.Payloads
     /// <summary>
     /// Represents a transaction.
     /// </summary>
-    public class Transaction : IEquatable<Transaction>, IInventory, IInteroperable
+    public class Transaction : IEquatable<Transaction>, IInventory, IInteroperable, Core.Interfaces.ITransactionData
     {
         /// <summary>
         /// The maximum size of a transaction.
@@ -126,6 +126,12 @@ namespace Neo.Network.P2P.Payloads
         /// </summary>
         /// <remarks>Note: The sender will pay the fees of the transaction.</remarks>
         public UInt160 Sender => Signers[0].Account;
+
+        /// <inheritdoc/>
+        public int SignersCount => Signers.Length;
+
+        /// <inheritdoc/>
+        public int AttributesCount => Attributes.Length;
 
         private int _size;
         public int Size
