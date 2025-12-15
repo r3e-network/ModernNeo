@@ -106,11 +106,12 @@ Transaction, Block (实现 IInteroperable)
 ## 已验证的功能
 
 - ✅ 构建成功 (0 errors, 0 warnings)
-- ✅ 1168 个测试全部通过 (Neo.Json: 92, Neo.Extensions: 89, Neo.UnitTests: 987)
+- ✅ 1175 个测试全部通过 (Neo.Json: 92, Neo.Extensions: 89, Neo.UnitTests: 994)
 - ✅ Neo.Node 可启动并连接网络
 - ✅ Health/Metrics/Logging 端点正常工作
 - ✅ TypeForwarding 保持二进制兼容
 - ✅ Phase 3.1 接口分离完成 (2025-12-15)
+- ✅ Phase 3.3 协议层提取第二阶段完成 (2025-12-15)
 
 ## Neo.Core/Interfaces 目录结构
 
@@ -143,9 +144,9 @@ src/Neo.Core/Interfaces/
     - 修复了 TestVerifiable 和 ManualWitness 测试类
     - 全部 1168 个测试通过
 
-## Phase 3.3 协议层提取 - 第一阶段完成 (2025-12-15)
+## Phase 3.3 协议层提取 - 第二阶段完成 (2025-12-15)
 
-### 已完成的迁移 (16 个类型)
+### 已完成的迁移 (18 个类型)
 
 #### P2P 协议类型 (7 个)
 
@@ -170,13 +171,15 @@ src/Neo.Core/Interfaces/
 | NamedCurveHash        | Neo.SmartContract.Native | 枚举 | ✅   |
 | Role                  | Neo.SmartContract.Native | 枚举 | ✅   |
 
-#### 其他类型 (4 个)
+#### 其他类型 (6 个)
 
-| 类型                     | 源命名空间  | 类别 | 状态 |
-| ------------------------ | ----------- | ---- | ---- |
-| TransactionRemovalReason | Neo.Ledger  | 枚举 | ✅   |
-| UnhandledExceptionPolicy | Neo.Plugins | 枚举 | ✅   |
-| IPluginSettings          | Neo.Plugins | 接口 | ✅   |
+| 类型                     | 源命名空间        | 类别 | 状态 |
+| ------------------------ | ----------------- | ---- | ---- |
+| TransactionRemovalReason | Neo.Ledger        | 枚举 | ✅   |
+| VerifyResult             | Neo.Ledger        | 枚举 | ✅   |
+| UnhandledExceptionPolicy | Neo.Plugins       | 枚举 | ✅   |
+| IPluginSettings          | Neo.Plugins       | 接口 | ✅   |
+| TriggerType              | Neo.SmartContract | 枚举 | ✅   |
 
 ### Neo.IO 基础设施扩展
 
@@ -206,38 +209,57 @@ src/Neo.Protocol/
 ├── OracleResponseCode.cs
 ├── Role.cs
 ├── TransactionRemovalReason.cs
+├── TriggerType.cs
 ├── UnhandledExceptionPolicy.cs
+├── VerifyResult.cs
 ├── WitnessRuleAction.cs
 └── WitnessScope.cs
 ```
 
 ### 迁移统计
 
-- **枚举**: 12 个
+- **枚举**: 14 个
 - **Payload 类**: 3 个
 - **接口**: 1 个
-- **总计**: 16 个类型
+- **总计**: 18 个类型
 
 ### 阻塞的类型 (循环依赖)
 
 以下类型因循环依赖暂无法迁移：
 
-| 类型                     | 阻塞原因                                |
-| ------------------------ | --------------------------------------- |
-| MessageCommand           | 依赖多个 Payload 类型的 ReflectionCache |
-| InventoryType            | 依赖 MessageCommand 枚举值              |
-| TransactionAttributeType | 依赖 ReflectionCache + 多个属性类       |
-| WitnessConditionType     | 依赖 ReflectionCache + 多个条件类       |
-| TriggerType              | 依赖 IVerifiable                        |
-| VerifyResult             | 依赖 IInventory, Transaction            |
+| 类型                     | 阻塞原因                                      |
+| ------------------------ | --------------------------------------------- |
+| MessageCommand           | 依赖多个 Payload 类型的 ReflectionCache       |
+| InventoryType            | 依赖 MessageCommand 枚举值                    |
+| TransactionAttributeType | 依赖 ReflectionCache + 多个属性类             |
+| WitnessConditionType     | 依赖 ReflectionCache + 多个条件类             |
+| Header/Block/Transaction | 核心协议类型，依赖链复杂                      |
+| 其他 Payload 类          | 依赖 Header, Block, NetworkAddressWithTime 等 |
 
 ### TypeForwards 配置
 
 所有迁移的类型都在 `src/Neo/TypeForwards.cs` 中配置了类型转发，确保二进制兼容性。
 
+## 服务接口实现 ✅ 已完成 (2025-12-15)
+
+### 已实现的服务
+
+| 服务                | 位置              | 描述                           |
+| ------------------- | ----------------- | ------------------------------ |
+| VerificationService | src/Neo/Services/ | 实现 IVerificationService 接口 |
+| StackItemConverter  | src/Neo/Services/ | 实现 IStackItemConverter 接口  |
+
+### 单元测试
+
+| 测试类                 | 测试数 | 状态 |
+| ---------------------- | ------ | ---- |
+| UT_VerificationService | 4      | ✅   |
+| UT_StackItemConverter  | 3      | ✅   |
+
 ## 下一步工作
 
-1. **解决 ReflectionCache 依赖** - 考虑将 ReflectionCache 迁移到 Neo.IO
-2. **实现服务接口** - IVerificationService 和 IStackItemConverter
-3. **迁移核心协议类型** - Transaction, Block, Header (需要先解决循环依赖)
+1. ~~**解决 ReflectionCache 依赖**~~ ✅ 已迁移到 Neo.IO
+2. ~~**实现服务接口**~~ ✅ VerificationService 和 StackItemConverter 已实现
+3. **迁移核心协议类型** - Transaction, Block, Header (需要整体迁移，依赖链复杂)
 4. **考虑创建 Neo.Network 模块** - 分离 P2P 网络层
+5. **解决 ReflectionCache 属性依赖** - MessageCommand, TransactionAttributeType, WitnessConditionType 需要先迁移关联的 Payload/Attribute/Condition 类
