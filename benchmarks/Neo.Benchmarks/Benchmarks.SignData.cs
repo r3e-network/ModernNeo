@@ -11,6 +11,7 @@
 
 using BenchmarkDotNet.Attributes;
 using Neo.Extensions;
+using Neo.IO;
 using Neo.Network.P2P;
 using Neo.Network.P2P.Payloads;
 

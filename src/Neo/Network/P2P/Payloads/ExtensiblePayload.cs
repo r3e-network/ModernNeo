@@ -94,7 +94,7 @@ namespace Neo.Network.P2P.Payloads
             Witness = reader.ReadSerializable<Witness>();
         }
 
-        void IVerifiable.DeserializeUnsigned(ref MemoryReader reader)
+        void Core.Interfaces.IVerifiableBase.DeserializeUnsigned(ref MemoryReader reader)
         {
             Category = reader.ReadVarString(32);
             ValidBlockStart = reader.ReadUInt32();
@@ -117,7 +117,7 @@ namespace Neo.Network.P2P.Payloads
             writer.Write(Witness);
         }
 
-        void IVerifiable.SerializeUnsigned(BinaryWriter writer)
+        void Core.Interfaces.IVerifiableBase.SerializeUnsigned(BinaryWriter writer)
         {
             writer.WriteVarString(Category);
             writer.Write(ValidBlockStart);

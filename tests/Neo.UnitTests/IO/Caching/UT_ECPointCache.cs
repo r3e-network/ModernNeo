@@ -10,8 +10,8 @@
 // modifications are permitted.
 
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Neo.Cryptography;
 using Neo.Cryptography.ECC;
-using Neo.IO.Caching;
 
 namespace Neo.UnitTests.IO.Caching
 {

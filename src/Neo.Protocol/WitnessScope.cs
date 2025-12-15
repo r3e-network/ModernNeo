@@ -14,7 +14,7 @@ using System;
 namespace Neo.Network.P2P.Payloads
 {
     /// <summary>
-    /// Represents the scope of a <see cref="Witness"/>.
+    /// Represents the scope of a witness.
     /// </summary>
     [Flags]
     public enum WitnessScope : byte

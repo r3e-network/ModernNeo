@@ -11,8 +11,9 @@
 
 using Neo.Cryptography.ECC;
 using Neo.Extensions;
+using Neo.IO.Caching;
 
-namespace Neo.IO.Caching
+namespace Neo.Cryptography
 {
     internal class ECPointCache : FIFOCache<byte[], ECPoint>
     {

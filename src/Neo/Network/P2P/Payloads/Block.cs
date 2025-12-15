@@ -125,7 +125,7 @@ namespace Neo.Network.P2P.Payloads
             return txs;
         }
 
-        void IVerifiable.DeserializeUnsigned(ref MemoryReader reader) => throw new NotSupportedException();
+        void Core.Interfaces.IVerifiableBase.DeserializeUnsigned(ref MemoryReader reader) => throw new NotSupportedException();
 
         public bool Equals(Block? other)
         {
@@ -152,7 +152,7 @@ namespace Neo.Network.P2P.Payloads
             writer.Write(Transactions);
         }
 
-        void IVerifiable.SerializeUnsigned(BinaryWriter writer) => ((IVerifiable)Header).SerializeUnsigned(writer);
+        void Core.Interfaces.IVerifiableBase.SerializeUnsigned(BinaryWriter writer) => ((Core.Interfaces.IVerifiableBase)Header).SerializeUnsigned(writer);
 
         /// <summary>
         /// Converts the block to a JSON object.

@@ -32,7 +32,7 @@ namespace Neo
     /// <summary>
     /// Represents the basic unit that contains all the components required for running of a NEO node.
     /// </summary>
-    public class NeoSystem : IDisposable
+    public class NeoSystem : IDisposable, Ledger.IBlockchainOperations
     {
         /// <summary>
         /// Triggered when a service is added to the <see cref="NeoSystem"/>.

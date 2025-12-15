@@ -98,6 +98,12 @@ namespace Neo.SmartContract
         /// </summary>
         public IDiagnostic? Diagnostic { get; }
 
+        /// <summary>
+        /// The execution metrics collector used by the engine.
+        /// Defaults to <see cref="NullExecutionMetrics.Instance"/> if not specified.
+        /// </summary>
+        public IExecutionMetrics Metrics { get; }
+
         private List<IDisposable> Disposables => disposables ??= new List<IDisposable>();
 
         /// <summary>
@@ -210,9 +216,11 @@ namespace Neo.SmartContract
         /// </param>
         /// <param name="diagnostic">The diagnostic to be used by the <see cref="ApplicationEngine"/>.</param>
         /// <param name="jumpTable">The jump table to be used by the <see cref="ApplicationEngine"/>.</param>
+        /// <param name="metrics">The execution metrics collector. Defaults to <see cref="NullExecutionMetrics.Instance"/> if not specified.</param>
         protected ApplicationEngine(
             TriggerType trigger, IVerifiable? container, DataCache snapshotCache, Block? persistingBlock,
-            ProtocolSettings settings, long gas, IDiagnostic? diagnostic = null, JumpTable? jumpTable = null)
+            ProtocolSettings settings, long gas, IDiagnostic? diagnostic = null, JumpTable? jumpTable = null,
+            IExecutionMetrics? metrics = null)
             : base(jumpTable ?? DefaultJumpTable)
         {
             Trigger = trigger;
@@ -222,6 +230,7 @@ namespace Neo.SmartContract
             ProtocolSettings = settings;
             _feeAmount = gas * FeeFactor; // PicoGAS
             Diagnostic = diagnostic;
+            Metrics = metrics ?? NullExecutionMetrics.Instance;
             nonceData = container is Transaction tx ? tx.Hash.ToArray()[..16] : new byte[16];
             if (snapshotCache is null || persistingBlock?.Index == 0)
             {
@@ -711,7 +720,8 @@ namespace Neo.SmartContract
         protected virtual void OnSysCall(InteropDescriptor descriptor)
         {
             ValidateCallFlags(descriptor.RequiredCallFlags);
-            AddFee(descriptor.FixedPrice * _execFeeFactor);
+            var gasConsumed = descriptor.FixedPrice * _execFeeFactor;
+            AddFee(gasConsumed);
 
             object?[] parameters = new object?[descriptor.Parameters.Count];
             for (int i = 0; i < parameters.Length; i++)
@@ -720,12 +730,19 @@ namespace Neo.SmartContract
             object? returnValue = descriptor.Handler.Invoke(this, parameters);
             if (descriptor.Handler.ReturnType != typeof(void))
                 Push(Convert(returnValue));
+
+            // Record syscall metrics
+            Metrics.RecordSyscall(descriptor.Name, (long)gasConsumed);
         }
 
         protected override void PreExecuteInstruction(Instruction instruction)
         {
             Diagnostic?.PreExecuteInstruction(instruction);
-            AddFee(_execFeeFactor * OpCodePriceTable[(byte)instruction.OpCode]);
+            var gasConsumed = _execFeeFactor * OpCodePriceTable[(byte)instruction.OpCode];
+            AddFee(gasConsumed);
+
+            // Record instruction metrics
+            Metrics.RecordInstruction((byte)instruction.OpCode, (long)gasConsumed);
         }
 
         protected override void PostExecuteInstruction(Instruction instruction)

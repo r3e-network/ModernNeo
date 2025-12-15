@@ -9,6 +9,7 @@
 // Redistribution and use in source and binary forms with or without
 // modifications are permitted.
 
+using Neo.Core.Interfaces;
 using Neo.Extensions;
 using Neo.IO;
 using Neo.Json;
@@ -20,8 +21,9 @@ namespace Neo.Network.P2P.Payloads
 {
     /// <summary>
     /// Represents a witness of an <see cref="IVerifiable"/> object.
+    /// Implements <see cref="IWitness"/> for abstraction in lower layers.
     /// </summary>
-    public class Witness : ISerializable
+    public class Witness : ISerializable, IWitness
     {
         // This is designed to allow a MultiSig 21/11 (committee)
         // Invocation = 11 * (64 + 2) = 726
@@ -33,12 +35,12 @@ namespace Neo.Network.P2P.Payloads
         /// <summary>
         /// The invocation script of the witness. Used to pass arguments for <see cref="VerificationScript"/>.
         /// </summary>
-        public ReadOnlyMemory<byte> InvocationScript;
+        public ReadOnlyMemory<byte> InvocationScript { get; set; }
 
         /// <summary>
         /// The verification script of the witness. It can be empty if the contract is deployed.
         /// </summary>
-        public ReadOnlyMemory<byte> VerificationScript;
+        public ReadOnlyMemory<byte> VerificationScript { get; set; }
 
         /// <summary>
         /// The hash of the <see cref="VerificationScript"/>.

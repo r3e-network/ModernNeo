@@ -262,7 +262,7 @@ namespace Neo.Network.P2P.Payloads
             writer.Write(Witnesses);
         }
 
-        void IVerifiable.SerializeUnsigned(BinaryWriter writer)
+        void Core.Interfaces.IVerifiableBase.SerializeUnsigned(BinaryWriter writer)
         {
             writer.Write(Version);
             writer.Write(Nonce);

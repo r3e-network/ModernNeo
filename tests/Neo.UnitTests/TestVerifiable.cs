@@ -9,7 +9,9 @@
 // Redistribution and use in source and binary forms with or without
 // modifications are permitted.
 
+using Neo.Extensions;
 using Neo.IO;
+using Neo.Network.P2P;
 using Neo.Network.P2P.Payloads;
 using Neo.Persistence;
 using System;
@@ -20,6 +22,8 @@ namespace Neo.UnitTests
     public class TestVerifiable : IVerifiable
     {
         private readonly string testStr = "testStr";
+
+        public UInt256 Hash => Helper.CalculateHash(this);
 
         public Witness[] Witnesses
         {

@@ -12,7 +12,7 @@
 namespace Neo.SmartContract
 {
     /// <summary>
-    /// Represents the type of <see cref="ContractParameter"/>.
+    /// Represents the type of ContractParameter.
     /// </summary>
     public enum ContractParameterType : byte
     {

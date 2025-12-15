@@ -9,13 +9,14 @@
 // Redistribution and use in source and binary forms with or without
 // modifications are permitted.
 
+using Neo.IO.Caching;
 using System.Collections.Generic;
 using System.Security.Cryptography;
 using ECPoint = Neo.Cryptography.ECC.ECPoint;
 
-namespace Neo.IO.Caching
+namespace Neo.Cryptography
 {
-    record ECDsaCacheItem(ECPoint Key, ECDsa Value);
+    internal record ECDsaCacheItem(ECPoint Key, ECDsa Value);
 
     internal class ECDsaCache : FIFOCache<ECPoint, ECDsaCacheItem>
     {

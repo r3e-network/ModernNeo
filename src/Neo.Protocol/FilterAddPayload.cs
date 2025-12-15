@@ -9,7 +9,6 @@
 // Redistribution and use in source and binary forms with or without
 // modifications are permitted.
 
-using Neo.Cryptography;
 using Neo.Extensions;
 using Neo.IO;
 using System;
@@ -18,7 +17,7 @@ using System.IO;
 namespace Neo.Network.P2P.Payloads
 {
     /// <summary>
-    /// This message is sent to update the items for the <see cref="BloomFilter"/>.
+    /// This message is sent to update the items for the bloom filter.
     /// </summary>
     public class FilterAddPayload : ISerializable
     {

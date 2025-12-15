@@ -18,10 +18,16 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Neo.Core\Neo.Core.csproj" />
+    <ProjectReference Include="..\Neo.Cryptography\Neo.Cryptography.csproj" />
     <ProjectReference Include="..\Neo.Extensions\Neo.Extensions.csproj" />
     <ProjectReference Include="..\Neo.IO\Neo.IO.csproj" />
     <ProjectReference Include="..\Neo.Json\Neo.Json.csproj" />
+    <ProjectReference Include="..\Neo.Protocol\Neo.Protocol.csproj" />
+    <ProjectReference Include="..\Neo.Storage\Neo.Storage.csproj" />
+    <ProjectReference Include="..\Neo.Observability\Neo.Observability.csproj" />
   </ItemGroup>
+
 
   <ItemGroup>
     <InternalsVisibleTo Include="Neo.UnitTests" />

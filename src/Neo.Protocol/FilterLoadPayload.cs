@@ -10,7 +10,6 @@
 // modifications are permitted.
 
 using Neo.Cryptography;
-using Neo.Extensions;
 using Neo.IO;
 using System;
 using System.IO;

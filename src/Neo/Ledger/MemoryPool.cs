@@ -25,7 +25,7 @@ namespace Neo.Ledger
     /// <summary>
     /// Used to cache verified transactions before being written into the block.
     /// </summary>
-    public class MemoryPool : IReadOnlyCollection<Transaction>
+    public class MemoryPool : IMemoryPool
     {
         public event EventHandler<Transaction>? TransactionAdded;
         public event EventHandler<TransactionRemovedEventArgs>? TransactionRemoved;

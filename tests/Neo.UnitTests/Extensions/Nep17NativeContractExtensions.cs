@@ -12,6 +12,7 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Neo.Extensions;
 using Neo.IO;
+using Neo.Network.P2P;
 using Neo.Network.P2P.Payloads;
 using Neo.Persistence;
 using Neo.SmartContract;
@@ -32,6 +33,8 @@ namespace Neo.UnitTests.Extensions
             private readonly UInt160[] _hashForVerify;
 
             public int Size => 0;
+
+            public UInt256 Hash => Neo.Network.P2P.Helper.CalculateHash(this);
 
             public Witness[] Witnesses { get; set; }
 

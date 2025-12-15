@@ -61,14 +61,5 @@ namespace Neo.Extensions
             return serializable;
         }
 
-        /// <summary>
-        /// Gets the size of the specified array encoded in variable-length encoding.
-        /// </summary>
-        /// <param name="value">The specified array.</param>
-        /// <returns>The size of the array.</returns>
-        public static int GetVarSize(this ReadOnlyMemory<byte> value)
-        {
-            return value.Length.GetVarSize() + value.Length;
-        }
     }
 }

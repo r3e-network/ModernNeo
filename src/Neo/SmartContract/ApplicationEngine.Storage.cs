@@ -152,11 +152,16 @@ namespace Neo.SmartContract
         /// <returns>The value of the entry. Or <see langword="null"/> if the entry doesn't exist.</returns>
         protected internal ReadOnlyMemory<byte>? Get(StorageContext context, byte[] key)
         {
-            return SnapshotCache.TryGet(new StorageKey
+            var result = SnapshotCache.TryGet(new StorageKey
             {
                 Id = context.Id,
                 Key = key
             })?.Value;
+
+            // Record storage read metrics
+            Metrics.RecordStorageOperation(StorageOperationType.Read, key.Length, result?.Length ?? 0);
+
+            return result;
         }
 
         /// <summary>
@@ -203,6 +208,10 @@ namespace Neo.SmartContract
 
             var prefixKey = StorageKey.CreateSearchPrefix(context.Id, prefix);
             var direction = options.HasFlag(FindOptions.Backwards) ? SeekDirection.Backward : SeekDirection.Forward;
+
+            // Record storage find metrics
+            Metrics.RecordStorageOperation(StorageOperationType.Find, prefix.Length, 0);
+
             return new StorageIterator(SnapshotCache.Find(prefixKey, direction).GetEnumerator(), prefix.Length, options);
         }
 
@@ -259,6 +268,9 @@ namespace Neo.SmartContract
             AddFee(newDataSize * StoragePrice * FeeFactor);
 
             item.Value = value;
+
+            // Record storage write metrics
+            Metrics.RecordStorageOperation(StorageOperationType.Write, key.Length, value.Length);
         }
 
         /// <summary>
@@ -286,6 +298,9 @@ namespace Neo.SmartContract
                 Id = context.Id,
                 Key = key
             });
+
+            // Record storage delete metrics
+            Metrics.RecordStorageOperation(StorageOperationType.Delete, key.Length, 0);
         }
 
         /// <summary>

@@ -9,6 +9,7 @@
 // Redistribution and use in source and binary forms with or without
 // modifications are permitted.
 
+using Neo.Core.Interfaces;
 using Neo.VM;
 using Neo.VM.Types;
 using System;
@@ -17,8 +18,9 @@ namespace Neo.SmartContract
 {
     /// <summary>
     /// Represents the object that can be converted to and from <see cref="StackItem"/>.
+    /// Extends <see cref="IInteroperableBase"/> with VM-specific conversion methods.
     /// </summary>
-    public interface IInteroperable
+    public interface IInteroperable : IInteroperableBase
     {
         /// <summary>
         /// Convert a <see cref="StackItem"/> to the current object.

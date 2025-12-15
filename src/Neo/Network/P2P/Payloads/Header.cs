@@ -121,7 +121,7 @@ namespace Neo.Network.P2P.Payloads
             Witness = witnesses[0];
         }
 
-        void IVerifiable.DeserializeUnsigned(ref MemoryReader reader)
+        void Core.Interfaces.IVerifiableBase.DeserializeUnsigned(ref MemoryReader reader)
         {
             _hash = null;
             Version = reader.ReadUInt32();
@@ -166,7 +166,7 @@ namespace Neo.Network.P2P.Payloads
             writer.Write(new Witness[] { Witness });
         }
 
-        void IVerifiable.SerializeUnsigned(BinaryWriter writer)
+        void Core.Interfaces.IVerifiableBase.SerializeUnsigned(BinaryWriter writer)
         {
             writer.Write(Version);
             writer.Write(PrevHash);

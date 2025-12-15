@@ -105,8 +105,8 @@ namespace Neo.UnitTests.Cryptography
             var nonce = new byte[12];
             random.NextBytes(nonce);
 
-            var cypher = Helper.AES256Encrypt(Encoding.UTF8.GetBytes("hello world"), key.PrivateKey, nonce);
-            var m = Helper.AES256Decrypt(cypher, key.PrivateKey);
+            var cypher = HashExtensions.AES256Encrypt(Encoding.UTF8.GetBytes("hello world"), key.PrivateKey, nonce);
+            var m = HashExtensions.AES256Decrypt(cypher, key.PrivateKey);
             var message2 = Encoding.UTF8.GetString(m);
             Assert.AreEqual("hello world", message2);
         }
@@ -138,8 +138,8 @@ namespace Neo.UnitTests.Cryptography
             cypher.AES256Decrypt(secret2);
             Assert.AreEqual("hello world", Encoding.ASCII.GetString(cypher.AES256Decrypt(secret2)));
 
-            Assert.ThrowsExactly<ArgumentException>(() => Helper.AES256Decrypt(new byte[11], key1.PrivateKey));
-            Assert.ThrowsExactly<ArgumentException>(() => Helper.AES256Decrypt(new byte[11 + 16], key1.PrivateKey));
+            Assert.ThrowsExactly<ArgumentException>(() => HashExtensions.AES256Decrypt(new byte[11], key1.PrivateKey));
+            Assert.ThrowsExactly<ArgumentException>(() => HashExtensions.AES256Decrypt(new byte[11 + 16], key1.PrivateKey));
         }
 
         [TestMethod]

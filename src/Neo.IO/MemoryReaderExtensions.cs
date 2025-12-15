@@ -9,10 +9,9 @@
 // Redistribution and use in source and binary forms with or without
 // modifications are permitted.
 
-using Neo.IO;
 using System.Runtime.CompilerServices;
 
-namespace Neo.Extensions
+namespace Neo.IO
 {
     /// <summary>
     /// A helper class for serialization of NEO objects.

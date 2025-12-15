@@ -14,7 +14,7 @@ using System;
 namespace Neo.Network.P2P.Capabilities
 {
     /// <summary>
-    /// Represents the type of <see cref="NodeCapability"/>.
+    /// Represents the type of NodeCapability.
     /// </summary>
     public enum NodeCapabilityType : byte
     {

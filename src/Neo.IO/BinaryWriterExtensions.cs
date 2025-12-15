@@ -9,12 +9,12 @@
 // Redistribution and use in source and binary forms with or without
 // modifications are permitted.
 
-using Neo.IO;
+using Neo.Extensions;
 using System;
 using System.Collections.Generic;
 using System.IO;
 
-namespace Neo.Extensions
+namespace Neo.IO
 {
     public static class BinaryWriterExtensions
     {
