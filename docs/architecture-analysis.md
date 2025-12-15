@@ -303,10 +303,40 @@ src/Neo.Protocol/
 - **向后兼容**: 现有类型实现新接口，不影响现有代码
 - **层次解耦**: 低层模块可以通过接口访问协议数据，无需依赖完整实现
 
+## 迁移阻塞分析 (2025-12-15)
+
+### 已完成迁移
+
+- **Neo.Protocol**: 18 个类型 (枚举 14 + Payload 3 + 接口 1)
+- **Neo.Core 接口**: 12 个接口 (基础 3 + 服务 2 + 数据契约 7)
+
+### 阻塞的类型
+
+以下类型因复杂依赖链暂无法迁移到 Neo.Protocol：
+
+| 类型                     | 阻塞原因                                  |
+| ------------------------ | ----------------------------------------- |
+| MessageCommand           | ReflectionCache 属性引用多个 Payload 类型 |
+| InventoryType            | 枚举值直接引用 MessageCommand             |
+| TransactionAttributeType | ReflectionCache 属性引用属性子类          |
+| WitnessConditionType     | ReflectionCache 属性引用条件子类          |
+| IInventory               | 依赖 InventoryType                        |
+| Ledger 类型              | 依赖 Transaction                          |
+| 其他 Payload 类型        | 依赖 Header/Block/Transaction             |
+
+### 解决方案
+
+采用**接口抽象方案**替代直接迁移：
+
+- 为复杂类型创建纯数据契约接口 (IXxxData)
+- 接口只包含属性定义，不包含依赖外部层的方法
+- 低层模块通过接口访问协议数据，无需依赖完整实现
+
 ## 下一步工作
 
 1. ~~**解决 ReflectionCache 依赖**~~ ✅ 已迁移到 Neo.IO
 2. ~~**实现服务接口**~~ ✅ VerificationService 和 StackItemConverter 已实现
-3. ~~**核心数据接口**~~ ✅ IHeaderData/IBlockData/ITransactionData 已创建
+3. ~~**核心数据接口**~~ ✅ 7 个数据契约接口已创建
 4. **考虑创建 Neo.Network 模块** - 分离 P2P 网络层
-5. **解决 ReflectionCache 属性依赖** - MessageCommand, TransactionAttributeType, WitnessConditionType 需要先迁移关联的 Payload/Attribute/Condition 类
+5. **为数据接口添加单元测试** - 验证接口实现的正确性
+6. **整体迁移 ReflectionCache 关联类型** - 需要同时迁移 MessageCommand + 所有 Payload 类型
