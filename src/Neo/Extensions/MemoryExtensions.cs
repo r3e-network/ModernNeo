@@ -51,14 +51,12 @@ namespace Neo.Extensions
         /// <param name="value">The byte array to be converted.</param>
         /// <param name="type">The type to convert to.</param>
         /// <returns>The converted <see cref="ISerializable"/> object.</returns>
+        /// <remarks>
+        /// This method delegates to <see cref="Neo.IO.MemoryExtensions.AsSerializable(ReadOnlyMemory{byte}, Type)"/>.
+        /// </remarks>
         public static ISerializable AsSerializable(this ReadOnlyMemory<byte> value, Type type)
         {
-            if (!typeof(ISerializable).GetTypeInfo().IsAssignableFrom(type))
-                throw new InvalidCastException($"`{type.Name}` is not assignable from `ISerializable`");
-            var serializable = (ISerializable)Activator.CreateInstance(type)!;
-            MemoryReader reader = new(value);
-            serializable.Deserialize(ref reader);
-            return serializable;
+            return Neo.IO.MemoryExtensions.AsSerializable(value, type);
         }
 
     }

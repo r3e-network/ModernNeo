@@ -11,6 +11,7 @@
 
 using Neo.Extensions;
 using System;
+using System.Reflection;
 
 namespace Neo.IO
 {
@@ -27,6 +28,22 @@ namespace Neo.IO
         public static int GetVarSize(this ReadOnlyMemory<byte> value)
         {
             return value.Length.GetVarSize() + value.Length;
+        }
+
+        /// <summary>
+        /// Converts a byte array to an <see cref="ISerializable"/> object.
+        /// </summary>
+        /// <param name="value">The byte array to be converted.</param>
+        /// <param name="type">The type to convert to.</param>
+        /// <returns>The converted <see cref="ISerializable"/> object.</returns>
+        public static ISerializable AsSerializable(this ReadOnlyMemory<byte> value, Type type)
+        {
+            if (!typeof(ISerializable).GetTypeInfo().IsAssignableFrom(type))
+                throw new InvalidCastException($"`{type.Name}` is not assignable from `ISerializable`");
+            var serializable = (ISerializable)Activator.CreateInstance(type)!;
+            MemoryReader reader = new(value);
+            serializable.Deserialize(ref reader);
+            return serializable;
         }
     }
 }
