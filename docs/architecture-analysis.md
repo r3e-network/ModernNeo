@@ -120,11 +120,13 @@ src/Neo.Core/Interfaces/
 ├── IBlockData.cs            # 区块纯数据契约接口
 ├── IHeaderData.cs           # 区块头纯数据契约接口
 ├── IInteroperableBase.cs    # VM 无关的互操作基础接口
+├── ISignerData.cs           # 签名者纯数据契约接口
 ├── IStackItemConverter.cs   # VM 转换服务接口
 ├── ITransactionData.cs      # 交易纯数据契约接口
 ├── IVerifiableBase.cs       # 持久化无关的验证基础接口
 ├── IVerificationService.cs  # 验证服务接口
-└── IWitness.cs              # 见证人抽象接口
+├── IWitness.cs              # 见证人抽象接口
+└── IWitnessRuleData.cs      # 见证规则纯数据契约接口
 ```
 
 ## Phase 3.2 接口继承 ✅ 已完成 (2025-12-15)
@@ -273,14 +275,21 @@ src/Neo.Protocol/
 | IHeaderData      | 区块头纯数据契约，无外部依赖             | Header      |
 | IBlockData       | 区块纯数据契约，委托到 Header            | Block       |
 | ITransactionData | 交易纯数据契约，无 VM/SmartContract 依赖 | Transaction |
+| ISignerData      | 签名者纯数据契约，无 VM 依赖             | Signer      |
+| IWitnessRuleData | 见证规则纯数据契约，无 VM 依赖           | WitnessRule |
 
 ### 新增属性
 
-| 类          | 新增属性          | 描述           |
-| ----------- | ----------------- | -------------- |
-| Block       | TransactionsCount | 区块中交易数量 |
-| Transaction | SignersCount      | 签名者数量     |
-| Transaction | AttributesCount   | 交易属性数量   |
+| 类          | 新增属性              | 描述           |
+| ----------- | --------------------- | -------------- |
+| Block       | TransactionsCount     | 区块中交易数量 |
+| Transaction | SignersCount          | 签名者数量     |
+| Transaction | AttributesCount       | 交易属性数量   |
+| Signer      | ScopesValue           | 作用域字节值   |
+| Signer      | AllowedContractsCount | 允许合约数量   |
+| Signer      | AllowedGroupsCount    | 允许组数量     |
+| Signer      | RulesCount            | 规则数量       |
+| WitnessRule | ActionValue           | 动作字节值     |
 
 ### 设计原则
 
