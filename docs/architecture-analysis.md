@@ -117,8 +117,11 @@ Transaction, Block (实现 IInteroperable)
 
 ```
 src/Neo.Core/Interfaces/
+├── IBlockData.cs            # 区块纯数据契约接口
+├── IHeaderData.cs           # 区块头纯数据契约接口
 ├── IInteroperableBase.cs    # VM 无关的互操作基础接口
 ├── IStackItemConverter.cs   # VM 转换服务接口
+├── ITransactionData.cs      # 交易纯数据契约接口
 ├── IVerifiableBase.cs       # 持久化无关的验证基础接口
 ├── IVerificationService.cs  # 验证服务接口
 └── IWitness.cs              # 见证人抽象接口
@@ -256,10 +259,39 @@ src/Neo.Protocol/
 | UT_VerificationService | 4      | ✅   |
 | UT_StackItemConverter  | 3      | ✅   |
 
+## Phase 3.4 核心数据接口 ✅ 已完成 (2025-12-15)
+
+### 接口抽象方案
+
+由于核心协议类型 (Header/Block/Transaction) 依赖 VM、SmartContract、Ledger、Persistence 等多个层，
+直接迁移会使 Neo.Protocol 变成"胖模块"。采用接口抽象方案，创建纯数据契约接口。
+
+### 新增接口
+
+| 接口             | 描述                                     | 实现类      |
+| ---------------- | ---------------------------------------- | ----------- |
+| IHeaderData      | 区块头纯数据契约，无外部依赖             | Header      |
+| IBlockData       | 区块纯数据契约，委托到 Header            | Block       |
+| ITransactionData | 交易纯数据契约，无 VM/SmartContract 依赖 | Transaction |
+
+### 新增属性
+
+| 类          | 新增属性          | 描述           |
+| ----------- | ----------------- | -------------- |
+| Block       | TransactionsCount | 区块中交易数量 |
+| Transaction | SignersCount      | 签名者数量     |
+| Transaction | AttributesCount   | 交易属性数量   |
+
+### 设计原则
+
+- **纯数据契约**: 接口只包含属性定义，不包含依赖外部层的方法
+- **向后兼容**: 现有类型实现新接口，不影响现有代码
+- **层次解耦**: 低层模块可以通过接口访问协议数据，无需依赖完整实现
+
 ## 下一步工作
 
 1. ~~**解决 ReflectionCache 依赖**~~ ✅ 已迁移到 Neo.IO
 2. ~~**实现服务接口**~~ ✅ VerificationService 和 StackItemConverter 已实现
-3. **迁移核心协议类型** - Transaction, Block, Header (需要整体迁移，依赖链复杂)
+3. ~~**核心数据接口**~~ ✅ IHeaderData/IBlockData/ITransactionData 已创建
 4. **考虑创建 Neo.Network 模块** - 分离 P2P 网络层
 5. **解决 ReflectionCache 属性依赖** - MessageCommand, TransactionAttributeType, WitnessConditionType 需要先迁移关联的 Payload/Attribute/Condition 类
