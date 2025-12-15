@@ -9,12 +9,10 @@
 // Redistribution and use in source and binary forms with or without
 // modifications are permitted.
 
-using Neo.Network.P2P.Payloads;
-
 namespace Neo.Ledger
 {
     /// <summary>
-    /// Represents a verifying result of <see cref="IInventory"/>.
+    /// Represents a verifying result of an inventory.
     /// </summary>
     public enum VerifyResult : byte
     {
@@ -24,17 +22,17 @@ namespace Neo.Ledger
         Succeed,
 
         /// <summary>
-        /// Indicates that an <see cref="IInventory"/> with the same hash already exists.
+        /// Indicates that an inventory with the same hash already exists.
         /// </summary>
         AlreadyExists,
 
         /// <summary>
-        /// Indicates that an <see cref="IInventory"/> with the same hash already exists in the memory pool.
+        /// Indicates that an inventory with the same hash already exists in the memory pool.
         /// </summary>
         AlreadyInPool,
 
         /// <summary>
-        /// Indicates that the <see cref="MemoryPool"/> is full and the transaction cannot be verified.
+        /// Indicates that the memory pool is full and the transaction cannot be verified.
         /// </summary>
         OutOfMemory,
 
@@ -44,52 +42,52 @@ namespace Neo.Ledger
         UnableToVerify,
 
         /// <summary>
-        /// Indicates that the <see cref="IInventory"/> is invalid.
+        /// Indicates that the inventory is invalid.
         /// </summary>
         Invalid,
 
         /// <summary>
-        /// Indicates that the <see cref="Transaction"/> has an invalid script.
+        /// Indicates that the transaction has an invalid script.
         /// </summary>
         InvalidScript,
 
         /// <summary>
-        /// Indicates that the <see cref="Transaction"/> has an invalid attribute.
+        /// Indicates that the transaction has an invalid attribute.
         /// </summary>
         InvalidAttribute,
 
         /// <summary>
-        /// Indicates that the <see cref="IInventory"/> has an invalid signature.
+        /// Indicates that the inventory has an invalid signature.
         /// </summary>
         InvalidSignature,
 
         /// <summary>
-        /// Indicates that the size of the <see cref="IInventory"/> is not allowed.
+        /// Indicates that the size of the inventory is not allowed.
         /// </summary>
         OverSize,
 
         /// <summary>
-        /// Indicates that the <see cref="Transaction"/> has expired.
+        /// Indicates that the transaction has expired.
         /// </summary>
         Expired,
 
         /// <summary>
-        /// Indicates that the <see cref="Transaction"/> failed to verify due to insufficient fees.
+        /// Indicates that the transaction failed to verify due to insufficient fees.
         /// </summary>
         InsufficientFunds,
 
         /// <summary>
-        /// Indicates that the <see cref="Transaction"/> failed to verify because it didn't comply with the policy.
+        /// Indicates that the transaction failed to verify because it didn't comply with the policy.
         /// </summary>
         PolicyFail,
 
         /// <summary>
-        /// Indicates that the <see cref="Transaction"/> failed to verify because it conflicts with on-chain or mempooled transactions.
+        /// Indicates that the transaction failed to verify because it conflicts with on-chain or mempooled transactions.
         /// </summary>
         HasConflicts,
 
         /// <summary>
-        /// Indicates that the <see cref="IInventory"/> failed to verify due to other reasons.
+        /// Indicates that the inventory failed to verify due to other reasons.
         /// </summary>
         Unknown
     }

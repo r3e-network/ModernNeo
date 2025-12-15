@@ -9,7 +9,6 @@
 // Redistribution and use in source and binary forms with or without
 // modifications are permitted.
 
-using Neo.Network.P2P.Payloads;
 using System;
 
 namespace Neo.SmartContract
@@ -31,7 +30,7 @@ namespace Neo.SmartContract
         PostPersist = 0x02,
 
         /// <summary>
-        /// Indicates that the contract is triggered by the verification of a <see cref="IVerifiable"/>.
+        /// Indicates that the contract is triggered by the verification of a verifiable object.
         /// </summary>
         Verification = 0x20,
 

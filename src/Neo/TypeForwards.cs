@@ -58,4 +58,6 @@ using System.Runtime.CompilerServices;
 [assembly: TypeForwardedTo(typeof(Neo.SmartContract.Native.Role))]
 [assembly: TypeForwardedTo(typeof(Neo.Plugins.UnhandledExceptionPolicy))]
 [assembly: TypeForwardedTo(typeof(Neo.Plugins.IPluginSettings))]
+[assembly: TypeForwardedTo(typeof(Neo.SmartContract.TriggerType))]
+[assembly: TypeForwardedTo(typeof(Neo.Ledger.VerifyResult))]
 
