@@ -22,12 +22,15 @@ namespace Neo.Network.P2P.Payloads
     /// <summary>
     /// Represents an attribute of a transaction.
     /// </summary>
-    public abstract class TransactionAttribute : ISerializable
+    public abstract class TransactionAttribute : ISerializable, Core.Interfaces.ITransactionAttributeData
     {
         /// <summary>
         /// The type of the attribute.
         /// </summary>
         public abstract TransactionAttributeType Type { get; }
+
+        /// <inheritdoc/>
+        public byte TypeValue => (byte)Type;
 
         /// <summary>
         /// Indicates whether multiple instances of this attribute are allowed.

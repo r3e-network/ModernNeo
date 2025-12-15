@@ -22,7 +22,7 @@ using Array = Neo.VM.Types.Array;
 
 namespace Neo.Network.P2P.Payloads.Conditions
 {
-    public abstract class WitnessCondition : IInteroperable, ISerializable
+    public abstract class WitnessCondition : IInteroperable, ISerializable, Core.Interfaces.IWitnessConditionData
     {
         internal const int MaxSubitems = 16;
         internal const int MaxNestingDepth = 3;
@@ -31,6 +31,9 @@ namespace Neo.Network.P2P.Payloads.Conditions
         /// The type of the <see cref="WitnessCondition"/>.
         /// </summary>
         public abstract WitnessConditionType Type { get; }
+
+        /// <inheritdoc/>
+        public byte TypeValue => (byte)Type;
 
         public virtual int Size => sizeof(WitnessConditionType);
 
