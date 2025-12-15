@@ -29,7 +29,7 @@ namespace Neo.Network.P2P.Payloads
     /// <summary>
     /// Represents a signer of a <see cref="Transaction"/>.
     /// </summary>
-    public class Signer : IInteroperable, ISerializable, IEquatable<Signer>
+    public class Signer : IInteroperable, ISerializable, IEquatable<Signer>, Core.Interfaces.ISignerData
     {
         // This limits maximum number of AllowedContracts or AllowedGroups here
         private const int MaxSubitems = 16;
@@ -38,6 +38,21 @@ namespace Neo.Network.P2P.Payloads
         /// The account of the signer.
         /// </summary>
         public required UInt160 Account;
+
+        /// <inheritdoc/>
+        UInt160 Core.Interfaces.ISignerData.Account => Account;
+
+        /// <inheritdoc/>
+        public byte ScopesValue => (byte)Scopes;
+
+        /// <inheritdoc/>
+        public int AllowedContractsCount => AllowedContracts?.Length ?? 0;
+
+        /// <inheritdoc/>
+        public int AllowedGroupsCount => AllowedGroups?.Length ?? 0;
+
+        /// <inheritdoc/>
+        public int RulesCount => Rules?.Length ?? 0;
 
         /// <summary>
         /// The scopes of the witness.

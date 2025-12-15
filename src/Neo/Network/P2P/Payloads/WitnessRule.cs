@@ -26,12 +26,15 @@ namespace Neo.Network.P2P.Payloads
     /// <summary>
     /// The rule used to describe the scope of the witness.
     /// </summary>
-    public class WitnessRule : IInteroperable, ISerializable, IEquatable<WitnessRule>
+    public class WitnessRule : IInteroperable, ISerializable, IEquatable<WitnessRule>, Core.Interfaces.IWitnessRuleData
     {
         /// <summary>
         /// Indicates the action to be taken if the current context meets with the rule.
         /// </summary>
         public WitnessRuleAction Action;
+
+        /// <inheritdoc/>
+        public byte ActionValue => (byte)Action;
 
         /// <summary>
         /// The condition of the rule.
