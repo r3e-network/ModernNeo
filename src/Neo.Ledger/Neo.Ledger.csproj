@@ -1,0 +1,24 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <PackageTags>NEO;Blockchain;Ledger</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Neo\Neo.csproj" />
+    <ProjectReference Include="..\Neo.Core\Neo.Core.csproj" />
+    <ProjectReference Include="..\Neo.IO\Neo.IO.csproj" />
+    <ProjectReference Include="..\Neo.Protocol\Neo.Protocol.csproj" />
+    <ProjectReference Include="..\Neo.Protocol.Payloads\Neo.Protocol.Payloads.csproj" />
+    <ProjectReference Include="..\Neo.Storage\Neo.Storage.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Neo" />
+    <InternalsVisibleTo Include="Neo.UnitTests" />
+  </ItemGroup>
+
+</Project>

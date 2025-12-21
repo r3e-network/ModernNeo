@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <PackageTags>NEO;Blockchain;Sign</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\\Neo.Core\\Neo.Core.csproj" />
+    <ProjectReference Include="..\\Neo.Ledger\\Neo.Ledger.csproj" />
+    <ProjectReference Include="..\\Neo.Protocol\\Neo.Protocol.csproj" />
+    <ProjectReference Include="..\\Neo.SmartContract\\Neo.SmartContract.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Neo" />
+    <InternalsVisibleTo Include="Neo.UnitTests" />
+  </ItemGroup>
+
+</Project>
+

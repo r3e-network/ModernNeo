@@ -1,0 +1,482 @@
+// Copyright (C) 2015-2025 The Neo Project.
+//
+// neo_service.proto - Neo blockchain gRPC service definitions
+//
+// This file is part of the neo project and is free software
+// distributed under the MIT software license.
+
+syntax = "proto3";
+
+package neo.grpc.v1;
+
+option csharp_namespace = "Neo.Grpc.V1";
+
+import "common.proto";
+import "blockchain.proto";
+import "node.proto";
+import "contract.proto";
+
+// Neo Blockchain Service - Core blockchain operations
+service NeoBlockchainService {
+  // Block operations
+  rpc GetBlock(GetBlockRequest) returns (GetBlockResponse);
+  rpc GetBlockByIndex(GetBlockByIndexRequest) returns (GetBlockResponse);
+  rpc GetBlockHash(GetBlockHashRequest) returns (GetBlockHashResponse);
+  rpc GetBlockHeader(GetBlockHeaderRequest) returns (GetBlockHeaderResponse);
+  rpc GetBlockCount(GetBlockCountRequest) returns (GetBlockCountResponse);
+  rpc GetBestBlockHash(GetBestBlockHashRequest) returns (GetBestBlockHashResponse);
+
+  // Transaction operations
+  rpc GetTransaction(GetTransactionRequest) returns (GetTransactionResponse);
+  rpc GetTransactionHeight(GetTransactionHeightRequest) returns (GetTransactionHeightResponse);
+  rpc SendRawTransaction(SendRawTransactionRequest) returns (SendRawTransactionResponse);
+
+  // Memory pool operations
+  rpc GetRawMemPool(GetRawMemPoolRequest) returns (GetRawMemPoolResponse);
+  rpc GetMemPoolInfo(GetMemPoolInfoRequest) returns (GetMemPoolInfoResponse);
+
+  // Application log
+  rpc GetApplicationLog(GetApplicationLogRequest) returns (GetApplicationLogResponse);
+
+  // Streaming - Subscribe to new blocks
+  rpc SubscribeBlocks(SubscribeBlocksRequest) returns (stream Block);
+
+  // Streaming - Subscribe to new transactions
+  rpc SubscribeTransactions(SubscribeTransactionsRequest) returns (stream Transaction);
+}
+
+// Neo Node Service - Node and network operations
+service NeoNodeService {
+  // Node info
+  rpc GetVersion(GetVersionRequest) returns (GetVersionResponse);
+  rpc GetConnectionCount(GetConnectionCountRequest) returns (GetConnectionCountResponse);
+  rpc GetPeers(GetPeersRequest) returns (GetPeersResponse);
+
+  // Validators and committee
+  rpc GetValidators(GetValidatorsRequest) returns (GetValidatorsResponse);
+  rpc GetNextBlockValidators(GetNextBlockValidatorsRequest) returns (GetNextBlockValidatorsResponse);
+  rpc GetCommittee(GetCommitteeRequest) returns (GetCommitteeResponse);
+
+  // State
+  rpc GetStateRoot(GetStateRootRequest) returns (GetStateRootResponse);
+  rpc GetStateHeight(GetStateHeightRequest) returns (GetStateHeightResponse);
+}
+
+// Neo Contract Service - Smart contract operations
+service NeoContractService {
+  // Contract state
+  rpc GetContractState(GetContractStateRequest) returns (GetContractStateResponse);
+  rpc GetNativeContracts(GetNativeContractsRequest) returns (GetNativeContractsResponse);
+
+  // Storage
+  rpc GetStorage(GetStorageRequest) returns (GetStorageResponse);
+  rpc FindStorage(FindStorageRequest) returns (FindStorageResponse);
+
+  // Invocation
+  rpc InvokeFunction(InvokeFunctionRequest) returns (InvokeResultResponse);
+  rpc InvokeScript(InvokeScriptRequest) returns (InvokeResultResponse);
+
+  // NEP-17 tokens
+  rpc GetNep17Balances(GetNep17BalancesRequest) returns (GetNep17BalancesResponse);
+  rpc GetNep17Transfers(GetNep17TransfersRequest) returns (GetNep17TransfersResponse);
+}
+
+// Neo Wallet Service - Wallet operations (requires authentication)
+service NeoWalletService {
+  // Wallet management
+  rpc OpenWallet(OpenWalletRequest) returns (OpenWalletResponse);
+  rpc CloseWallet(CloseWalletRequest) returns (CloseWalletResponse);
+
+  // Address operations
+  rpc ListAddresses(ListAddressesRequest) returns (ListAddressesResponse);
+  rpc GetNewAddress(GetNewAddressRequest) returns (GetNewAddressResponse);
+  rpc ValidateAddress(ValidateAddressRequest) returns (ValidateAddressResponse);
+
+  // Balance and transfers
+  rpc GetWalletBalance(GetWalletBalanceRequest) returns (GetWalletBalanceResponse);
+  rpc GetUnclaimedGas(GetUnclaimedGasRequest) returns (GetUnclaimedGasResponse);
+
+  // Send operations
+  rpc SendFrom(SendFromRequest) returns (SendResponse);
+  rpc SendToAddress(SendToAddressRequest) returns (SendResponse);
+  rpc SendMany(SendManyRequest) returns (SendResponse);
+}
+
+// ============== Request/Response Messages ==============
+
+// Block requests
+message GetBlockRequest {
+  oneof identifier {
+    UInt256 hash = 1;
+    uint32 index = 2;
+  }
+  bool verbose = 3;
+}
+
+message GetBlockByIndexRequest {
+  uint32 index = 1;
+  bool verbose = 2;
+}
+
+message GetBlockResponse {
+  oneof result {
+    Block block = 1;
+    bytes raw = 2;
+  }
+}
+
+message GetBlockHashRequest {
+  uint32 index = 1;
+}
+
+message GetBlockHashResponse {
+  UInt256 hash = 1;
+}
+
+message GetBlockHeaderRequest {
+  oneof identifier {
+    UInt256 hash = 1;
+    uint32 index = 2;
+  }
+  bool verbose = 3;
+}
+
+message GetBlockHeaderResponse {
+  oneof result {
+    Header header = 1;
+    bytes raw = 2;
+  }
+}
+
+message GetBlockCountRequest {}
+
+message GetBlockCountResponse {
+  uint32 count = 1;
+}
+
+message GetBestBlockHashRequest {}
+
+message GetBestBlockHashResponse {
+  UInt256 hash = 1;
+}
+
+// Transaction requests
+message GetTransactionRequest {
+  UInt256 hash = 1;
+  bool verbose = 2;
+}
+
+message GetTransactionResponse {
+  oneof result {
+    Transaction transaction = 1;
+    bytes raw = 2;
+  }
+  uint32 block_index = 3;
+  uint32 confirmations = 4;
+  uint64 block_time = 5;
+  VMState vm_state = 6;
+}
+
+message GetTransactionHeightRequest {
+  UInt256 hash = 1;
+}
+
+message GetTransactionHeightResponse {
+  uint32 height = 1;
+}
+
+message SendRawTransactionRequest {
+  bytes transaction = 1;
+}
+
+message SendRawTransactionResponse {
+  UInt256 hash = 1;
+}
+
+// Memory pool requests
+message GetRawMemPoolRequest {
+  bool should_get_unverified = 1;
+}
+
+message GetRawMemPoolResponse {
+  MemoryPoolContents contents = 1;
+}
+
+message GetMemPoolInfoRequest {}
+
+message GetMemPoolInfoResponse {
+  MemoryPoolInfo info = 1;
+}
+
+// Application log requests
+message GetApplicationLogRequest {
+  UInt256 hash = 1;
+}
+
+message GetApplicationLogResponse {
+  ApplicationLog log = 1;
+}
+
+// Streaming requests
+message SubscribeBlocksRequest {
+  uint32 start_height = 1;
+}
+
+message SubscribeTransactionsRequest {
+  UInt160 sender_filter = 1;
+}
+
+// Node requests
+message GetVersionRequest {}
+
+message GetVersionResponse {
+  NodeVersion version = 1;
+}
+
+message GetConnectionCountRequest {}
+
+message GetConnectionCountResponse {
+  int32 count = 1;
+}
+
+message GetPeersRequest {}
+
+message GetPeersResponse {
+  PeersInfo peers = 1;
+}
+
+message GetValidatorsRequest {}
+
+message GetValidatorsResponse {
+  repeated Validator validators = 1;
+}
+
+message GetNextBlockValidatorsRequest {}
+
+message GetNextBlockValidatorsResponse {
+  repeated Validator validators = 1;
+}
+
+message GetCommitteeRequest {}
+
+message GetCommitteeResponse {
+  repeated CommitteeMember members = 1;
+}
+
+message GetStateRootRequest {
+  uint32 index = 1;
+}
+
+message GetStateRootResponse {
+  StateRoot state_root = 1;
+}
+
+message GetStateHeightRequest {}
+
+message GetStateHeightResponse {
+  StateHeight state_height = 1;
+}
+
+// Contract requests
+message GetContractStateRequest {
+  oneof identifier {
+    UInt160 hash = 1;
+    int32 id = 2;
+    string name = 3;
+  }
+}
+
+message GetContractStateResponse {
+  ContractState contract = 1;
+}
+
+message GetNativeContractsRequest {}
+
+message GetNativeContractsResponse {
+  repeated NativeContractInfo contracts = 1;
+}
+
+message GetStorageRequest {
+  UInt160 script_hash = 1;
+  bytes key = 2;
+}
+
+message GetStorageResponse {
+  bytes value = 1;
+}
+
+message FindStorageRequest {
+  UInt160 script_hash = 1;
+  bytes prefix = 2;
+  int32 start = 3;
+  int32 count = 4;
+}
+
+message FindStorageResponse {
+  repeated StorageItem items = 1;
+  bool truncated = 2;
+  int32 next = 3;
+}
+
+message InvokeFunctionRequest {
+  UInt160 script_hash = 1;
+  string operation = 2;
+  repeated InvokeParameter params = 3;
+  repeated Signer signers = 4;
+  bool use_diagnostic = 5;
+}
+
+message InvokeParameter {
+  ContractParameterType type = 1;
+  oneof value {
+    bool boolean_value = 2;
+    bytes integer_value = 3;
+    bytes byte_array_value = 4;
+    string string_value = 5;
+    UInt160 hash160_value = 6;
+    UInt256 hash256_value = 7;
+    bytes public_key_value = 8;
+    bytes signature_value = 9;
+    InvokeParameterArray array_value = 10;
+    InvokeParameterMap map_value = 11;
+  }
+}
+
+message InvokeParameterArray {
+  repeated InvokeParameter items = 1;
+}
+
+message InvokeParameterMap {
+  repeated InvokeParameterMapEntry entries = 1;
+}
+
+message InvokeParameterMapEntry {
+  InvokeParameter key = 1;
+  InvokeParameter value = 2;
+}
+
+message InvokeScriptRequest {
+  bytes script = 1;
+  repeated Signer signers = 2;
+  bool use_diagnostic = 3;
+}
+
+message InvokeResultResponse {
+  InvokeResult result = 1;
+}
+
+message GetNep17BalancesRequest {
+  UInt160 address = 1;
+}
+
+message GetNep17BalancesResponse {
+  UInt160 address = 1;
+  repeated Nep17Balance balances = 2;
+}
+
+message GetNep17TransfersRequest {
+  UInt160 address = 1;
+  uint64 start_time = 2;
+  uint64 end_time = 3;
+}
+
+message GetNep17TransfersResponse {
+  UInt160 address = 1;
+  repeated Nep17Transfer sent = 2;
+  repeated Nep17Transfer received = 3;
+}
+
+// Wallet requests
+message OpenWalletRequest {
+  string path = 1;
+  string password = 2;
+}
+
+message OpenWalletResponse {
+  bool success = 1;
+}
+
+message CloseWalletRequest {}
+
+message CloseWalletResponse {
+  bool success = 1;
+}
+
+message ListAddressesRequest {}
+
+message ListAddressesResponse {
+  repeated WalletAddress addresses = 1;
+}
+
+message WalletAddress {
+  string address = 1;
+  UInt160 script_hash = 2;
+  bool has_key = 3;
+  string label = 4;
+  bool watch_only = 5;
+}
+
+message GetNewAddressRequest {}
+
+message GetNewAddressResponse {
+  string address = 1;
+  UInt160 script_hash = 2;
+}
+
+message ValidateAddressRequest {
+  string address = 1;
+}
+
+message ValidateAddressResponse {
+  string address = 1;
+  bool is_valid = 2;
+}
+
+message GetWalletBalanceRequest {
+  UInt160 asset_id = 1;
+}
+
+message GetWalletBalanceResponse {
+  string balance = 1;
+}
+
+message GetUnclaimedGasRequest {
+  string address = 1;
+}
+
+message GetUnclaimedGasResponse {
+  string unclaimed = 1;
+  string address = 2;
+}
+
+message SendFromRequest {
+  UInt160 asset_id = 1;
+  string from = 2;
+  string to = 3;
+  string amount = 4;
+  repeated Signer signers = 5;
+}
+
+message SendToAddressRequest {
+  UInt160 asset_id = 1;
+  string to = 2;
+  string amount = 3;
+  repeated Signer signers = 4;
+}
+
+message SendManyRequest {
+  string from = 1;
+  repeated SendManyOutput outputs = 2;
+  repeated Signer signers = 3;
+}
+
+message SendManyOutput {
+  UInt160 asset_id = 1;
+  string to = 2;
+  string amount = 3;
+}
+
+message SendResponse {
+  Transaction transaction = 1;
+  UInt256 hash = 2;
+}

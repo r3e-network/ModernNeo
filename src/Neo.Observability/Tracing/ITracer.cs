@@ -10,6 +10,8 @@
 // modifications are permitted.
 
 using System;
+using System.Collections.Generic;
+using Neo.Observability.Tracing.Propagation;
 
 namespace Neo.Observability.Tracing
 {
@@ -32,6 +34,42 @@ namespace Neo.Observability.Tracing
         /// <param name="kind">The kind of span.</param>
         /// <returns>A span that should be disposed when the operation completes.</returns>
         ISpan StartSpan(string name, SpanKind kind);
+
+        /// <summary>
+        /// Starts a new span with an explicit parent context.
+        /// Used for distributed tracing across service boundaries.
+        /// </summary>
+        /// <param name="name">The name of the span.</param>
+        /// <param name="kind">The kind of span.</param>
+        /// <param name="parentContext">The parent trace context.</param>
+        /// <returns>A span that should be disposed when the operation completes.</returns>
+        ISpan StartSpan(string name, SpanKind kind, TraceContext parentContext);
+
+        /// <summary>
+        /// Starts a new span with links to related spans.
+        /// Used for correlation without parent-child relationship (e.g., fan-out, batch processing).
+        /// </summary>
+        /// <param name="name">The name of the span.</param>
+        /// <param name="kind">The kind of span.</param>
+        /// <param name="links">Links to related spans.</param>
+        /// <returns>A span that should be disposed when the operation completes.</returns>
+        ISpan StartSpan(string name, SpanKind kind, IEnumerable<SpanLink> links);
+
+        /// <summary>
+        /// Starts a new span with an explicit parent context and links.
+        /// </summary>
+        /// <param name="name">The name of the span.</param>
+        /// <param name="kind">The kind of span.</param>
+        /// <param name="parentContext">The parent trace context.</param>
+        /// <param name="links">Links to related spans.</param>
+        /// <returns>A span that should be disposed when the operation completes.</returns>
+        ISpan StartSpan(string name, SpanKind kind, TraceContext parentContext, IEnumerable<SpanLink> links);
+
+        /// <summary>
+        /// Gets the current trace context from the ambient activity.
+        /// </summary>
+        /// <returns>The current trace context, or TraceContext.Empty if none.</returns>
+        TraceContext GetCurrentContext();
     }
 
     /// <summary>

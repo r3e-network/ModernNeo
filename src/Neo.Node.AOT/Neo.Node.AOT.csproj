@@ -1,0 +1,55 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>Neo.Node.AOT</AssemblyName>
+    <RootNamespace>Neo.Node.AOT</RootNamespace>
+
+    <!-- NativeAOT Configuration -->
+    <PublishAot>true</PublishAot>
+    <OptimizationPreference>Speed</OptimizationPreference>
+    <IlcOptimizationPreference>Speed</IlcOptimizationPreference>
+    <IlcGenerateStackTraceData>false</IlcGenerateStackTraceData>
+    <IlcFoldIdenticalMethodBodies>true</IlcFoldIdenticalMethodBodies>
+
+    <!-- Trimming Configuration -->
+    <PublishTrimmed>true</PublishTrimmed>
+    <TrimMode>full</TrimMode>
+    <SuppressTrimAnalysisWarnings>false</SuppressTrimAnalysisWarnings>
+    <TrimmerRemoveSymbols>true</TrimmerRemoveSymbols>
+
+    <!-- AOT Analysis -->
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+    <EnableSingleFileAnalyzer>true</EnableSingleFileAnalyzer>
+    <EnableAotAnalyzer>true</EnableAotAnalyzer>
+
+    <!-- Invariant Globalization for smaller binary -->
+    <InvariantGlobalization>true</InvariantGlobalization>
+
+    <!-- Runtime Host Configuration (replaces runtimeconfig.template.json) -->
+    <ServerGarbageCollection>true</ServerGarbageCollection>
+    <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
+    <RetainVMGarbageCollection>true</RetainVMGarbageCollection>
+    <GarbageCollectionHighMemoryPercent>90</GarbageCollectionHighMemoryPercent>
+    <GarbageCollectionLOHThreshold>100000</GarbageCollectionLOHThreshold>
+    <ThreadPoolMinThreads>16</ThreadPoolMinThreads>
+    <ThreadPoolMaxThreads>256</ThreadPoolMaxThreads>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Core modules that should be AOT-compatible -->
+    <ProjectReference Include="..\Neo.Core\Neo.Core.csproj" />
+    <ProjectReference Include="..\Neo.Cryptography\Neo.Cryptography.csproj" />
+    <ProjectReference Include="..\Neo.IO\Neo.IO.csproj" />
+    <ProjectReference Include="..\Neo.Json\Neo.Json.csproj" />
+    <ProjectReference Include="..\Neo.Protocol\Neo.Protocol.csproj" />
+    <ProjectReference Include="..\Neo.Storage\Neo.Storage.csproj" />
+    <!-- MessagePack excluded - MessagePack library itself (3.0.3) is not AOT compatible -->
+    <!-- Our NeoResolver is AOT-ready (MakeGenericType removed), but the upstream library uses dynamic code -->
+    <!-- <ProjectReference Include="..\Neo.Serialization.MessagePack\Neo.Serialization.MessagePack.csproj" /> -->
+  </ItemGroup>
+
+</Project>

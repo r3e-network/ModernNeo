@@ -1,0 +1,178 @@
+// Copyright (C) 2015-2025 The Neo Project.
+//
+// contract.proto - Smart contract types for Neo gRPC API
+//
+// This file is part of the neo project and is free software
+// distributed under the MIT software license.
+
+syntax = "proto3";
+
+package neo.grpc.v1;
+
+option csharp_namespace = "Neo.Grpc.V1";
+
+import "common.proto";
+import "blockchain.proto";
+
+// Contract state
+message ContractState {
+  int32 id = 1;
+  uint32 update_counter = 2;
+  UInt160 hash = 3;
+  bytes nef = 4;
+  ContractManifest manifest = 5;
+}
+
+// Contract manifest
+message ContractManifest {
+  string name = 1;
+  repeated ContractGroup groups = 2;
+  map<string, string> features = 3;
+  repeated string supported_standards = 4;
+  ContractAbi abi = 5;
+  repeated ContractPermission permissions = 6;
+  repeated UInt160 trusts = 7;
+  string extra = 8;
+}
+
+// Contract group
+message ContractGroup {
+  bytes public_key = 1;
+  bytes signature = 2;
+}
+
+// Contract ABI
+message ContractAbi {
+  repeated ContractMethod methods = 1;
+  repeated ContractEvent events = 2;
+}
+
+// Contract method
+message ContractMethod {
+  string name = 1;
+  repeated ContractParameter parameters = 2;
+  ContractParameterType return_type = 3;
+  int32 offset = 4;
+  bool safe = 5;
+}
+
+// Contract event
+message ContractEvent {
+  string name = 1;
+  repeated ContractParameter parameters = 2;
+}
+
+// Contract parameter
+message ContractParameter {
+  string name = 1;
+  ContractParameterType type = 2;
+}
+
+// Contract parameter types
+enum ContractParameterType {
+  CONTRACT_PARAMETER_TYPE_ANY = 0;
+  CONTRACT_PARAMETER_TYPE_BOOLEAN = 16;
+  CONTRACT_PARAMETER_TYPE_INTEGER = 17;
+  CONTRACT_PARAMETER_TYPE_BYTE_ARRAY = 18;
+  CONTRACT_PARAMETER_TYPE_STRING = 19;
+  CONTRACT_PARAMETER_TYPE_HASH160 = 20;
+  CONTRACT_PARAMETER_TYPE_HASH256 = 21;
+  CONTRACT_PARAMETER_TYPE_PUBLIC_KEY = 22;
+  CONTRACT_PARAMETER_TYPE_SIGNATURE = 23;
+  CONTRACT_PARAMETER_TYPE_ARRAY = 32;
+  CONTRACT_PARAMETER_TYPE_MAP = 34;
+  CONTRACT_PARAMETER_TYPE_INTEROP_INTERFACE = 48;
+  CONTRACT_PARAMETER_TYPE_VOID = 255;
+}
+
+// Contract permission
+message ContractPermission {
+  ContractPermissionDescriptor contract = 1;
+  repeated string methods = 2;
+}
+
+// Contract permission descriptor
+message ContractPermissionDescriptor {
+  oneof descriptor {
+    bool is_wildcard = 1;
+    UInt160 hash = 2;
+    bytes group = 3;
+  }
+}
+
+// Native contract info
+message NativeContractInfo {
+  int32 id = 1;
+  UInt160 hash = 2;
+  bytes nef = 3;
+  ContractManifest manifest = 4;
+  uint32 active_block_index = 5;
+}
+
+// Invoke result
+message InvokeResult {
+  bytes script = 1;
+  VMState state = 2;
+  int64 gas_consumed = 3;
+  string exception = 4;
+  repeated Notification notifications = 5;
+  repeated StackItem stack = 6;
+  Transaction tx = 7;
+  repeated Diagnostic diagnostics = 8;
+}
+
+// Diagnostic information
+message Diagnostic {
+  repeated InvokedContract invoked_contracts = 1;
+  repeated StorageChange storage_changes = 2;
+}
+
+// Invoked contract info
+message InvokedContract {
+  UInt160 hash = 1;
+}
+
+// Storage change
+message StorageChange {
+  StorageChangeState state = 1;
+  bytes key = 2;
+  bytes value = 3;
+}
+
+enum StorageChangeState {
+  STORAGE_CHANGE_STATE_ADDED = 0;
+  STORAGE_CHANGE_STATE_CHANGED = 1;
+  STORAGE_CHANGE_STATE_DELETED = 2;
+}
+
+// Storage item
+message StorageItem {
+  bytes key = 1;
+  bytes value = 2;
+}
+
+// NEP-17 token info
+message Nep17TokenInfo {
+  string name = 1;
+  string symbol = 2;
+  int32 decimals = 3;
+  UInt160 script_hash = 4;
+}
+
+// NEP-17 balance
+message Nep17Balance {
+  UInt160 asset_hash = 1;
+  string amount = 2;
+  uint32 last_updated_block = 3;
+}
+
+// NEP-17 transfer
+message Nep17Transfer {
+  uint64 timestamp = 1;
+  UInt160 asset_hash = 2;
+  UInt160 transfer_address = 3;
+  string amount = 4;
+  uint32 block_index = 5;
+  uint32 transfer_notify_index = 6;
+  UInt256 tx_hash = 7;
+}

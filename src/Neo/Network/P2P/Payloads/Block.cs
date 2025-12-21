@@ -128,7 +128,7 @@ namespace Neo.Network.P2P.Payloads
             return txs;
         }
 
-        void Core.Interfaces.IVerifiableBase.DeserializeUnsigned(ref MemoryReader reader) => throw new NotSupportedException();
+        void Core.Interfaces.IVerifiableBase.DeserializeUnsigned(ref MemoryReader reader) => ((Core.Interfaces.IVerifiableBase)Header).DeserializeUnsigned(ref reader);
 
         public bool Equals(Block? other)
         {

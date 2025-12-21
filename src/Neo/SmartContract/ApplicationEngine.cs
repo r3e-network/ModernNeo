@@ -21,6 +21,7 @@ using Neo.VM.Types;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Numerics;
 using System.Reflection;
@@ -771,6 +772,10 @@ namespace Neo.SmartContract
             };
         }
 
+        [UnconditionalSuppressMessage("Trimming", "IL2070:UnrecognizedReflectionPattern",
+            Justification = "Interop service handlers are registered at startup and preserved by DynamicDependency attributes on ApplicationEngine partial classes.")]
+        [UnconditionalSuppressMessage("AOT", "IL3050:RequiresDynamicCode",
+            Justification = "Interop service registration uses reflection but all handlers are statically known at compile time.")]
         protected static InteropDescriptor Register(string name, string handler, long fixedPrice, CallFlags requiredCallFlags, Hardfork? hardfork = null)
         {
             var flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;

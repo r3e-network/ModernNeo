@@ -156,7 +156,7 @@ namespace Neo.Network.P2P
             }
         }
 
-        internal static int TryDeserialize(ByteString data, out Message? msg)
+        public static int TryDeserialize(ByteString data, out Message? msg)
         {
             msg = null;
             if (data.Count < 3) return 0;

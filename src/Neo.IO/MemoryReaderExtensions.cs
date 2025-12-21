@@ -9,6 +9,7 @@
 // Redistribution and use in source and binary forms with or without
 // modifications are permitted.
 
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 
 namespace Neo.IO
@@ -25,7 +26,8 @@ namespace Neo.IO
         /// <param name="reader">The <see cref="MemoryReader"/> for reading data.</param>
         /// <param name="max">The maximum number of elements in the array.</param>
         /// <returns>The array read from the <see cref="MemoryReader"/>.</returns>
-        public static T?[] ReadNullableArray<T>(this ref MemoryReader reader, int max = 0x1000000)
+        [RequiresUnreferencedCode("ReadNullableArray uses RuntimeHelpers.GetUninitializedObject which requires unreferenced code.")]
+        public static T?[] ReadNullableArray<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.NonPublicConstructors)] T>(this ref MemoryReader reader, int max = 0x1000000)
             where T : class, ISerializable
         {
             var array = new T?[reader.ReadVarInt((ulong)max)];
@@ -40,7 +42,8 @@ namespace Neo.IO
         /// <typeparam name="T">The type of the <see cref="ISerializable"/> object.</typeparam>
         /// <param name="reader">The <see cref="MemoryReader"/> for reading data.</param>
         /// <returns>The object read from the <see cref="MemoryReader"/>.</returns>
-        public static T ReadSerializable<T>(this ref MemoryReader reader)
+        [RequiresUnreferencedCode("ReadSerializable uses RuntimeHelpers.GetUninitializedObject which requires unreferenced code.")]
+        public static T ReadSerializable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.NonPublicConstructors)] T>(this ref MemoryReader reader)
             where T : ISerializable
         {
             T obj = (T)RuntimeHelpers.GetUninitializedObject(typeof(T));
@@ -55,7 +58,8 @@ namespace Neo.IO
         /// <param name="reader">The <see cref="MemoryReader"/> for reading data.</param>
         /// <param name="max">The maximum number of elements in the array.</param>
         /// <returns>The array read from the <see cref="MemoryReader"/>.</returns>
-        public static T[] ReadSerializableArray<T>(this ref MemoryReader reader, int max = 0x1000000)
+        [RequiresUnreferencedCode("ReadSerializableArray uses RuntimeHelpers.GetUninitializedObject which requires unreferenced code.")]
+        public static T[] ReadSerializableArray<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.NonPublicConstructors)] T>(this ref MemoryReader reader, int max = 0x1000000)
             where T : ISerializable
         {
             var array = new T[reader.ReadVarInt((ulong)max)];

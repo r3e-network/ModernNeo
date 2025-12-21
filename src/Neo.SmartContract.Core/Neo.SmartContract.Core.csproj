@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Neo.SmartContract</RootNamespace>
+    <PackageTags>NEO;Blockchain;SmartContract;Core</PackageTags>
+    <Description>Neo SmartContract Core Types - IInteroperable and base types for VM interoperability</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Neo.VM" Version="3.9.0-CI00344" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Neo.Core\Neo.Core.csproj" />
+    <ProjectReference Include="..\Neo.Cryptography\Neo.Cryptography.csproj" />
+    <ProjectReference Include="..\Neo.Extensions\Neo.Extensions.csproj" />
+    <ProjectReference Include="..\Neo.IO\Neo.IO.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Neo" />
+    <InternalsVisibleTo Include="Neo.SmartContract.Manifest" />
+    <InternalsVisibleTo Include="Neo.UnitTests" />
+  </ItemGroup>
+
+</Project>

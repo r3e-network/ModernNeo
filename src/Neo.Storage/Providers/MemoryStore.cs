@@ -10,6 +10,7 @@
 // modifications are permitted.
 
 using Neo.Extensions;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;

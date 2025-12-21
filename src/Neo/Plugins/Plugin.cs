@@ -12,6 +12,7 @@
 using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -124,6 +125,8 @@ namespace Neo.Plugins
             }
         }
 
+        [RequiresUnreferencedCode("Assembly resolution uses dynamic assembly loading which is incompatible with trimming")]
+        [RequiresDynamicCode("Assembly resolution may require dynamic code generation")]
         private static Assembly? CurrentDomain_AssemblyResolve(object? sender, ResolveEventArgs args)
         {
             if (args.Name.Contains(".resources"))
@@ -166,6 +169,8 @@ namespace Neo.Plugins
                 .GetSection("PluginConfiguration");
         }
 
+        [RequiresUnreferencedCode("Plugin loading uses reflection to discover types and invoke constructors")]
+        [RequiresDynamicCode("Plugin loading may require dynamic code generation for type instantiation")]
         private static void LoadPlugin(Assembly assembly)
         {
             Type[] exportedTypes;
@@ -201,6 +206,8 @@ namespace Neo.Plugins
             }
         }
 
+        [RequiresUnreferencedCode("Plugin loading uses reflection to discover and load plugin assemblies")]
+        [RequiresDynamicCode("Plugin loading may require dynamic code generation")]
         internal static void LoadPlugins()
         {
             if (!Directory.Exists(PluginsDirectory)) return;

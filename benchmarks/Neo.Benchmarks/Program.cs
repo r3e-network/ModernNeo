@@ -9,6 +9,7 @@
 // Redistribution and use in source and binary forms with or without
 // modifications are permitted.
 
+using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Running;
 
 // List all benchmarks:
@@ -20,4 +21,7 @@ using BenchmarkDotNet.Running;
 // Run all benchmarks of a class:
 //  dotnet run -c Release --framework [for example: net9.0] -- -f '*Class*'
 // More options: https://benchmarkdotnet.org/articles/guides/console-args.html
-BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args);
+
+// Disable optimization validator because Neo.VM is a NuGet package
+var config = DefaultConfig.Instance.WithOptions(ConfigOptions.DisableOptimizationsValidator);
+BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args, config);

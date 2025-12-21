@@ -175,7 +175,7 @@ namespace Neo.UnitTests.Network.P2P
             msg = Message.Create(MessageCommand.Transaction, payload);
             buffer = msg.ToArray();
 
-            Assert.HasCount(30, buffer);
+            Assert.HasCount(26, buffer);
             Assert.IsTrue(msg.Flags.HasFlag(MessageFlags.Compressed));
 
             _ = Message.TryDeserialize(ByteString.CopyFrom(msg.ToArray()), out var copy);

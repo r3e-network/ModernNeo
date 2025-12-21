@@ -28,13 +28,15 @@ namespace Neo.UnitTests.Builders
         [TestMethod]
         public void TestAddInvocationWithScriptBuilder()
         {
+            // Build the script first using ScriptBuilder
+            using var sb = new ScriptBuilder();
+            sb.Emit(OpCode.NOP);
+            sb.Emit(OpCode.NOP);
+            sb.Emit(OpCode.NOP);
+            var script = sb.ToArray();
+
             var witness = WitnessBuilder.CreateEmpty()
-                .AddInvocation(sb =>
-                {
-                    sb.Emit(OpCode.NOP);
-                    sb.Emit(OpCode.NOP);
-                    sb.Emit(OpCode.NOP);
-                })
+                .AddInvocation(script)
                 .Build();
 
             Assert.IsNotNull(witness);
@@ -57,13 +59,15 @@ namespace Neo.UnitTests.Builders
         [TestMethod]
         public void TestAddVerificationWithScriptBuilder()
         {
+            // Build the script first using ScriptBuilder
+            using var sb = new ScriptBuilder();
+            sb.Emit(OpCode.NOP);
+            sb.Emit(OpCode.NOP);
+            sb.Emit(OpCode.NOP);
+            var script = sb.ToArray();
+
             var witness = WitnessBuilder.CreateEmpty()
-                .AddVerification(sb =>
-                {
-                    sb.Emit(OpCode.NOP);
-                    sb.Emit(OpCode.NOP);
-                    sb.Emit(OpCode.NOP);
-                })
+                .AddVerification(script)
                 .Build();
 
             Assert.IsNotNull(witness);

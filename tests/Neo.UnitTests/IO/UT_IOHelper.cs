@@ -112,7 +112,7 @@ namespace Neo.UnitTests.IO
         {
             var data = new byte[] { 1, 2, 3, 4 };
             var byteArray = data.CompressLz4();
-            var result = byteArray.Span.DecompressLz4(byte.MaxValue);
+            var result = byteArray.AsSpan().DecompressLz4(byte.MaxValue);
 
             CollectionAssert.AreEqual(result, data);
 
@@ -122,15 +122,15 @@ namespace Neo.UnitTests.IO
             for (int x = 0; x < data.Length; x++) data[x] = 1;
 
             byteArray = data.CompressLz4();
-            result = byteArray.Span.DecompressLz4(byte.MaxValue);
+            result = byteArray.AsSpan().DecompressLz4(byte.MaxValue);
 
             Assert.IsLessThan(result.Length, byteArray.Length);
             CollectionAssert.AreEqual(result, data);
 
             // Error max length
 
-            Assert.ThrowsExactly<FormatException>(() => _ = byteArray.Span.DecompressLz4(byte.MaxValue - 1));
-            Assert.ThrowsExactly<FormatException>(() => _ = byteArray.Span.DecompressLz4(-1));
+            Assert.ThrowsExactly<FormatException>(() => _ = byteArray.AsSpan().DecompressLz4(byte.MaxValue - 1));
+            Assert.ThrowsExactly<FormatException>(() => _ = byteArray.AsSpan().DecompressLz4(-1));
 
             // Error length
 
@@ -143,7 +143,14 @@ namespace Neo.UnitTests.IO
         public void TestAsSerializableArray()
         {
             byte[] byteArray = new UInt160[] { UInt160.Zero }.ToByteArray();
-            UInt160[] result = byteArray.AsSerializableArray<UInt160>();
+            // AsSerializableArray was removed - use MemoryReader to read arrays
+            MemoryReader reader = new(byteArray);
+            var count = reader.ReadVarInt();
+            var result = new UInt160[count];
+            for (int i = 0; i < (int)count; i++)
+            {
+                result[i] = reader.ReadSerializable<UInt160>();
+            }
             Assert.HasCount(1, result);
             Assert.AreEqual(UInt160.Zero, result[0]);
         }

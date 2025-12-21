@@ -1,0 +1,53 @@
+// Copyright (C) 2015-2025 The Neo Project.
+//
+// common.proto - Common types for Neo gRPC API
+//
+// This file is part of the neo project and is free software
+// distributed under the MIT software license.
+
+syntax = "proto3";
+
+package neo.grpc.v1;
+
+option csharp_namespace = "Neo.Grpc.V1";
+
+// 256-bit hash (32 bytes)
+message UInt256 {
+  bytes data = 1;
+}
+
+// 160-bit hash (20 bytes)
+message UInt160 {
+  bytes data = 1;
+}
+
+// Variable-length byte array
+message ByteString {
+  bytes data = 1;
+}
+
+// Pagination request
+message PaginationRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+}
+
+// Pagination response metadata
+message PaginationResponse {
+  int32 page = 1;
+  int32 page_size = 2;
+  int64 total_count = 3;
+  int32 total_pages = 4;
+}
+
+// Error details
+message ErrorDetail {
+  int32 code = 1;
+  string message = 2;
+  map<string, string> metadata = 3;
+}
+
+// Timestamp in milliseconds since Unix epoch
+message Timestamp {
+  int64 milliseconds = 1;
+}

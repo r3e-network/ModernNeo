@@ -103,8 +103,13 @@ namespace Neo.UnitTests.Builders
         public void TestAttachScript()
         {
             byte[] expectedScript = [(byte)OpCode.NOP];
+            // Build the script first using ScriptBuilder
+            using var sb = new ScriptBuilder();
+            sb.Emit(OpCode.NOP);
+            var script = sb.ToArray();
+
             var tx = TransactionBuilder.CreateEmpty()
-                .AttachSystem(sb => sb.Emit(OpCode.NOP))
+                .AttachSystem(script)
                 .Build();
 
             CollectionAssert.AreEqual(expectedScript, tx.Script.ToArray());

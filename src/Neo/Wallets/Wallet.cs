@@ -9,6 +9,7 @@
 // Redistribution and use in source and binary forms with or without
 // modifications are permitted.
 
+using Neo.Core.Interfaces;
 using Neo.Cryptography;
 using Neo.Extensions;
 using Neo.Extensions.Factories;
@@ -39,7 +40,7 @@ namespace Neo.Wallets
     /// <summary>
     /// The base class of wallets.
     /// </summary>
-    public abstract class Wallet : ISigner
+    public abstract class Wallet : ISigner, ISigningService
     {
         private static readonly List<IWalletFactory> factories = new() { NEP6WalletFactory.Instance };
 
@@ -854,5 +855,66 @@ namespace Neo.Wallets
         {
             factories.Add(factory);
         }
+
+        #region ISigningService Implementation
+
+        /// <inheritdoc/>
+        ReadOnlyMemory<byte> ISigningService.Sign(ReadOnlySpan<byte> data, ReadOnlySpan<byte> publicKey)
+        {
+            var pubKey = ECPoint.DecodePoint(publicKey, ECCurve.Secp256r1);
+            var account = GetAccount(pubKey);
+            if (account?.HasKey != true)
+                throw new SignException("No private key found for the given public key");
+            if (account.Lock)
+                throw new SignException("Account is locked");
+
+            var privateKey = account.GetKey()!.PrivateKey;
+            return Crypto.Sign(data.ToArray(), privateKey);
+        }
+
+        /// <inheritdoc/>
+        ReadOnlyMemory<byte> ISigningService.SignBlockHash(ReadOnlySpan<byte> blockHash, ReadOnlySpan<byte> publicKey, uint network)
+        {
+            if (ProtocolSettings.Network != network)
+                throw new SignException($"Network is not matching({ProtocolSettings.Network} != {network})");
+
+            var pubKey = ECPoint.DecodePoint(publicKey, ECCurve.Secp256r1);
+            var account = GetAccount(pubKey);
+            if (account?.HasKey != true)
+                throw new SignException("No private key found for the given public key");
+            if (account.Lock)
+                throw new SignException("Account is locked");
+
+            var privateKey = account.GetKey()!.PrivateKey;
+            // Sign the sign data: network magic + block hash
+            byte[] signData = new byte[sizeof(uint) + blockHash.Length];
+            BitConverter.TryWriteBytes(signData.AsSpan(0, sizeof(uint)), network);
+            blockHash.CopyTo(signData.AsSpan(sizeof(uint)));
+            return Crypto.Sign(signData, privateKey);
+        }
+
+        /// <inheritdoc/>
+        bool ISigningService.CanSign(ReadOnlySpan<byte> publicKey)
+        {
+            try
+            {
+                var pubKey = ECPoint.DecodePoint(publicKey, ECCurve.Secp256r1);
+                return ContainsSignable(pubKey);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <inheritdoc/>
+        IEnumerable<byte[]> ISigningService.GetSignablePublicKeys()
+        {
+            return GetAccounts()
+                .Where(a => a.HasKey && !a.Lock && a.Contract != null)
+                .Select(a => a.GetKey()!.PublicKey.EncodePoint(true));
+        }
+
+        #endregion
     }
 }

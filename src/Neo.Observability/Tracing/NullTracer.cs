@@ -10,6 +10,8 @@
 // modifications are permitted.
 
 using System;
+using System.Collections.Generic;
+using Neo.Observability.Tracing.Propagation;
 
 namespace Neo.Observability.Tracing
 {
@@ -30,6 +32,18 @@ namespace Neo.Observability.Tracing
 
         /// <inheritdoc/>
         public ISpan StartSpan(string name, SpanKind kind) => NullSpan.Instance;
+
+        /// <inheritdoc/>
+        public ISpan StartSpan(string name, SpanKind kind, TraceContext parentContext) => NullSpan.Instance;
+
+        /// <inheritdoc/>
+        public ISpan StartSpan(string name, SpanKind kind, IEnumerable<SpanLink> links) => NullSpan.Instance;
+
+        /// <inheritdoc/>
+        public ISpan StartSpan(string name, SpanKind kind, TraceContext parentContext, IEnumerable<SpanLink> links) => NullSpan.Instance;
+
+        /// <inheritdoc/>
+        public TraceContext GetCurrentContext() => TraceContext.Empty;
     }
 
     internal sealed class NullSpan : ISpan

@@ -11,10 +11,12 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 
 namespace Neo.IO.Caching
 {
+    [RequiresUnreferencedCode("ReflectionCache uses reflection to enumerate enum fields and create instances dynamically.")]
     internal static class ReflectionCache<T>
         where T : Enum
     {
@@ -28,7 +30,7 @@ namespace Neo.IO.Caching
             {
                 // Get attribute
                 var attribute = field.GetCustomAttribute<ReflectionCacheAttribute>();
-                if (attribute == null) continue;
+                if (attribute?.Type == null) continue;
 
                 // Append to cache
                 var key = (T?)field.GetValue(null);

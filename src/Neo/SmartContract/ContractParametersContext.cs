@@ -19,6 +19,7 @@ using Neo.SmartContract.Native;
 using Neo.VM;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -284,6 +285,8 @@ namespace Neo.SmartContract
         /// <param name="json">The context represented by a JSON object.</param>
         /// <param name="snapshot">The snapshot used to read data.</param>
         /// <returns>The converted context.</returns>
+        [RequiresUnreferencedCode("Creates IVerifiable instances via reflection. The type must have a parameterless constructor.")]
+        [RequiresDynamicCode("Creates IVerifiable instances via Activator.CreateInstance which requires dynamic code generation.")]
         public static ContractParametersContext FromJson(JObject json, DataCache snapshot)
         {
             var typeName = json["type"]!.AsString();
@@ -391,6 +394,8 @@ namespace Neo.SmartContract
         /// <param name="value">The JSON <see cref="string"/>.</param>
         /// <param name="snapshot">The snapshot used to read data.</param>
         /// <returns>The parsed context.</returns>
+        [RequiresUnreferencedCode("Creates IVerifiable instances via reflection. The type must have a parameterless constructor.")]
+        [RequiresDynamicCode("Creates IVerifiable instances via Activator.CreateInstance which requires dynamic code generation.")]
         public static ContractParametersContext Parse(string value, DataCache snapshot)
         {
             return FromJson((JObject)JToken.Parse(value)!, snapshot);

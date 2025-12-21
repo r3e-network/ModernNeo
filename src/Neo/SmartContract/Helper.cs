@@ -253,39 +253,6 @@ namespace Neo.SmartContract
         }
 
         /// <summary>
-        /// Convert the <see cref="StackItem"/> to an <see cref="IInteroperable"/>.
-        /// </summary>
-        /// <typeparam name="T">The type of the <see cref="IInteroperable"/>.</typeparam>
-        /// <param name="item">The <see cref="StackItem"/> to convert.</param>
-        /// <returns>The converted <see cref="IInteroperable"/>.</returns>
-        public static T ToInteroperable<T>(this StackItem item) where T : IInteroperable
-        {
-            T t = (T)RuntimeHelpers.GetUninitializedObject(typeof(T));
-            t.FromStackItem(item);
-            return t;
-        }
-
-        /// <summary>
-        /// Computes the hash of the specified script.
-        /// </summary>
-        /// <param name="script">The specified script.</param>
-        /// <returns>The hash of the script.</returns>
-        public static UInt160 ToScriptHash(this byte[] script)
-        {
-            return new UInt160(Crypto.Hash160(script));
-        }
-
-        /// <summary>
-        /// Computes the hash of the specified script.
-        /// </summary>
-        /// <param name="script">The specified script.</param>
-        /// <returns>The hash of the script.</returns>
-        public static UInt160 ToScriptHash(this ReadOnlySpan<byte> script)
-        {
-            return new UInt160(Crypto.Hash160(script));
-        }
-
-        /// <summary>
         /// Verifies the witnesses of the specified <see cref="IVerifiable"/>.
         /// </summary>
         /// <param name="verifiable">The <see cref="IVerifiable"/> to be verified.</param>

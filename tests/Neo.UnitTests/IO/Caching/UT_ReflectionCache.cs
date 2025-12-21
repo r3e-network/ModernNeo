@@ -30,10 +30,10 @@ namespace Neo.UnitTests.IO.Caching
 
     public enum MyTestEnum : byte
     {
-        [ReflectionCache(typeof(TestItem1))]
+        [ReflectionCache("Neo.UnitTests.IO.Caching.TestItem1, Neo.UnitTests")]
         Item1 = 0x00,
 
-        [ReflectionCache(typeof(TestItem2))]
+        [ReflectionCache("Neo.UnitTests.IO.Caching.TestItem2, Neo.UnitTests")]
         Item2 = 0x01,
     }
 

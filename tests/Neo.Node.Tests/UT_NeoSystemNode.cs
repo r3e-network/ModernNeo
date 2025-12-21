@@ -9,8 +9,14 @@
 // Redistribution and use in source and binary forms with or without
 // modifications are permitted.
 
+using Microsoft.Extensions.Configuration;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Neo.Network.P2P;
+using Neo.Persistence;
+using Neo.Persistence.Providers;
+using System;
+using System.Collections.Generic;
+using System.Net;
 
 namespace Neo.Node.Tests
 {
@@ -56,6 +62,72 @@ namespace Neo.Node.Tests
             var createMethod = factoryType.GetMethod("Create");
             Assert.IsNotNull(createMethod);
             Assert.IsTrue(createMethod.IsStatic);
+        }
+
+        [TestMethod]
+        public void TestNeoSystemNodeHasStartMethod()
+        {
+            var nodeType = typeof(NeoSystemNode);
+            var startMethod = nodeType.GetMethod("Start");
+
+            Assert.IsNotNull(startMethod);
+            Assert.IsTrue(startMethod.IsPublic);
+            Assert.AreEqual(typeof(void), startMethod.ReturnType);
+        }
+
+        [TestMethod]
+        public void TestNeoSystemNodeHasDisposeMethod()
+        {
+            var nodeType = typeof(NeoSystemNode);
+            var disposeMethod = nodeType.GetMethod("Dispose");
+
+            Assert.IsNotNull(disposeMethod);
+            Assert.IsTrue(disposeMethod.IsPublic);
+        }
+
+        [TestMethod]
+        public void TestNeoSystemNodeConstructorSignature()
+        {
+            var nodeType = typeof(NeoSystemNode);
+            var constructor = nodeType.GetConstructor(new[] { typeof(NeoSystem), typeof(ChannelsConfig) });
+
+            Assert.IsNotNull(constructor);
+            Assert.IsTrue(constructor.IsPublic);
+        }
+    }
+
+    [TestClass]
+    public class UT_NeoSystemNodeFactory
+    {
+        [TestMethod]
+        public void TestFactoryCreateMethodSignature()
+        {
+            var factoryType = typeof(NeoSystemNodeFactory);
+            var createMethod = factoryType.GetMethod("Create");
+
+            Assert.IsNotNull(createMethod);
+            Assert.IsTrue(createMethod.IsStatic);
+            Assert.IsTrue(createMethod.IsPublic);
+            Assert.AreEqual(typeof(NeoSystemNode), createMethod.ReturnType);
+
+            var parameters = createMethod.GetParameters();
+            Assert.AreEqual(1, parameters.Length);
+            Assert.AreEqual(typeof(IConfiguration), parameters[0].ParameterType);
+        }
+
+        [TestMethod]
+        public void TestFactoryClassIsStatic()
+        {
+            var factoryType = typeof(NeoSystemNodeFactory);
+            Assert.IsTrue(factoryType.IsAbstract && factoryType.IsSealed);
+        }
+
+        [TestMethod]
+        public void TestFactoryHasNoPublicConstructor()
+        {
+            var factoryType = typeof(NeoSystemNodeFactory);
+            var constructors = factoryType.GetConstructors();
+            Assert.AreEqual(0, constructors.Length);
         }
     }
 }

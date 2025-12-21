@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <PackageTags>NEO;Blockchain;Protocol;Payloads</PackageTags>
+    <Description>Neo Protocol Payload Types - network payload definitions and serialization</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Neo.VM" Version="3.9.0-CI00344" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Neo.Core\Neo.Core.csproj" />
+    <ProjectReference Include="..\Neo.Cryptography\Neo.Cryptography.csproj" />
+    <ProjectReference Include="..\Neo.Extensions\Neo.Extensions.csproj" />
+    <ProjectReference Include="..\Neo.IO\Neo.IO.csproj" />
+    <ProjectReference Include="..\Neo.Json\Neo.Json.csproj" />
+    <ProjectReference Include="..\Neo.Protocol\Neo.Protocol.csproj" />
+    <ProjectReference Include="..\Neo.SmartContract.Abstractions\Neo.SmartContract.Abstractions.csproj" />
+    <ProjectReference Include="..\Neo.SmartContract.Core\Neo.SmartContract.Core.csproj" />
+    <ProjectReference Include="..\Neo.Storage\Neo.Storage.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Neo.UnitTests" />
+    <InternalsVisibleTo Include="Neo" />
+    <InternalsVisibleTo Include="Neo.SmartContract" />
+  </ItemGroup>
+
+</Project>

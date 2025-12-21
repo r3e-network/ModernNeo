@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <PackageTags>NEO;Blockchain;SmartContract;Manifest</PackageTags>
+    <Description>Neo SmartContract Manifest Types - contract ABI, permissions, and manifest structures</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Neo.VM" Version="3.9.0-CI00344" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Neo.Core\Neo.Core.csproj" />
+    <ProjectReference Include="..\Neo.Cryptography\Neo.Cryptography.csproj" />
+    <ProjectReference Include="..\Neo.Extensions\Neo.Extensions.csproj" />
+    <ProjectReference Include="..\Neo.IO\Neo.IO.csproj" />
+    <ProjectReference Include="..\Neo.Json\Neo.Json.csproj" />
+    <ProjectReference Include="..\Neo.SmartContract.Abstractions\Neo.SmartContract.Abstractions.csproj" />
+    <ProjectReference Include="..\Neo.SmartContract.Core\Neo.SmartContract.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Neo" />
+    <InternalsVisibleTo Include="Neo.UnitTests" />
+  </ItemGroup>
+
+</Project>

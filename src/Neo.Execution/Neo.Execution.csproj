@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <PackageTags>NEO;Blockchain;Execution;ParallelExecution</PackageTags>
+    <Description>Parallel transaction execution engine for Neo blockchain with dependency analysis and batch scheduling.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Neo.VM" Version="3.9.0-CI00344" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Neo.Core\Neo.Core.csproj" />
+    <ProjectReference Include="..\Neo.Ledger\Neo.Ledger.csproj" />
+    <ProjectReference Include="..\Neo.SmartContract\Neo.SmartContract.csproj" />
+    <ProjectReference Include="..\Neo.Storage\Neo.Storage.csproj" />
+    <ProjectReference Include="..\Neo.Protocol.Payloads\Neo.Protocol.Payloads.csproj" />
+  </ItemGroup>
+
+</Project>

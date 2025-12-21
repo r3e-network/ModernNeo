@@ -51,7 +51,7 @@ namespace Neo.UnitTests.SmartContract
                 engine.LoadScript(script.ToArray());
             }
 
-            var ns = new Array(engine.ReferenceCounter);
+            var ns = new Neo.VM.Types.Array(engine.ReferenceCounter);
             for (var i = 0; i < 500; i++)
             {
                 ns.Add("");

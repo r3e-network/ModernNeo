@@ -56,7 +56,7 @@ namespace Neo.Ledger
             /// </summary>
             public NotifyEventArgs[] Notifications { get; }
 
-            internal ApplicationExecuted(ApplicationEngine engine)
+            public ApplicationExecuted(ApplicationEngine engine)
             {
                 Transaction = engine.ScriptContainer as Transaction;
                 Trigger = engine.Trigger;

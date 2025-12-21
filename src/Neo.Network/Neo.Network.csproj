@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <PackageTags>NEO;Blockchain;Network;QUIC</PackageTags>
+    <Description>Neo Network Stack - P2P networking with TCP and QUIC transport</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Akka" Version="1.5.55" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Neo.Core\Neo.Core.csproj" />
+    <ProjectReference Include="..\Neo.Cryptography\Neo.Cryptography.csproj" />
+    <ProjectReference Include="..\Neo.Extensions\Neo.Extensions.csproj" />
+    <ProjectReference Include="..\Neo.IO\Neo.IO.csproj" />
+    <ProjectReference Include="..\Neo.Ledger\Neo.Ledger.csproj" />
+    <ProjectReference Include="..\Neo.Observability\Neo.Observability.csproj" />
+    <ProjectReference Include="..\Neo.Protocol\Neo.Protocol.csproj" />
+    <ProjectReference Include="..\Neo.Protocol.Payloads\Neo.Protocol.Payloads.csproj" />
+    <ProjectReference Include="..\Neo.Storage\Neo.Storage.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Neo" />
+    <InternalsVisibleTo Include="Neo.UnitTests" />
+  </ItemGroup>
+
+</Project>

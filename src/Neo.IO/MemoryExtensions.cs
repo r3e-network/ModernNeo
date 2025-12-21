@@ -11,7 +11,9 @@
 
 using Neo.Extensions;
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 
 namespace Neo.IO
 {
@@ -36,12 +38,90 @@ namespace Neo.IO
         /// <param name="value">The byte array to be converted.</param>
         /// <param name="type">The type to convert to.</param>
         /// <returns>The converted <see cref="ISerializable"/> object.</returns>
-        public static ISerializable AsSerializable(this ReadOnlyMemory<byte> value, Type type)
+        [RequiresUnreferencedCode("AsSerializable uses Activator.CreateInstance which requires unreferenced code.")]
+        public static ISerializable AsSerializable(this ReadOnlyMemory<byte> value,
+            [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] Type type)
         {
             if (!typeof(ISerializable).GetTypeInfo().IsAssignableFrom(type))
                 throw new InvalidCastException($"`{type.Name}` is not assignable from `ISerializable`");
             var serializable = (ISerializable)Activator.CreateInstance(type)!;
             MemoryReader reader = new(value);
+            serializable.Deserialize(ref reader);
+            return serializable;
+        }
+
+        /// <summary>
+        /// Converts a byte array to an <see cref="ISerializable"/> object.
+        /// Uses Activator.CreateInstance for types with required members.
+        /// </summary>
+        /// <typeparam name="T">The type to convert to.</typeparam>
+        /// <param name="value">The byte array to be converted.</param>
+        /// <returns>The converted <see cref="ISerializable"/> object.</returns>
+        [RequiresUnreferencedCode("AsSerializable uses Activator.CreateInstance which requires unreferenced code.")]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static T AsSerializable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] T>(this ReadOnlyMemory<byte> value) where T : ISerializable
+        {
+            T serializable = (T)Activator.CreateInstance(typeof(T))!;
+            MemoryReader reader = new(value);
+            serializable.Deserialize(ref reader);
+            return serializable;
+        }
+
+        /// <summary>
+        /// Converts a byte array to an <see cref="ISerializable"/> object.
+        /// Uses Activator.CreateInstance for types with required members.
+        /// </summary>
+        /// <typeparam name="T">The type to convert to.</typeparam>
+        /// <param name="value">The byte array to be converted.</param>
+        /// <returns>The converted <see cref="ISerializable"/> object.</returns>
+        [RequiresUnreferencedCode("AsSerializable uses Activator.CreateInstance which requires unreferenced code.")]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static T AsSerializable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] T>(this byte[] value) where T : ISerializable
+        {
+            return AsSerializable<T>(value.AsMemory());
+        }
+
+        /// <summary>
+        /// Converts a byte array to an <see cref="ISerializable"/> object.
+        /// Optimized version that avoids reflection for types with parameterless constructors.
+        /// </summary>
+        /// <typeparam name="T">The type to convert to.</typeparam>
+        /// <param name="value">The byte array to be converted.</param>
+        /// <returns>The converted <see cref="ISerializable"/> object.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static T AsSerializableFast<T>(this ReadOnlyMemory<byte> value) where T : ISerializable, new()
+        {
+            T serializable = new();
+            MemoryReader reader = new(value);
+            serializable.Deserialize(ref reader);
+            return serializable;
+        }
+
+        /// <summary>
+        /// Converts a byte array to an <see cref="ISerializable"/> object.
+        /// Optimized version that avoids reflection for types with parameterless constructors.
+        /// </summary>
+        /// <typeparam name="T">The type to convert to.</typeparam>
+        /// <param name="value">The byte array to be converted.</param>
+        /// <returns>The converted <see cref="ISerializable"/> object.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static T AsSerializableFast<T>(this byte[] value) where T : ISerializable, new()
+        {
+            return AsSerializableFast<T>(value.AsMemory());
+        }
+
+        /// <summary>
+        /// Converts a span to an <see cref="ISerializable"/> object.
+        /// Optimized version that avoids reflection for types with parameterless constructors.
+        /// </summary>
+        /// <typeparam name="T">The type to convert to.</typeparam>
+        /// <param name="value">The span to be converted.</param>
+        /// <returns>The converted <see cref="ISerializable"/> object.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static T AsSerializableFast<T>(this ReadOnlySpan<byte> value) where T : ISerializable, new()
+        {
+            T serializable = new();
+            MemoryReader reader = new(value.ToArray());
             serializable.Deserialize(ref reader);
             return serializable;
         }

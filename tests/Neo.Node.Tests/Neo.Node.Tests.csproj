@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Neo.Node\Neo.Node.csproj" />
+    <ProjectReference Include="..\..\src\Neo.Storage\Neo.Storage.csproj" />
   </ItemGroup>
 
 </Project>

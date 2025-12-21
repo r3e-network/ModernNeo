@@ -1,0 +1,87 @@
+// Copyright (C) 2015-2025 The Neo Project.
+//
+// node.proto - Node and network types for Neo gRPC API
+//
+// This file is part of the neo project and is free software
+// distributed under the MIT software license.
+
+syntax = "proto3";
+
+package neo.grpc.v1;
+
+option csharp_namespace = "Neo.Grpc.V1";
+
+import "common.proto";
+import "blockchain.proto";
+
+// Node version information
+message NodeVersion {
+  int32 tcp_port = 1;
+  int32 ws_port = 2;
+  int64 nonce = 3;
+  string user_agent = 4;
+  ProtocolSettings protocol = 5;
+}
+
+// Protocol settings
+message ProtocolSettings {
+  uint32 network = 1;
+  int32 validators_count = 2;
+  int32 ms_per_block = 3;
+  int32 max_traceable_blocks = 4;
+  int32 max_valid_until_block_increment = 5;
+  int32 max_transactions_per_block = 6;
+  int32 memory_pool_max_transactions = 7;
+}
+
+// Peer information
+message Peer {
+  string address = 1;
+  int32 port = 2;
+}
+
+// Peers response
+message PeersInfo {
+  repeated Peer unconnected = 1;
+  repeated Peer bad = 2;
+  repeated Peer connected = 3;
+}
+
+// Memory pool information
+message MemoryPoolInfo {
+  int32 verified_count = 1;
+  int32 unverified_count = 2;
+}
+
+// Memory pool contents
+message MemoryPoolContents {
+  repeated UInt256 verified = 1;
+  repeated UInt256 unverified = 2;
+}
+
+// Validator information
+message Validator {
+  bytes public_key = 1;
+  int64 votes = 2;
+  bool active = 3;
+}
+
+// Committee member
+message CommitteeMember {
+  bytes public_key = 1;
+  int64 votes = 2;
+}
+
+// State root
+message StateRoot {
+  uint32 version = 1;
+  uint32 index = 2;
+  UInt256 root_hash = 3;
+  Witness witness = 4;
+}
+
+// State height
+message StateHeight {
+  uint32 local_root_index = 1;
+  uint32 validated_root_index = 2;
+}

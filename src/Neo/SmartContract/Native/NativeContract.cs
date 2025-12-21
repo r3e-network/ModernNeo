@@ -9,6 +9,7 @@
 // Redistribution and use in source and binary forms with or without
 // modifications are permitted.
 
+using Neo.Core.Interfaces;
 using Neo.Cryptography.ECC;
 using Neo.SmartContract.Manifest;
 using Neo.VM;
@@ -26,7 +27,13 @@ namespace Neo.SmartContract.Native
     /// <summary>
     /// The base class of all native contracts.
     /// </summary>
-    public abstract class NativeContract
+    [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods |
+                                DynamicallyAccessedMemberTypes.NonPublicMethods |
+                                DynamicallyAccessedMemberTypes.PublicProperties |
+                                DynamicallyAccessedMemberTypes.NonPublicProperties |
+                                DynamicallyAccessedMemberTypes.PublicConstructors |
+                                DynamicallyAccessedMemberTypes.NonPublicConstructors)]
+    public abstract class NativeContract : INativeContractData
     {
         private class NativeContractsCache
         {
@@ -138,8 +145,17 @@ namespace Neo.SmartContract.Native
         public int Id { get; } = --idCounter;
 
         /// <summary>
+        /// Explicit implementation of INativeContractData.ActiveIn to convert Hardfork? to byte?.
+        /// </summary>
+        byte? INativeContractData.ActiveIn => ActiveIn.HasValue ? (byte)ActiveIn.Value : null;
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="NativeContract"/> class.
         /// </summary>
+        [UnconditionalSuppressMessage("Trimming", "IL2070:UnrecognizedReflectionPattern",
+            Justification = "Native contract methods and events are preserved by DynamicallyAccessedMembers attributes on the NativeContract base class.")]
+        [UnconditionalSuppressMessage("Trimming", "IL2075:UnrecognizedReflectionPattern",
+            Justification = "GetType() returns the actual derived type which inherits DynamicallyAccessedMembers annotations from NativeContract.")]
         protected NativeContract()
         {
             Hash = Helper.GetContractHash(UInt160.Zero, 0, Name);

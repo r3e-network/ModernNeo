@@ -1,0 +1,270 @@
+// Copyright (C) 2015-2025 The Neo Project.
+//
+// blockchain.proto - Blockchain data types for Neo gRPC API
+//
+// This file is part of the neo project and is free software
+// distributed under the MIT software license.
+
+syntax = "proto3";
+
+package neo.grpc.v1;
+
+option csharp_namespace = "Neo.Grpc.V1";
+
+import "common.proto";
+
+// Block header
+message Header {
+  uint32 version = 1;
+  UInt256 prev_hash = 2;
+  UInt256 merkle_root = 3;
+  uint64 timestamp = 4;
+  uint64 nonce = 5;
+  uint32 index = 6;
+  uint32 primary_index = 7;
+  UInt160 next_consensus = 8;
+  Witness witness = 9;
+
+  // Computed fields
+  UInt256 hash = 10;
+  int32 size = 11;
+}
+
+// Block with transactions
+message Block {
+  Header header = 1;
+  repeated Transaction transactions = 2;
+
+  // Computed fields
+  UInt256 hash = 3;
+  int32 size = 4;
+  uint32 confirmations = 5;
+  UInt256 next_block_hash = 6;
+}
+
+// Transaction
+message Transaction {
+  uint32 version = 1;
+  uint32 nonce = 2;
+  int64 system_fee = 3;
+  int64 network_fee = 4;
+  uint32 valid_until_block = 5;
+  repeated Signer signers = 6;
+  repeated TransactionAttribute attributes = 7;
+  bytes script = 8;
+  repeated Witness witnesses = 9;
+
+  // Computed fields
+  UInt256 hash = 10;
+  int32 size = 11;
+  UInt160 sender = 12;
+  int64 fee_per_byte = 13;
+}
+
+// Transaction signer
+message Signer {
+  UInt160 account = 1;
+  WitnessScope scopes = 2;
+  repeated UInt160 allowed_contracts = 3;
+  repeated bytes allowed_groups = 4;
+  repeated WitnessRule rules = 5;
+}
+
+// Witness scope flags
+enum WitnessScope {
+  WITNESS_SCOPE_NONE = 0;
+  WITNESS_SCOPE_CALLED_BY_ENTRY = 1;
+  WITNESS_SCOPE_CUSTOM_CONTRACTS = 16;
+  WITNESS_SCOPE_CUSTOM_GROUPS = 32;
+  WITNESS_SCOPE_WITNESS_RULES = 64;
+  WITNESS_SCOPE_GLOBAL = 128;
+}
+
+// Witness rule
+message WitnessRule {
+  WitnessRuleAction action = 1;
+  WitnessCondition condition = 2;
+}
+
+// Witness rule action
+enum WitnessRuleAction {
+  WITNESS_RULE_ACTION_DENY = 0;
+  WITNESS_RULE_ACTION_ALLOW = 1;
+}
+
+// Witness condition
+message WitnessCondition {
+  WitnessConditionType type = 1;
+  oneof condition {
+    bool boolean_value = 2;
+    WitnessConditionNot not_condition = 3;
+    WitnessConditionAnd and_condition = 4;
+    WitnessConditionOr or_condition = 5;
+    UInt160 script_hash = 6;
+    bytes group = 7;
+    UInt160 caller_by_entry = 8;
+    UInt160 caller_by_group = 9;
+  }
+}
+
+// Witness condition types
+enum WitnessConditionType {
+  WITNESS_CONDITION_TYPE_BOOLEAN = 0;
+  WITNESS_CONDITION_TYPE_NOT = 1;
+  WITNESS_CONDITION_TYPE_AND = 2;
+  WITNESS_CONDITION_TYPE_OR = 3;
+  WITNESS_CONDITION_TYPE_SCRIPT_HASH = 24;
+  WITNESS_CONDITION_TYPE_GROUP = 25;
+  WITNESS_CONDITION_TYPE_CALLED_BY_ENTRY = 32;
+  WITNESS_CONDITION_TYPE_CALLED_BY_CONTRACT = 40;
+  WITNESS_CONDITION_TYPE_CALLED_BY_GROUP = 41;
+}
+
+message WitnessConditionNot {
+  WitnessCondition expression = 1;
+}
+
+message WitnessConditionAnd {
+  repeated WitnessCondition expressions = 1;
+}
+
+message WitnessConditionOr {
+  repeated WitnessCondition expressions = 1;
+}
+
+// Transaction attribute
+message TransactionAttribute {
+  TransactionAttributeType type = 1;
+  oneof attribute {
+    HighPriorityAttribute high_priority = 2;
+    OracleResponseAttribute oracle_response = 3;
+    NotValidBeforeAttribute not_valid_before = 4;
+    ConflictsAttribute conflicts = 5;
+    NotaryAssistedAttribute notary_assisted = 6;
+  }
+}
+
+// Transaction attribute types
+enum TransactionAttributeType {
+  TRANSACTION_ATTRIBUTE_TYPE_HIGH_PRIORITY = 0;
+  TRANSACTION_ATTRIBUTE_TYPE_ORACLE_RESPONSE = 17;
+  TRANSACTION_ATTRIBUTE_TYPE_NOT_VALID_BEFORE = 32;
+  TRANSACTION_ATTRIBUTE_TYPE_CONFLICTS = 33;
+  TRANSACTION_ATTRIBUTE_TYPE_NOTARY_ASSISTED = 34;
+}
+
+message HighPriorityAttribute {}
+
+message OracleResponseAttribute {
+  uint64 id = 1;
+  OracleResponseCode code = 2;
+  bytes result = 3;
+}
+
+enum OracleResponseCode {
+  ORACLE_RESPONSE_CODE_SUCCESS = 0;
+  ORACLE_RESPONSE_CODE_PROTOCOL_NOT_SUPPORTED = 16;
+  ORACLE_RESPONSE_CODE_CONSENSUS_UNREACHABLE = 18;
+  ORACLE_RESPONSE_CODE_NOT_FOUND = 20;
+  ORACLE_RESPONSE_CODE_TIMEOUT = 22;
+  ORACLE_RESPONSE_CODE_FORBIDDEN = 24;
+  ORACLE_RESPONSE_CODE_RESPONSE_TOO_LARGE = 26;
+  ORACLE_RESPONSE_CODE_INSUFFICIENT_FUNDS = 28;
+  ORACLE_RESPONSE_CODE_CONTENT_TYPE_NOT_SUPPORTED = 31;
+  ORACLE_RESPONSE_CODE_ERROR = 255;
+}
+
+message NotValidBeforeAttribute {
+  uint32 height = 1;
+}
+
+message ConflictsAttribute {
+  UInt256 hash = 1;
+}
+
+message NotaryAssistedAttribute {
+  uint32 nkeys = 1;
+}
+
+// Witness (verification + invocation scripts)
+message Witness {
+  bytes invocation_script = 1;
+  bytes verification_script = 2;
+}
+
+// Application log for executed transactions
+message ApplicationLog {
+  UInt256 tx_hash = 1;
+  repeated Execution executions = 2;
+}
+
+// Execution result
+message Execution {
+  string trigger = 1;
+  VMState vm_state = 2;
+  int64 gas_consumed = 3;
+  string exception = 4;
+  repeated StackItem stack = 5;
+  repeated Notification notifications = 6;
+}
+
+// VM execution state
+enum VMState {
+  VM_STATE_NONE = 0;
+  VM_STATE_HALT = 1;
+  VM_STATE_FAULT = 2;
+  VM_STATE_BREAK = 4;
+}
+
+// Stack item from VM execution
+message StackItem {
+  StackItemType type = 1;
+  oneof value {
+    bool boolean_value = 2;
+    bytes integer_value = 3;
+    bytes byte_string_value = 4;
+    bytes buffer_value = 5;
+    StackItemArray array_value = 6;
+    StackItemStruct struct_value = 7;
+    StackItemMap map_value = 8;
+    bytes pointer_value = 9;
+    bytes interop_interface_value = 10;
+  }
+}
+
+enum StackItemType {
+  STACK_ITEM_TYPE_ANY = 0;
+  STACK_ITEM_TYPE_POINTER = 16;
+  STACK_ITEM_TYPE_BOOLEAN = 32;
+  STACK_ITEM_TYPE_INTEGER = 33;
+  STACK_ITEM_TYPE_BYTE_STRING = 40;
+  STACK_ITEM_TYPE_BUFFER = 48;
+  STACK_ITEM_TYPE_ARRAY = 64;
+  STACK_ITEM_TYPE_STRUCT = 65;
+  STACK_ITEM_TYPE_MAP = 72;
+  STACK_ITEM_TYPE_INTEROP_INTERFACE = 96;
+}
+
+message StackItemArray {
+  repeated StackItem items = 1;
+}
+
+message StackItemStruct {
+  repeated StackItem items = 1;
+}
+
+message StackItemMap {
+  repeated StackItemMapEntry entries = 1;
+}
+
+message StackItemMapEntry {
+  StackItem key = 1;
+  StackItem value = 2;
+}
+
+// Notification from contract execution
+message Notification {
+  UInt160 contract = 1;
+  string event_name = 2;
+  StackItem state = 3;
+}

@@ -8,6 +8,7 @@
   <ItemGroup>
     <PackageReference Include="Akka.TestKit" Version="1.5.55" />
     <PackageReference Include="Akka.TestKit.MSTest" Version="1.5.0" />
+    <PackageReference Include="Google.Protobuf" Version="3.29.3" />
     <PackageReference Include="Moq" Version="4.20.72" />
     <PackageReference Include="MSTest" Version="$(MSTestVersion)" />
     <PackageReference Include="Namotion.Reflection" Version="3.4.3" />
@@ -27,8 +28,33 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Neo.Extensions\Neo.Extensions.csproj" />
+    <!-- Main Neo project contains most types -->
     <ProjectReference Include="..\..\src\Neo\Neo.csproj" />
+    <!-- Additional modular projects -->
+    <ProjectReference Include="..\..\src\Neo.Builders\Neo.Builders.csproj" />
+    <ProjectReference Include="..\..\src\Neo.Core\Neo.Core.csproj" />
+    <ProjectReference Include="..\..\src\Neo.Cryptography\Neo.Cryptography.csproj" />
+    <ProjectReference Include="..\..\src\Neo.Execution\Neo.Execution.csproj" />
+    <ProjectReference Include="..\..\src\Neo.Extensions\Neo.Extensions.csproj" />
+    <ProjectReference Include="..\..\src\Neo.IO\Neo.IO.csproj" />
+    <ProjectReference Include="..\..\src\Neo.Json\Neo.Json.csproj" />
+    <ProjectReference Include="..\..\src\Neo.Ledger\Neo.Ledger.csproj" />
+    <ProjectReference Include="..\..\src\Neo.Network\Neo.Network.csproj" />
+    <ProjectReference Include="..\..\src\Neo.Node.Core\Neo.Node.Core.csproj" />
+    <ProjectReference Include="..\..\src\Neo.Plugins\Neo.Plugins.csproj" />
+    <ProjectReference Include="..\..\src\Neo.Protocol\Neo.Protocol.csproj" />
+    <ProjectReference Include="..\..\src\Neo.Protocol.Payloads\Neo.Protocol.Payloads.csproj" />
+    <ProjectReference Include="..\..\src\Neo.SmartContract\Neo.SmartContract.csproj" />
+    <ProjectReference Include="..\..\src\Neo.SmartContract.Abstractions\Neo.SmartContract.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Neo.SmartContract.Core\Neo.SmartContract.Core.csproj" />
+    <ProjectReference Include="..\..\src\Neo.Storage\Neo.Storage.csproj" />
+    <ProjectReference Include="..\..\src\Neo.Wallets\Neo.Wallets.csproj" />
+    <ProjectReference Include="..\..\src\Neo.Services\Neo.Services.csproj" />
+    <ProjectReference Include="..\..\src\Neo.Sign\Neo.Sign.csproj" />
+    <ProjectReference Include="..\..\src\Neo.TxPool\Neo.TxPool.csproj" />
+    <ProjectReference Include="..\..\src\Neo.Consensus\Neo.Consensus.csproj" />
+    <ProjectReference Include="..\..\src\Neo.RPC\Neo.RPC.csproj" />
+    <ProjectReference Include="..\..\src\Neo.Grpc\Neo.Grpc.csproj" />
   </ItemGroup>
 
 </Project>

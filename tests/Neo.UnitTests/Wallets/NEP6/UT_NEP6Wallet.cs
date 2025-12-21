@@ -305,7 +305,7 @@ namespace Neo.UnitTests.Wallets.NEP6
 
         public X509Certificate2 NewCertificate()
         {
-            var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+            var key = ECDsa.Create(System.Security.Cryptography.ECCurve.NamedCurves.nistP256);
             var request = new CertificateRequest(
                 new X500DistinguishedName("CN=Self-Signed ECDSA"),
                 key,

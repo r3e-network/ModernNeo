@@ -23,6 +23,12 @@ namespace Neo.Persistence
             var memProvider = new MemoryStoreProvider();
             RegisterProvider(memProvider);
 
+            var levelDbProvider = new LevelDbStoreProvider();
+            RegisterProvider(levelDbProvider);
+
+            var rocksDbProvider = new RocksDbStoreProvider();
+            RegisterProvider(rocksDbProvider);
+
             // Default cases
             s_providers.Add("", memProvider);
         }

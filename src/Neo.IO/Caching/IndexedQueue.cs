@@ -23,7 +23,7 @@ namespace Neo.IO.Caching
     /// Represents a queue with indexed access to the items
     /// </summary>
     /// <typeparam name="T">The type of items in the queue</typeparam>
-    class IndexedQueue<T> : IReadOnlyCollection<T>
+    public class IndexedQueue<T> : IReadOnlyCollection<T>
     {
         private const int DefaultCapacity = 16;
         private const int GrowthFactor = 2;

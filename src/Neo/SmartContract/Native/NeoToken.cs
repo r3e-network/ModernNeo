@@ -13,6 +13,7 @@
 
 using Neo.Cryptography.ECC;
 using Neo.Extensions;
+using Neo.IO;
 using Neo.Persistence;
 using Neo.SmartContract.Iterators;
 using Neo.SmartContract.Manifest;

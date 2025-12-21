@@ -1,0 +1,8 @@
+{
+  "PluginConfiguration": {
+    "Storage": {
+      "Engine": "MemoryStore",
+      "Path": "ApplicationLogs_{0}"
+    }
+  }
+}
