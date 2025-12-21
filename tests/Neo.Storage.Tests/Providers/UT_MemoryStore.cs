@@ -132,19 +132,20 @@ namespace Neo.Storage.Tests.Providers
         [TestMethod]
         public void TestFindBackward()
         {
-            // Test backward search with prefix matching
+            // Test backward search with range query semantics
+            // Reverse comparer: Compare(key, prefix) >= 0 means key <= prefix
             _store.Put(new byte[] { 1, 1 }, new byte[] { 11 });
             _store.Put(new byte[] { 1, 2 }, new byte[] { 12 });
             _store.Put(new byte[] { 1, 3 }, new byte[] { 13 });
             _store.Put(new byte[] { 2, 1 }, new byte[] { 21 });
 
-            var results = _store.Find(new byte[] { 1 }, SeekDirection.Backward).ToList();
+            var results = _store.Find(new byte[] { 1, 2 }, SeekDirection.Backward).ToList();
 
-            // Should return only keys starting with {1}, in reverse order
-            Assert.AreEqual(3, results.Count);
-            Assert.AreEqual(3, results[0].Key[1]); // {1, 3}
-            Assert.AreEqual(2, results[1].Key[1]); // {1, 2}
-            Assert.AreEqual(1, results[2].Key[1]); // {1, 1}
+            // Backward with Reverse comparer: returns keys <= {1,2} in reverse order
+            // Keys <= {1,2}: {1,1}, {1,2} -> reversed: {1,2}, {1,1}
+            Assert.AreEqual(2, results.Count);
+            Assert.AreEqual(2, results[0].Key[1]); // {1, 2}
+            Assert.AreEqual(1, results[1].Key[1]); // {1, 1}
         }
 
         [TestMethod]
@@ -156,9 +157,12 @@ namespace Neo.Storage.Tests.Providers
 
             var results = _store.Find(new byte[] { 1 }, SeekDirection.Forward).ToList();
 
-            Assert.AreEqual(2, results.Count);
-            Assert.AreEqual(1, results[0].Key[0]);
-            Assert.AreEqual(1, results[1].Key[0]);
+            // Range query: returns all keys >= {1} in forward order
+            // All keys are >= {1}, so returns all 3
+            Assert.AreEqual(3, results.Count);
+            Assert.AreEqual(1, results[0].Key[0]); // {1, 1}
+            Assert.AreEqual(1, results[1].Key[0]); // {1, 2}
+            Assert.AreEqual(2, results[2].Key[0]); // {2, 1}
         }
 
         [TestMethod]
@@ -431,9 +435,11 @@ namespace Neo.Storage.Tests.Providers
 
             var results = snapshot.Find(new byte[] { 1 }, SeekDirection.Forward).ToList();
 
-            Assert.AreEqual(2, results.Count);
-            Assert.AreEqual(1, results[0].Key[0]);
-            Assert.AreEqual(1, results[1].Key[0]);
+            // Range query: returns all keys >= {1} in forward order
+            Assert.AreEqual(3, results.Count);
+            Assert.AreEqual(1, results[0].Key[0]); // {1, 1}
+            Assert.AreEqual(1, results[1].Key[0]); // {1, 2}
+            Assert.AreEqual(2, results[2].Key[0]); // {2, 1}
         }
 
         [TestMethod]
@@ -445,12 +451,13 @@ namespace Neo.Storage.Tests.Providers
 
             using var snapshot = _store.GetSnapshot();
 
-            var results = snapshot.Find(new byte[] { 1 }, SeekDirection.Backward).ToList();
+            var results = snapshot.Find(new byte[] { 1, 2 }, SeekDirection.Backward).ToList();
 
-            Assert.AreEqual(3, results.Count);
-            Assert.AreEqual(3, results[0].Key[1]); // {1, 3}
-            Assert.AreEqual(2, results[1].Key[1]); // {1, 2}
-            Assert.AreEqual(1, results[2].Key[1]); // {1, 1}
+            // Backward with Reverse comparer: returns keys <= {1,2} in reverse order
+            // Keys <= {1,2}: {1,1}, {1,2} -> reversed: {1,2}, {1,1}
+            Assert.AreEqual(2, results.Count);
+            Assert.AreEqual(2, results[0].Key[1]); // {1, 2}
+            Assert.AreEqual(1, results[1].Key[1]); // {1, 1}
         }
 
         [TestMethod]

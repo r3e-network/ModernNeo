@@ -509,9 +509,11 @@ namespace Neo.Storage.Tests.Caching
 
             var results = _cachedStore.Find(new byte[] { 1 }, SeekDirection.Forward).ToList();
 
-            Assert.AreEqual(2, results.Count);
-            Assert.AreEqual(1, results[0].Key[0]);
-            Assert.AreEqual(1, results[1].Key[0]);
+            // Range query: returns all keys >= {1} in forward order
+            Assert.AreEqual(3, results.Count);
+            Assert.AreEqual(1, results[0].Key[0]); // {1, 1}
+            Assert.AreEqual(1, results[1].Key[0]); // {1, 2}
+            Assert.AreEqual(2, results[2].Key[0]); // {2, 1}
         }
 
         [TestMethod]
