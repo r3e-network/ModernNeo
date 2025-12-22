@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>Neo.Core.Abstractions</AssemblyName>
+    <RootNamespace>Neo.Core.Abstractions</RootNamespace>
+    <PackageTags>NEO;Blockchain;Abstractions</PackageTags>
+    <Description>Core abstraction interfaces for Neo blockchain - zero dependencies</Description>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <!-- IMPORTANT: This project must have ZERO project dependencies -->
+  <!-- It serves as the foundation layer for breaking circular dependencies -->
+
+</Project>
