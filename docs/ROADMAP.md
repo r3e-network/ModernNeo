@@ -31,7 +31,7 @@ This roadmap mirrors the NeoAN plan and tracks repository alignment. Phases emph
 ## Status in Repo
 
 - Modules present for: Core, Crypto, Storage, Network (including QUIC stubs), Execution, Ledger, Consensus, Observability, RPC/gRPC, Plugins, Node host.
-- ✅ GraphQL endpoint implemented with 24 query endpoints + 3 subscriptions (v1.2)
+- ✅ GraphQL endpoint implemented with 26 query endpoints + 3 subscriptions (v1.3)
 - ✅ Solution file `neo.sln` updated to include all module csprojs
 - ✅ Neo.Services layer complete with:
     - BlockQueryService, NodeInfoService, TransactionQueryService
@@ -42,3 +42,8 @@ This roadmap mirrors the NeoAN plan and tracks repository alignment. Phases emph
     - `blockCommitted` - Real-time new block notifications
     - `transactionAdded` - Mempool transaction additions
     - `transactionRemoved` - Mempool transaction removals
+- ✅ Health check system implemented:
+    - HealthCheckService with aggregation and timeout handling
+    - NetworkHealthCheck, MempoolHealthCheck, BlockchainHealthCheck
+    - ConsensusHealthCheck, StorageHealthCheck
+    - GraphQL `health` and `healthStatus` query endpoints

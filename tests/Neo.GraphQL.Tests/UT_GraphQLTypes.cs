@@ -214,5 +214,48 @@ namespace Neo.GraphQL.Tests
             Assert.IsTrue(fields.Contains("transaction"));
             Assert.IsTrue(fields.Contains("reason"));
         }
+
+        [TestMethod]
+        public void HealthReportType_HasCorrectName()
+        {
+            var healthType = new HealthReportType();
+            Assert.AreEqual("HealthReport", healthType.Name);
+        }
+
+        [TestMethod]
+        public void HealthReportType_HasRequiredFields()
+        {
+            var healthType = new HealthReportType();
+            var fields = healthType.Fields.Select(f => f.Name).ToList();
+
+            Assert.IsTrue(fields.Contains("status"));
+            Assert.IsTrue(fields.Contains("checks"));
+            Assert.IsTrue(fields.Contains("timestamp"));
+        }
+
+        [TestMethod]
+        public void HealthCheckEntryType_HasCorrectName()
+        {
+            var entryType = new HealthCheckEntryType();
+            Assert.AreEqual("HealthCheckEntry", entryType.Name);
+        }
+
+        [TestMethod]
+        public void HealthCheckEntryType_HasRequiredFields()
+        {
+            var entryType = new HealthCheckEntryType();
+            var fields = entryType.Fields.Select(f => f.Name).ToList();
+
+            Assert.IsTrue(fields.Contains("name"));
+            Assert.IsTrue(fields.Contains("status"));
+            Assert.IsTrue(fields.Contains("description"));
+        }
+
+        [TestMethod]
+        public void HealthStatusEnumType_HasCorrectName()
+        {
+            var enumType = new HealthStatusEnumType();
+            Assert.AreEqual("HealthStatus", enumType.Name);
+        }
     }
 }

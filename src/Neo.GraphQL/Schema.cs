@@ -12,6 +12,7 @@
 using GraphQL;
 using GraphQL.Types;
 using Neo.GraphQL.Types;
+using Neo.Observability.Health;
 using Neo.Services.Accounts;
 using Neo.Services.Blocks;
 using Neo.Services.Contracts;
@@ -32,7 +33,8 @@ namespace Neo.GraphQL
                 provider.GetService(typeof(IBlockQueryService)) as IBlockQueryService,
                 provider.GetService(typeof(ITransactionQueryService)) as ITransactionQueryService,
                 provider.GetService(typeof(IAccountQueryService)) as IAccountQueryService,
-                provider.GetService(typeof(IContractQueryService)) as IContractQueryService);
+                provider.GetService(typeof(IContractQueryService)) as IContractQueryService,
+                provider.GetService(typeof(IHealthCheckService)) as IHealthCheckService);
 
             Subscription = new SubscriptionType(
                 provider.GetService(typeof(IBlockchainEventService)) as IBlockchainEventService);
@@ -46,7 +48,8 @@ namespace Neo.GraphQL
             IBlockQueryService? blocks,
             ITransactionQueryService? transactions,
             IAccountQueryService? accounts,
-            IContractQueryService? contracts)
+            IContractQueryService? contracts,
+            IHealthCheckService? health)
         {
             Name = "Query";
             Description = "Neo blockchain GraphQL API root query";
@@ -57,7 +60,7 @@ namespace Neo.GraphQL
 
             Field<NonNullGraphType<StringGraphType>>("version")
                 .Description("Returns GraphQL API version")
-                .Resolve(_ => "v1.2");
+                .Resolve(_ => "v1.3");
 
             Field<NonNullGraphType<StringGraphType>>("network")
                 .Description("Network magic identifier")
@@ -303,6 +306,48 @@ namespace Neo.GraphQL
             Field<NonNullGraphType<IntGraphType>>("contractCount")
                 .Description("Get total number of deployed contracts")
                 .Resolve(_ => contracts?.GetContractCount() ?? 0);
+
+            // ============================================
+            // Health Check Queries
+            // ============================================
+
+            Field<NonNullGraphType<HealthReportType>>("health")
+                .Description("Get overall health status of the Neo node")
+                .ResolveAsync(async ctx =>
+                {
+                    if (health is null)
+                    {
+                        return new HealthReport
+                        {
+                            Status = HealthStatus.Healthy,
+                            Checks = Array.Empty<HealthCheckEntry>(),
+                            Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+                        };
+                    }
+
+                    var results = await health.CheckAllAsync(ctx.CancellationToken);
+                    var overallStatus = await health.GetOverallStatusAsync(ctx.CancellationToken);
+
+                    return new HealthReport
+                    {
+                        Status = overallStatus,
+                        Checks = results.Select(r => new HealthCheckEntry
+                        {
+                            Name = r.Key,
+                            Status = r.Value.Status,
+                            Description = r.Value.Description
+                        }).ToArray(),
+                        Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+                    };
+                });
+
+            Field<NonNullGraphType<HealthStatusEnumType>>("healthStatus")
+                .Description("Get simple health status (Healthy, Degraded, or Unhealthy)")
+                .ResolveAsync(async ctx =>
+                {
+                    if (health is null) return HealthStatus.Healthy;
+                    return await health.GetOverallStatusAsync(ctx.CancellationToken);
+                });
         }
     }
 }

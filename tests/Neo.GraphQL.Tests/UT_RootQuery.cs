@@ -17,14 +17,14 @@ namespace Neo.GraphQL.Tests
         [TestMethod]
         public void RootQuery_HasCorrectName()
         {
-            var query = new RootQuery(null, null, null, null, null);
+            var query = new RootQuery(null, null, null, null, null, null);
             Assert.AreEqual("Query", query.Name);
         }
 
         [TestMethod]
         public void RootQuery_HasDescription()
         {
-            var query = new RootQuery(null, null, null, null, null);
+            var query = new RootQuery(null, null, null, null, null, null);
             Assert.IsNotNull(query.Description);
             Assert.IsTrue(query.Description.Contains("Neo"));
         }
@@ -32,7 +32,7 @@ namespace Neo.GraphQL.Tests
         [TestMethod]
         public void RootQuery_HasNodeInfoQueries()
         {
-            var query = new RootQuery(null, null, null, null, null);
+            var query = new RootQuery(null, null, null, null, null, null);
             var fields = query.Fields.Select(f => f.Name).ToList();
 
             Assert.IsTrue(fields.Contains("version"));
@@ -44,7 +44,7 @@ namespace Neo.GraphQL.Tests
         [TestMethod]
         public void RootQuery_HasBlockQueries()
         {
-            var query = new RootQuery(null, null, null, null, null);
+            var query = new RootQuery(null, null, null, null, null, null);
             var fields = query.Fields.Select(f => f.Name).ToList();
 
             Assert.IsTrue(fields.Contains("block"));
@@ -56,7 +56,7 @@ namespace Neo.GraphQL.Tests
         [TestMethod]
         public void RootQuery_HasTransactionQueries()
         {
-            var query = new RootQuery(null, null, null, null, null);
+            var query = new RootQuery(null, null, null, null, null, null);
             var fields = query.Fields.Select(f => f.Name).ToList();
 
             Assert.IsTrue(fields.Contains("transaction"));
@@ -68,7 +68,7 @@ namespace Neo.GraphQL.Tests
         [TestMethod]
         public void RootQuery_HasBlockTransactionQueries()
         {
-            var query = new RootQuery(null, null, null, null, null);
+            var query = new RootQuery(null, null, null, null, null, null);
             var fields = query.Fields.Select(f => f.Name).ToList();
 
             Assert.IsTrue(fields.Contains("blockTransactions"));
@@ -77,7 +77,7 @@ namespace Neo.GraphQL.Tests
         [TestMethod]
         public void RootQuery_HasAccountQueries()
         {
-            var query = new RootQuery(null, null, null, null, null);
+            var query = new RootQuery(null, null, null, null, null, null);
             var fields = query.Fields.Select(f => f.Name).ToList();
 
             Assert.IsTrue(fields.Contains("account"));
@@ -90,7 +90,7 @@ namespace Neo.GraphQL.Tests
         [TestMethod]
         public void RootQuery_HasContractQueries()
         {
-            var query = new RootQuery(null, null, null, null, null);
+            var query = new RootQuery(null, null, null, null, null, null);
             var fields = query.Fields.Select(f => f.Name).ToList();
 
             Assert.IsTrue(fields.Contains("contract"));
@@ -102,9 +102,19 @@ namespace Neo.GraphQL.Tests
         }
 
         [TestMethod]
-        public void RootQuery_VersionReturnsV1_1()
+        public void RootQuery_HasHealthQueries()
         {
-            var query = new RootQuery(null, null, null, null, null);
+            var query = new RootQuery(null, null, null, null, null, null);
+            var fields = query.Fields.Select(f => f.Name).ToList();
+
+            Assert.IsTrue(fields.Contains("health"));
+            Assert.IsTrue(fields.Contains("healthStatus"));
+        }
+
+        [TestMethod]
+        public void RootQuery_VersionReturnsV1_3()
+        {
+            var query = new RootQuery(null, null, null, null, null, null);
             var versionField = query.Fields.First(f => f.Name == "version");
 
             Assert.IsNotNull(versionField);
@@ -114,7 +124,7 @@ namespace Neo.GraphQL.Tests
         [TestMethod]
         public void RootQuery_TotalFieldCount()
         {
-            var query = new RootQuery(null, null, null, null, null);
+            var query = new RootQuery(null, null, null, null, null, null);
             var fieldCount = query.Fields.Count();
 
             // Node info: 4 (version, network, height, mempoolCount)
@@ -123,8 +133,9 @@ namespace Neo.GraphQL.Tests
             // Block transactions: 1 (blockTransactions)
             // Account: 5 (account, neoBalance, gasBalance, unclaimedGas, isValidAddress)
             // Contract: 6 (contract, contractById, contractExists, contractHasMethod, contracts, contractCount)
-            // Total: 24
-            Assert.AreEqual(24, fieldCount);
+            // Health: 2 (health, healthStatus)
+            // Total: 26
+            Assert.AreEqual(26, fieldCount);
         }
     }
 }

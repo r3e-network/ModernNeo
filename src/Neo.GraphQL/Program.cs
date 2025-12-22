@@ -17,6 +17,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Neo.GraphQL.Types;
+using Neo.Observability.Health;
 
 namespace Neo.GraphQL
 {
@@ -37,6 +38,8 @@ namespace Neo.GraphQL
                 .AddSingleton<Neo.Services.Contracts.IContractQueryService, Neo.Services.Contracts.ContractQueryService>()
                 // Event service for subscriptions
                 .AddSingleton<Neo.Services.Events.IBlockchainEventService, Neo.Services.Events.BlockchainEventService>()
+                // Health check service
+                .AddSingleton<IHealthCheckService, HealthCheckService>()
                 // Register GraphQL types
                 .AddSingleton<BlockType>()
                 .AddSingleton<TransactionType>()
@@ -46,6 +49,9 @@ namespace Neo.GraphQL
                 .AddSingleton<ContractType>()
                 .AddSingleton<SubscriptionType>()
                 .AddSingleton<TransactionRemovedType>()
+                .AddSingleton<HealthReportType>()
+                .AddSingleton<HealthCheckEntryType>()
+                .AddSingleton<HealthStatusEnumType>()
                 .AddGraphQL(b => b
                     .AddSystemTextJson()
                     .AddSchema<NeoSchema>());
