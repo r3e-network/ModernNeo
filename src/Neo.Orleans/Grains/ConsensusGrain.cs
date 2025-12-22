@@ -79,10 +79,10 @@ namespace Neo.Orleans.Grains
                 case 0x21: // PrepareResponse
                     await HandlePrepareResponse(validatorIndex, payload);
                     break;
-                case 0x22: // Commit
+                case 0x30: // Commit
                     await HandleCommit(validatorIndex, payload);
                     break;
-                case 0x23: // ChangeView
+                case 0x00: // ChangeView
                     await HandleChangeView(validatorIndex, payload);
                     break;
             }
