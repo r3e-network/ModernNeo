@@ -1,32 +1,39 @@
 // Copyright (C) 2015-2025 The Neo Project.
 //
 // CloseWalletRpcMethod.cs file belongs to the neo project and is free
-// software distributed under the MIT software license.
+// software distributed under the MIT software license, see the
+// accompanying file LICENSE in the main directory of the
+// repository or http://www.opensource.org/licenses/mit-license.php
+// for more details.
+//
+// Redistribution and use in source and binary forms with or without
+// modifications are permitted.
 
 using Neo.Json;
-using System.Threading.Tasks;
 using Neo.RPC;
 using System;
+using System.Threading.Tasks;
 
-namespace Neo.Node.Rpc;
-
-public sealed class CloseWalletRpcMethod : IRpcMethod
+namespace Neo.Node.Rpc
 {
-    private readonly WalletManager _walletManager;
-
-    public string Name => "closewallet";
-
-    public CloseWalletRpcMethod(WalletManager walletManager)
+    public sealed class CloseWalletRpcMethod : IRpcMethod
     {
-        _walletManager = walletManager ?? throw new ArgumentNullException(nameof(walletManager));
-    }
+        private readonly WalletManager _walletManager;
 
-    public Task<JToken?> ProcessAsync(JArray? parameters)
-    {
-        if (parameters is not null && parameters.Count > 0)
-            throw new RpcException(RpcError.InvalidParams.Code, "No parameters expected.");
+        public string Name => "closewallet";
 
-        _walletManager.Close();
-        return Task.FromResult<JToken?>(new JBoolean(true));
+        public CloseWalletRpcMethod(WalletManager walletManager)
+        {
+            _walletManager = walletManager ?? throw new ArgumentNullException(nameof(walletManager));
+        }
+
+        public Task<JToken?> ProcessAsync(JArray? parameters)
+        {
+            if (parameters is not null && parameters.Count > 0)
+                throw new RpcException(RpcError.InvalidParams.Code, "No parameters expected.");
+
+            _walletManager.Close();
+            return Task.FromResult<JToken?>(new JBoolean(true));
+        }
     }
 }

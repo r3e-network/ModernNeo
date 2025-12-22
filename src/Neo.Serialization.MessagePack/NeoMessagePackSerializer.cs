@@ -1,124 +1,131 @@
 // Copyright (C) 2015-2025 The Neo Project.
 //
 // NeoMessagePackSerializer.cs file belongs to the neo project and is free
-// software distributed under the MIT software license.
+// software distributed under the MIT software license, see the
+// accompanying file LICENSE in the main directory of the
+// repository or http://www.opensource.org/licenses/mit-license.php
+// for more details.
+//
+// Redistribution and use in source and binary forms with or without
+// modifications are permitted.
 
 using MessagePack;
 using MessagePack.Resolvers;
 using Neo.Serialization.MessagePack.Resolvers;
 
-namespace Neo.Serialization.MessagePack;
-
-/// <summary>
-/// Neo-specific MessagePack serializer with pre-configured options.
-/// Provides high-performance serialization for Neo blockchain types.
-/// </summary>
-public static class NeoMessagePackSerializer
+namespace Neo.Serialization.MessagePack
 {
     /// <summary>
-    /// Default MessagePack options for Neo types.
-    /// Uses Neo resolver with standard resolver fallback.
+    /// Neo-specific MessagePack serializer with pre-configured options.
+    /// Provides high-performance serialization for Neo blockchain types.
     /// </summary>
-    public static readonly MessagePackSerializerOptions DefaultOptions;
-
-    /// <summary>
-    /// Compressed MessagePack options using LZ4 compression.
-    /// Recommended for network transmission and storage.
-    /// </summary>
-    public static readonly MessagePackSerializerOptions CompressedOptions;
-
-    static NeoMessagePackSerializer()
+    public static class NeoMessagePackSerializer
     {
-        // Create composite resolver: Neo types first, then standard types
-        var resolver = CompositeResolver.Create(
-            NeoResolver.Instance,
-            StandardResolver.Instance);
+        /// <summary>
+        /// Default MessagePack options for Neo types.
+        /// Uses Neo resolver with standard resolver fallback.
+        /// </summary>
+        public static readonly MessagePackSerializerOptions DefaultOptions;
 
-        DefaultOptions = MessagePackSerializerOptions.Standard
-            .WithResolver(resolver)
-            .WithSecurity(MessagePackSecurity.UntrustedData);
+        /// <summary>
+        /// Compressed MessagePack options using LZ4 compression.
+        /// Recommended for network transmission and storage.
+        /// </summary>
+        public static readonly MessagePackSerializerOptions CompressedOptions;
 
-        CompressedOptions = DefaultOptions
-            .WithCompression(MessagePackCompression.Lz4BlockArray);
-    }
+        static NeoMessagePackSerializer()
+        {
+            // Create composite resolver: Neo types first, then standard types
+            var resolver = CompositeResolver.Create(
+                NeoResolver.Instance,
+                StandardResolver.Instance);
 
-    /// <summary>
-    /// Serializes an object to MessagePack binary format.
-    /// </summary>
-    public static byte[] Serialize<T>(T value)
-    {
-        return MessagePackSerializer.Serialize(value, DefaultOptions);
-    }
+            DefaultOptions = MessagePackSerializerOptions.Standard
+                .WithResolver(resolver)
+                .WithSecurity(MessagePackSecurity.UntrustedData);
 
-    /// <summary>
-    /// Serializes an object to MessagePack binary format with compression.
-    /// </summary>
-    public static byte[] SerializeCompressed<T>(T value)
-    {
-        return MessagePackSerializer.Serialize(value, CompressedOptions);
-    }
+            CompressedOptions = DefaultOptions
+                .WithCompression(MessagePackCompression.Lz4BlockArray);
+        }
 
-    /// <summary>
-    /// Deserializes MessagePack binary to an object.
-    /// </summary>
-    public static T Deserialize<T>(byte[] data)
-    {
-        return MessagePackSerializer.Deserialize<T>(data, DefaultOptions);
-    }
+        /// <summary>
+        /// Serializes an object to MessagePack binary format.
+        /// </summary>
+        public static byte[] Serialize<T>(T value)
+        {
+            return MessagePackSerializer.Serialize(value, DefaultOptions);
+        }
 
-    /// <summary>
-    /// Deserializes MessagePack binary to an object.
-    /// </summary>
-    public static T Deserialize<T>(ReadOnlyMemory<byte> data)
-    {
-        return MessagePackSerializer.Deserialize<T>(data, DefaultOptions);
-    }
+        /// <summary>
+        /// Serializes an object to MessagePack binary format with compression.
+        /// </summary>
+        public static byte[] SerializeCompressed<T>(T value)
+        {
+            return MessagePackSerializer.Serialize(value, CompressedOptions);
+        }
 
-    /// <summary>
-    /// Deserializes compressed MessagePack binary to an object.
-    /// </summary>
-    public static T DeserializeCompressed<T>(byte[] data)
-    {
-        return MessagePackSerializer.Deserialize<T>(data, CompressedOptions);
-    }
+        /// <summary>
+        /// Deserializes MessagePack binary to an object.
+        /// </summary>
+        public static T Deserialize<T>(byte[] data)
+        {
+            return MessagePackSerializer.Deserialize<T>(data, DefaultOptions);
+        }
 
-    /// <summary>
-    /// Deserializes compressed MessagePack binary to an object.
-    /// </summary>
-    public static T DeserializeCompressed<T>(ReadOnlyMemory<byte> data)
-    {
-        return MessagePackSerializer.Deserialize<T>(data, CompressedOptions);
-    }
+        /// <summary>
+        /// Deserializes MessagePack binary to an object.
+        /// </summary>
+        public static T Deserialize<T>(ReadOnlyMemory<byte> data)
+        {
+            return MessagePackSerializer.Deserialize<T>(data, DefaultOptions);
+        }
 
-    /// <summary>
-    /// Serializes an object to a stream.
-    /// </summary>
-    public static void Serialize<T>(Stream stream, T value)
-    {
-        MessagePackSerializer.Serialize(stream, value, DefaultOptions);
-    }
+        /// <summary>
+        /// Deserializes compressed MessagePack binary to an object.
+        /// </summary>
+        public static T DeserializeCompressed<T>(byte[] data)
+        {
+            return MessagePackSerializer.Deserialize<T>(data, CompressedOptions);
+        }
 
-    /// <summary>
-    /// Deserializes an object from a stream.
-    /// </summary>
-    public static T Deserialize<T>(Stream stream)
-    {
-        return MessagePackSerializer.Deserialize<T>(stream, DefaultOptions);
-    }
+        /// <summary>
+        /// Deserializes compressed MessagePack binary to an object.
+        /// </summary>
+        public static T DeserializeCompressed<T>(ReadOnlyMemory<byte> data)
+        {
+            return MessagePackSerializer.Deserialize<T>(data, CompressedOptions);
+        }
 
-    /// <summary>
-    /// Asynchronously serializes an object to a stream.
-    /// </summary>
-    public static async Task SerializeAsync<T>(Stream stream, T value, CancellationToken cancellationToken = default)
-    {
-        await MessagePackSerializer.SerializeAsync(stream, value, DefaultOptions, cancellationToken);
-    }
+        /// <summary>
+        /// Serializes an object to a stream.
+        /// </summary>
+        public static void Serialize<T>(Stream stream, T value)
+        {
+            MessagePackSerializer.Serialize(stream, value, DefaultOptions);
+        }
 
-    /// <summary>
-    /// Asynchronously deserializes an object from a stream.
-    /// </summary>
-    public static async ValueTask<T> DeserializeAsync<T>(Stream stream, CancellationToken cancellationToken = default)
-    {
-        return await MessagePackSerializer.DeserializeAsync<T>(stream, DefaultOptions, cancellationToken);
+        /// <summary>
+        /// Deserializes an object from a stream.
+        /// </summary>
+        public static T Deserialize<T>(Stream stream)
+        {
+            return MessagePackSerializer.Deserialize<T>(stream, DefaultOptions);
+        }
+
+        /// <summary>
+        /// Asynchronously serializes an object to a stream.
+        /// </summary>
+        public static async Task SerializeAsync<T>(Stream stream, T value, CancellationToken cancellationToken = default)
+        {
+            await MessagePackSerializer.SerializeAsync(stream, value, DefaultOptions, cancellationToken);
+        }
+
+        /// <summary>
+        /// Asynchronously deserializes an object from a stream.
+        /// </summary>
+        public static async ValueTask<T> DeserializeAsync<T>(Stream stream, CancellationToken cancellationToken = default)
+        {
+            return await MessagePackSerializer.DeserializeAsync<T>(stream, DefaultOptions, cancellationToken);
+        }
     }
 }

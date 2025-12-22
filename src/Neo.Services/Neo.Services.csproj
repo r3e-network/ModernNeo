@@ -11,10 +11,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\\Neo\\Neo.csproj" />
     <ProjectReference Include="..\\Neo.Core\\Neo.Core.csproj" />
     <ProjectReference Include="..\\Neo.Protocol.Payloads\\Neo.Protocol.Payloads.csproj" />
     <ProjectReference Include="..\\Neo.SmartContract.Core\\Neo.SmartContract.Core.csproj" />
     <ProjectReference Include="..\\Neo.Storage\\Neo.Storage.csproj" />
+    <ProjectReference Include="..\\Neo.Ledger\\Neo.Ledger.csproj" />
+    <ProjectReference Include="..\\Neo.Network\\Neo.Network.csproj" />
   </ItemGroup>
 
   <ItemGroup>

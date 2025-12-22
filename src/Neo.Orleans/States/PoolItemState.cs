@@ -1,72 +1,84 @@
-namespace Neo.Orleans.States;
+// Copyright (C) 2015-2025 The Neo Project.
+//
+// PoolItemState.cs file belongs to the neo project and is free
+// software distributed under the MIT software license, see the
+// accompanying file LICENSE in the main directory of the
+// repository or http://www.opensource.org/licenses/mit-license.php
+// for more details.
+//
+// Redistribution and use in source and binary forms with or without
+// modifications are permitted.
 
-/// <summary>
-/// Represents a transaction item in the memory pool.
-/// Stores serializable transaction data for Orleans persistence.
-/// </summary>
-[GenerateSerializer]
-public class PoolItemState : IComparable<PoolItemState>
+namespace Neo.Orleans.States
 {
     /// <summary>
-    /// Transaction hash as hex string (key).
+    /// Represents a transaction item in the memory pool.
+    /// Stores serializable transaction data for Orleans persistence.
     /// </summary>
-    [Id(0)] public string HashHex { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Transaction hash as byte array.
-    /// </summary>
-    [Id(1)] public byte[] Hash { get; set; } = Array.Empty<byte>();
-
-    /// <summary>
-    /// Fee per byte for priority sorting.
-    /// </summary>
-    [Id(2)] public long FeePerByte { get; set; }
-
-    /// <summary>
-    /// Network fee for secondary sorting.
-    /// </summary>
-    [Id(3)] public long NetworkFee { get; set; }
-
-    /// <summary>
-    /// System fee of the transaction.
-    /// </summary>
-    [Id(4)] public long SystemFee { get; set; }
-
-    /// <summary>
-    /// Block height until which the transaction is valid.
-    /// </summary>
-    [Id(5)] public uint ValidUntilBlock { get; set; }
-
-    /// <summary>
-    /// Timestamp when transaction was added to pool.
-    /// </summary>
-    [Id(6)] public DateTime Timestamp { get; set; }
-
-    /// <summary>
-    /// Serialized transaction data for reconstruction.
-    /// </summary>
-    [Id(7)] public byte[] SerializedData { get; set; } = Array.Empty<byte>();
-
-    /// <summary>
-    /// Compare by fee priority (higher fee = higher priority).
-    /// </summary>
-    public int CompareTo(PoolItemState? other)
+    [GenerateSerializer]
+    public class PoolItemState : IComparable<PoolItemState>
     {
-        if (other is null) return 1;
+        /// <summary>
+        /// Transaction hash as hex string (key).
+        /// </summary>
+        [Id(0)] public string HashHex { get; set; } = string.Empty;
 
-        // Higher FeePerByte = higher priority (descending)
-        var result = other.FeePerByte.CompareTo(FeePerByte);
-        if (result != 0) return result;
+        /// <summary>
+        /// Transaction hash as byte array.
+        /// </summary>
+        [Id(1)] public byte[] Hash { get; set; } = Array.Empty<byte>();
 
-        // Higher NetworkFee = higher priority (descending)
-        result = other.NetworkFee.CompareTo(NetworkFee);
-        if (result != 0) return result;
+        /// <summary>
+        /// Fee per byte for priority sorting.
+        /// </summary>
+        [Id(2)] public long FeePerByte { get; set; }
 
-        // Earlier timestamp = higher priority (ascending)
-        result = Timestamp.CompareTo(other.Timestamp);
-        if (result != 0) return result;
+        /// <summary>
+        /// Network fee for secondary sorting.
+        /// </summary>
+        [Id(3)] public long NetworkFee { get; set; }
 
-        // Hash as tiebreaker
-        return string.Compare(HashHex, other.HashHex, StringComparison.Ordinal);
+        /// <summary>
+        /// System fee of the transaction.
+        /// </summary>
+        [Id(4)] public long SystemFee { get; set; }
+
+        /// <summary>
+        /// Block height until which the transaction is valid.
+        /// </summary>
+        [Id(5)] public uint ValidUntilBlock { get; set; }
+
+        /// <summary>
+        /// Timestamp when transaction was added to pool.
+        /// </summary>
+        [Id(6)] public DateTime Timestamp { get; set; }
+
+        /// <summary>
+        /// Serialized transaction data for reconstruction.
+        /// </summary>
+        [Id(7)] public byte[] SerializedData { get; set; } = Array.Empty<byte>();
+
+        /// <summary>
+        /// Compare by fee priority (higher fee = higher priority).
+        /// </summary>
+        public int CompareTo(PoolItemState? other)
+        {
+            if (other is null) return 1;
+
+            // Higher FeePerByte = higher priority (descending)
+            var result = other.FeePerByte.CompareTo(FeePerByte);
+            if (result != 0) return result;
+
+            // Higher NetworkFee = higher priority (descending)
+            result = other.NetworkFee.CompareTo(NetworkFee);
+            if (result != 0) return result;
+
+            // Earlier timestamp = higher priority (ascending)
+            result = Timestamp.CompareTo(other.Timestamp);
+            if (result != 0) return result;
+
+            // Hash as tiebreaker
+            return string.Compare(HashHex, other.HashHex, StringComparison.Ordinal);
+        }
     }
 }

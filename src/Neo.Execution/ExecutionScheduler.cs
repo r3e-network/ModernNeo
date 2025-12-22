@@ -1,149 +1,156 @@
 // Copyright (C) 2015-2025 The Neo Project.
 //
 // ExecutionScheduler.cs file belongs to the neo project and is free
-// software distributed under the MIT software license.
+// software distributed under the MIT software license, see the
+// accompanying file LICENSE in the main directory of the
+// repository or http://www.opensource.org/licenses/mit-license.php
+// for more details.
+//
+// Redistribution and use in source and binary forms with or without
+// modifications are permitted.
 
 using Neo.Core.Interfaces;
 
-namespace Neo.Execution;
-
-/// <summary>
-/// Represents a batch of transactions to execute in parallel.
-/// </summary>
-public class ExecutionBatch : IExecutionBatch
+namespace Neo.Execution
 {
-    public int BatchNumber { get; }
-    public IReadOnlyList<int> TransactionIndices { get; }
-    public bool SupportsOptimisticExecution { get; }
-
-    public ExecutionBatch(int batchNumber, IReadOnlyList<int> indices, bool supportsOptimistic = false)
-    {
-        BatchNumber = batchNumber;
-        TransactionIndices = indices;
-        SupportsOptimisticExecution = supportsOptimistic;
-    }
-}
-
-/// <summary>
-/// Schedules transactions for execution based on their dependencies.
-/// Uses topological sorting to determine execution order.
-/// </summary>
-public class ExecutionScheduler : IExecutionScheduler
-{
-    /// <inheritdoc/>
-    public SchedulingStrategy Strategy { get; set; } = SchedulingStrategy.Conservative;
-
     /// <summary>
-    /// Maximum batch size for parallel execution.
+    /// Represents a batch of transactions to execute in parallel.
     /// </summary>
-    public int MaxBatchSize { get; set; } = 64;
-
-    /// <inheritdoc/>
-    public IEnumerable<IExecutionBatch> Schedule(IDependencyGraph graph)
+    public class ExecutionBatch : IExecutionBatch
     {
-        if (graph.TransactionCount == 0)
-            yield break;
+        public int BatchNumber { get; }
+        public IReadOnlyList<int> TransactionIndices { get; }
+        public bool SupportsOptimisticExecution { get; }
 
-        // Check for cycles
-        if (graph.HasCycle())
-            throw new InvalidOperationException("Dependency graph contains a cycle - cannot schedule execution");
-
-        var batches = new List<IExecutionBatch>();
-        var remaining = new HashSet<int>(Enumerable.Range(0, graph.TransactionCount));
-        int batchNumber = 0;
-
-        while (remaining.Count > 0)
+        public ExecutionBatch(int batchNumber, IReadOnlyList<int> indices, bool supportsOptimistic = false)
         {
-            // Find all transactions with no remaining dependencies
-            var independentTx = graph.GetIndependentTransactions(remaining);
-
-            if (independentTx.Count == 0)
-            {
-                // This shouldn't happen if HasCycle() returned false
-                throw new InvalidOperationException("No independent transactions found but cycle not detected");
-            }
-
-            // Determine if this batch supports optimistic execution
-            bool supportsOptimistic = Strategy != SchedulingStrategy.Conservative &&
-                                      HasOnlyWeakDependencies(graph, independentTx);
-
-            // Split large batches if needed
-            foreach (var chunk in ChunkBatch(independentTx.ToList(), MaxBatchSize))
-            {
-                yield return new ExecutionBatch(batchNumber++, chunk, supportsOptimistic);
-            }
-
-            // Remove processed transactions
-            foreach (var idx in independentTx)
-            {
-                remaining.Remove(idx);
-            }
+            BatchNumber = batchNumber;
+            TransactionIndices = indices;
+            SupportsOptimisticExecution = supportsOptimistic;
         }
     }
 
     /// <summary>
-    /// Schedules with specific ordering constraints for testing.
+    /// Schedules transactions for execution based on their dependencies.
+    /// Uses topological sorting to determine execution order.
     /// </summary>
-    public IEnumerable<IExecutionBatch> ScheduleWithOrdering(
-        IDependencyGraph graph,
-        Func<IReadOnlyList<int>, IReadOnlyList<int>> orderingFunction)
+    public class ExecutionScheduler : IExecutionScheduler
     {
-        if (graph.TransactionCount == 0)
-            yield break;
+        /// <inheritdoc/>
+        public SchedulingStrategy Strategy { get; set; } = SchedulingStrategy.Conservative;
 
-        var remaining = new HashSet<int>(Enumerable.Range(0, graph.TransactionCount));
-        int batchNumber = 0;
+        /// <summary>
+        /// Maximum batch size for parallel execution.
+        /// </summary>
+        public int MaxBatchSize { get; set; } = 64;
 
-        while (remaining.Count > 0)
+        /// <inheritdoc/>
+        public IEnumerable<IExecutionBatch> Schedule(IDependencyGraph graph)
         {
-            var independentTx = graph.GetIndependentTransactions(remaining);
+            if (graph.TransactionCount == 0)
+                yield break;
 
-            if (independentTx.Count == 0)
-                throw new InvalidOperationException("No independent transactions found");
+            // Check for cycles
+            if (graph.HasCycle())
+                throw new InvalidOperationException("Dependency graph contains a cycle - cannot schedule execution");
 
-            var orderedTx = orderingFunction(independentTx);
-            bool supportsOptimistic = Strategy != SchedulingStrategy.Conservative;
+            var batches = new List<IExecutionBatch>();
+            var remaining = new HashSet<int>(Enumerable.Range(0, graph.TransactionCount));
+            int batchNumber = 0;
 
-            foreach (var chunk in ChunkBatch(orderedTx.ToList(), MaxBatchSize))
+            while (remaining.Count > 0)
             {
-                yield return new ExecutionBatch(batchNumber++, chunk, supportsOptimistic);
-            }
+                // Find all transactions with no remaining dependencies
+                var independentTx = graph.GetIndependentTransactions(remaining);
 
-            foreach (var idx in independentTx)
-            {
-                remaining.Remove(idx);
-            }
-        }
-    }
-
-    private static bool HasOnlyWeakDependencies(IDependencyGraph graph, IReadOnlyList<int> indices)
-    {
-        if (graph is not DependencyGraph concreteGraph)
-            return false;
-
-        foreach (var idx in indices)
-        {
-            var deps = graph.GetDependencies(idx);
-            foreach (var dep in deps)
-            {
-                var type = concreteGraph.GetDependencyType(idx, dep);
-                if ((type & ~DependencyType.Weak) != DependencyType.None)
+                if (independentTx.Count == 0)
                 {
-                    // Has a strong dependency
-                    return false;
+                    // This shouldn't happen if HasCycle() returned false
+                    throw new InvalidOperationException("No independent transactions found but cycle not detected");
+                }
+
+                // Determine if this batch supports optimistic execution
+                bool supportsOptimistic = Strategy != SchedulingStrategy.Conservative &&
+                                          HasOnlyWeakDependencies(graph, independentTx);
+
+                // Split large batches if needed
+                foreach (var chunk in ChunkBatch(independentTx.ToList(), MaxBatchSize))
+                {
+                    yield return new ExecutionBatch(batchNumber++, chunk, supportsOptimistic);
+                }
+
+                // Remove processed transactions
+                foreach (var idx in independentTx)
+                {
+                    remaining.Remove(idx);
                 }
             }
         }
 
-        return true;
-    }
-
-    private static IEnumerable<IReadOnlyList<int>> ChunkBatch(List<int> indices, int maxSize)
-    {
-        for (int i = 0; i < indices.Count; i += maxSize)
+        /// <summary>
+        /// Schedules with specific ordering constraints for testing.
+        /// </summary>
+        public IEnumerable<IExecutionBatch> ScheduleWithOrdering(
+            IDependencyGraph graph,
+            Func<IReadOnlyList<int>, IReadOnlyList<int>> orderingFunction)
         {
-            var count = Math.Min(maxSize, indices.Count - i);
-            yield return indices.GetRange(i, count);
+            if (graph.TransactionCount == 0)
+                yield break;
+
+            var remaining = new HashSet<int>(Enumerable.Range(0, graph.TransactionCount));
+            int batchNumber = 0;
+
+            while (remaining.Count > 0)
+            {
+                var independentTx = graph.GetIndependentTransactions(remaining);
+
+                if (independentTx.Count == 0)
+                    throw new InvalidOperationException("No independent transactions found");
+
+                var orderedTx = orderingFunction(independentTx);
+                bool supportsOptimistic = Strategy != SchedulingStrategy.Conservative;
+
+                foreach (var chunk in ChunkBatch(orderedTx.ToList(), MaxBatchSize))
+                {
+                    yield return new ExecutionBatch(batchNumber++, chunk, supportsOptimistic);
+                }
+
+                foreach (var idx in independentTx)
+                {
+                    remaining.Remove(idx);
+                }
+            }
+        }
+
+        private static bool HasOnlyWeakDependencies(IDependencyGraph graph, IReadOnlyList<int> indices)
+        {
+            if (graph is not DependencyGraph concreteGraph)
+                return false;
+
+            foreach (var idx in indices)
+            {
+                var deps = graph.GetDependencies(idx);
+                foreach (var dep in deps)
+                {
+                    var type = concreteGraph.GetDependencyType(idx, dep);
+                    if ((type & ~DependencyType.Weak) != DependencyType.None)
+                    {
+                        // Has a strong dependency
+                        return false;
+                    }
+                }
+            }
+
+            return true;
+        }
+
+        private static IEnumerable<IReadOnlyList<int>> ChunkBatch(List<int> indices, int maxSize)
+        {
+            for (int i = 0; i < indices.Count; i += maxSize)
+            {
+                var count = Math.Min(maxSize, indices.Count - i);
+                yield return indices.GetRange(i, count);
+            }
         }
     }
 }

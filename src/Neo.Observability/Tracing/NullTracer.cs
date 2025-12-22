@@ -9,9 +9,9 @@
 // Redistribution and use in source and binary forms with or without
 // modifications are permitted.
 
+using Neo.Observability.Tracing.Propagation;
 using System;
 using System.Collections.Generic;
-using Neo.Observability.Tracing.Propagation;
 
 namespace Neo.Observability.Tracing
 {

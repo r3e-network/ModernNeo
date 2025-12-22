@@ -16,11 +16,13 @@
 
   <ItemGroup>
     <ProjectReference Include="..\\Neo\\Neo.csproj" />
+    <ProjectReference Include="..\\Neo.P2P.Abstractions\\Neo.P2P.Abstractions.csproj" />
     <ProjectReference Include="..\\Neo.Extensions\\Neo.Extensions.csproj" />
     <ProjectReference Include="..\\Neo.RPC\\Neo.RPC.csproj" />
     <ProjectReference Include="..\\Neo.IO\\Neo.IO.csproj" />
     <ProjectReference Include="..\\Neo.Plugins\\Neo.Plugins.csproj" />
     <ProjectReference Include="..\\Neo.Protocol\\Neo.Protocol.csproj" />
+    <ProjectReference Include="..\\Neo.Network\\Neo.Network.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -31,4 +33,3 @@
   </ItemGroup>
 
 </Project>
-

@@ -54,6 +54,18 @@ jobs:
       if: matrix.os != 'ubuntu-latest'
       run: |
         dotnet test -p:GITHUB_ACTIONS=true
+    - name: Golden Vectors (fast)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        dotnet test tests/Neo.UnitTests/Neo.UnitTests.csproj -c Release --filter TestCategory=Golden -v minimal
+    - name: RPC Tests (smoke)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        dotnet test tests/Neo.UnitTests/Neo.UnitTests.csproj -c Release --filter TestCategory=RPC -v minimal
+    - name: Bridge Tests (WS bind)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        dotnet test tests/Neo.UnitTests/Neo.UnitTests.csproj -c Release --filter TestCategory=Bridge -v minimal
     - name: Test (ubuntu)
       if: matrix.os == 'ubuntu-latest'
       run: |

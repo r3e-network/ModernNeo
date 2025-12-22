@@ -1,7 +1,13 @@
 // Copyright (C) 2015-2025 The Neo Project.
 //
 // Benchmarks.BlockExecution.cs file belongs to the neo project and is free
-// software distributed under the MIT software license.
+// software distributed under the MIT software license, see the
+// accompanying file LICENSE in the main directory of the
+// repository or http://www.opensource.org/licenses/mit-license.php
+// for more details.
+//
+// Redistribution and use in source and binary forms with or without
+// modifications are permitted.
 
 #nullable enable
 
@@ -14,132 +20,44 @@ using Neo.SmartContract;
 using Neo.VM;
 using Neo.Wallets;
 
-namespace Neo.Benchmarks;
-
-/// <summary>
-/// Block serialization benchmarks covering 1-100 tx/block scenarios.
-/// </summary>
-[MemoryDiagnoser]
-[RankColumn]
-public class BlockSerializationBenchmarks
+namespace Neo.Benchmarks
 {
-    private Block[] _blocks = null!;
-    private byte[][] _serializedBlocks = null!;
-
-    [Params(1, 10, 50, 100)]
-    public int TransactionCount { get; set; }
-
-    [GlobalSetup]
-    public void Setup()
+    /// <summary>
+    /// Block serialization benchmarks covering 1-100 tx/block scenarios.
+    /// </summary>
+    [MemoryDiagnoser]
+    [RankColumn]
+    public class BlockSerializationBenchmarks
     {
-        _blocks = new Block[4];
-        _serializedBlocks = new byte[4][];
+        private Block[] _blocks = null!;
+        private byte[][] _serializedBlocks = null!;
 
-        var txCounts = new[] { 1, 10, 50, 100 };
-        for (int i = 0; i < txCounts.Length; i++)
-        {
-            _blocks[i] = CreateBlock(txCounts[i]);
-            _serializedBlocks[i] = _blocks[i].ToArray();
-        }
-    }
+        [Params(1, 10, 50, 100)]
+        public int TransactionCount { get; set; }
 
-    private Block CreateBlock(int txCount)
-    {
-        var transactions = new Transaction[txCount];
-        for (int i = 0; i < txCount; i++)
+        [GlobalSetup]
+        public void Setup()
         {
-            transactions[i] = new Transaction
+            _blocks = new Block[4];
+            _serializedBlocks = new byte[4][];
+
+            var txCounts = new[] { 1, 10, 50, 100 };
+            for (int i = 0; i < txCounts.Length; i++)
             {
-                Version = 0,
-                Nonce = (uint)i,
-                SystemFee = 1000000,
-                NetworkFee = 100000,
-                ValidUntilBlock = 1000,
-                Signers = new[]
-                {
-                    new Signer
-                    {
-                        Account = UInt160.Zero,
-                        Scopes = WitnessScope.CalledByEntry
-                    }
-                },
-                Attributes = Array.Empty<TransactionAttribute>(),
-                Script = new byte[] { (byte)OpCode.PUSH1, (byte)OpCode.RET },
-                Witnesses = new[]
-                {
-                    new Witness
-                    {
-                        InvocationScript = new byte[64],
-                        VerificationScript = new byte[32]
-                    }
-                }
-            };
+                _blocks[i] = CreateBlock(txCounts[i]);
+                _serializedBlocks[i] = _blocks[i].ToArray();
+            }
         }
 
-        return new Block
+        private Block CreateBlock(int txCount)
         {
-            Header = new Header
+            var transactions = new Transaction[txCount];
+            for (int i = 0; i < txCount; i++)
             {
-                Version = 0,
-                PrevHash = UInt256.Zero,
-                MerkleRoot = MerkleTree.ComputeRoot(transactions.Select(t => t.Hash).ToArray()),
-                Timestamp = 1700000000000,
-                Nonce = 12345,
-                Index = 100,
-                PrimaryIndex = 0,
-                NextConsensus = UInt160.Zero,
-                Witness = new Witness
-                {
-                    InvocationScript = new byte[64],
-                    VerificationScript = new byte[32]
-                }
-            },
-            Transactions = transactions
-        };
-    }
-
-    [Benchmark(Baseline = true)]
-    public byte[] Serialize_Block()
-    {
-        var block = _blocks[Array.IndexOf(new[] { 1, 10, 50, 100 }, TransactionCount)];
-        return block.ToArray();
-    }
-
-    [Benchmark]
-    public Block Deserialize_Block()
-    {
-        var data = _serializedBlocks[Array.IndexOf(new[] { 1, 10, 50, 100 }, TransactionCount)];
-        return data.AsSerializable<Block>();
-    }
-}
-
-/// <summary>
-/// Block hash computation benchmarks.
-/// </summary>
-[MemoryDiagnoser]
-[RankColumn]
-public class BlockHashBenchmarks
-{
-    private Block[] _blocks = null!;
-
-    [Params(1, 10, 50, 100)]
-    public int TransactionCount { get; set; }
-
-    [GlobalSetup]
-    public void Setup()
-    {
-        _blocks = new Block[4];
-        var txCounts = new[] { 1, 10, 50, 100 };
-
-        for (int i = 0; i < txCounts.Length; i++)
-        {
-            var transactions = new Transaction[txCounts[i]];
-            for (int j = 0; j < txCounts[i]; j++)
-            {
-                transactions[j] = new Transaction
+                transactions[i] = new Transaction
                 {
                     Version = 0,
-                    Nonce = (uint)j,
+                    Nonce = (uint)i,
                     SystemFee = 1000000,
                     NetworkFee = 100000,
                     ValidUntilBlock = 1000,
@@ -164,7 +82,7 @@ public class BlockHashBenchmarks
                 };
             }
 
-            _blocks[i] = new Block
+            return new Block
             {
                 Header = new Header
                 {
@@ -185,109 +103,198 @@ public class BlockHashBenchmarks
                 Transactions = transactions
             };
         }
-    }
 
-    [Benchmark(Baseline = true)]
-    public UInt256 ComputeBlockHash()
-    {
-        var block = _blocks[Array.IndexOf(new[] { 1, 10, 50, 100 }, TransactionCount)];
-        return block.Hash;
-    }
-
-    [Benchmark]
-    public UInt256 ComputeMerkleRoot()
-    {
-        var block = _blocks[Array.IndexOf(new[] { 1, 10, 50, 100 }, TransactionCount)];
-        var hashes = block.Transactions.Select(t => t.Hash).ToArray();
-        return MerkleTree.ComputeRoot(hashes);
-    }
-}
-
-/// <summary>
-/// Block size calculation benchmarks.
-/// </summary>
-[MemoryDiagnoser]
-[RankColumn]
-public class BlockSizeBenchmarks
-{
-    private Block[] _blocks = null!;
-
-    [Params(1, 10, 50, 100)]
-    public int TransactionCount { get; set; }
-
-    [GlobalSetup]
-    public void Setup()
-    {
-        _blocks = new Block[4];
-        var txCounts = new[] { 1, 10, 50, 100 };
-
-        for (int i = 0; i < txCounts.Length; i++)
+        [Benchmark(Baseline = true)]
+        public byte[] Serialize_Block()
         {
-            var transactions = new Transaction[txCounts[i]];
-            for (int j = 0; j < txCounts[i]; j++)
+            var block = _blocks[Array.IndexOf(new[] { 1, 10, 50, 100 }, TransactionCount)];
+            return block.ToArray();
+        }
+
+        [Benchmark]
+        public Block Deserialize_Block()
+        {
+            var data = _serializedBlocks[Array.IndexOf(new[] { 1, 10, 50, 100 }, TransactionCount)];
+            return data.AsSerializable<Block>();
+        }
+    }
+
+    /// <summary>
+    /// Block hash computation benchmarks.
+    /// </summary>
+    [MemoryDiagnoser]
+    [RankColumn]
+    public class BlockHashBenchmarks
+    {
+        private Block[] _blocks = null!;
+
+        [Params(1, 10, 50, 100)]
+        public int TransactionCount { get; set; }
+
+        [GlobalSetup]
+        public void Setup()
+        {
+            _blocks = new Block[4];
+            var txCounts = new[] { 1, 10, 50, 100 };
+
+            for (int i = 0; i < txCounts.Length; i++)
             {
-                transactions[j] = new Transaction
+                var transactions = new Transaction[txCounts[i]];
+                for (int j = 0; j < txCounts[i]; j++)
                 {
-                    Version = 0,
-                    Nonce = (uint)j,
-                    SystemFee = 1000000,
-                    NetworkFee = 100000,
-                    ValidUntilBlock = 1000,
-                    Signers = new[]
+                    transactions[j] = new Transaction
                     {
-                        new Signer
+                        Version = 0,
+                        Nonce = (uint)j,
+                        SystemFee = 1000000,
+                        NetworkFee = 100000,
+                        ValidUntilBlock = 1000,
+                        Signers = new[]
                         {
-                            Account = UInt160.Zero,
-                            Scopes = WitnessScope.CalledByEntry
+                            new Signer
+                            {
+                                Account = UInt160.Zero,
+                                Scopes = WitnessScope.CalledByEntry
+                            }
+                        },
+                        Attributes = Array.Empty<TransactionAttribute>(),
+                        Script = new byte[] { (byte)OpCode.PUSH1, (byte)OpCode.RET },
+                        Witnesses = new[]
+                        {
+                            new Witness
+                            {
+                                InvocationScript = new byte[64],
+                                VerificationScript = new byte[32]
+                            }
                         }
-                    },
-                    Attributes = Array.Empty<TransactionAttribute>(),
-                    Script = new byte[] { (byte)OpCode.PUSH1, (byte)OpCode.RET },
-                    Witnesses = new[]
+                    };
+                }
+
+                _blocks[i] = new Block
+                {
+                    Header = new Header
                     {
-                        new Witness
+                        Version = 0,
+                        PrevHash = UInt256.Zero,
+                        MerkleRoot = MerkleTree.ComputeRoot(transactions.Select(t => t.Hash).ToArray()),
+                        Timestamp = 1700000000000,
+                        Nonce = 12345,
+                        Index = 100,
+                        PrimaryIndex = 0,
+                        NextConsensus = UInt160.Zero,
+                        Witness = new Witness
                         {
                             InvocationScript = new byte[64],
                             VerificationScript = new byte[32]
                         }
-                    }
+                    },
+                    Transactions = transactions
                 };
             }
+        }
 
-            _blocks[i] = new Block
-            {
-                Header = new Header
-                {
-                    Version = 0,
-                    PrevHash = UInt256.Zero,
-                    MerkleRoot = MerkleTree.ComputeRoot(transactions.Select(t => t.Hash).ToArray()),
-                    Timestamp = 1700000000000,
-                    Nonce = 12345,
-                    Index = 100,
-                    PrimaryIndex = 0,
-                    NextConsensus = UInt160.Zero,
-                    Witness = new Witness
-                    {
-                        InvocationScript = new byte[64],
-                        VerificationScript = new byte[32]
-                    }
-                },
-                Transactions = transactions
-            };
+        [Benchmark(Baseline = true)]
+        public UInt256 ComputeBlockHash()
+        {
+            var block = _blocks[Array.IndexOf(new[] { 1, 10, 50, 100 }, TransactionCount)];
+            return block.Hash;
+        }
+
+        [Benchmark]
+        public UInt256 ComputeMerkleRoot()
+        {
+            var block = _blocks[Array.IndexOf(new[] { 1, 10, 50, 100 }, TransactionCount)];
+            var hashes = block.Transactions.Select(t => t.Hash).ToArray();
+            return MerkleTree.ComputeRoot(hashes);
         }
     }
 
-    [Benchmark(Baseline = true)]
-    public int GetBlockSize()
+    /// <summary>
+    /// Block size calculation benchmarks.
+    /// </summary>
+    [MemoryDiagnoser]
+    [RankColumn]
+    public class BlockSizeBenchmarks
     {
-        var block = _blocks[Array.IndexOf(new[] { 1, 10, 50, 100 }, TransactionCount)];
-        return block.Size;
-    }
+        private Block[] _blocks = null!;
 
-    [Benchmark]
-    public int GetHeaderSize()
-    {
-        var block = _blocks[Array.IndexOf(new[] { 1, 10, 50, 100 }, TransactionCount)];
-        return block.Header.Size;
+        [Params(1, 10, 50, 100)]
+        public int TransactionCount { get; set; }
+
+        [GlobalSetup]
+        public void Setup()
+        {
+            _blocks = new Block[4];
+            var txCounts = new[] { 1, 10, 50, 100 };
+
+            for (int i = 0; i < txCounts.Length; i++)
+            {
+                var transactions = new Transaction[txCounts[i]];
+                for (int j = 0; j < txCounts[i]; j++)
+                {
+                    transactions[j] = new Transaction
+                    {
+                        Version = 0,
+                        Nonce = (uint)j,
+                        SystemFee = 1000000,
+                        NetworkFee = 100000,
+                        ValidUntilBlock = 1000,
+                        Signers = new[]
+                        {
+                            new Signer
+                            {
+                                Account = UInt160.Zero,
+                                Scopes = WitnessScope.CalledByEntry
+                            }
+                        },
+                        Attributes = Array.Empty<TransactionAttribute>(),
+                        Script = new byte[] { (byte)OpCode.PUSH1, (byte)OpCode.RET },
+                        Witnesses = new[]
+                        {
+                            new Witness
+                            {
+                                InvocationScript = new byte[64],
+                                VerificationScript = new byte[32]
+                            }
+                        }
+                    };
+                }
+
+                _blocks[i] = new Block
+                {
+                    Header = new Header
+                    {
+                        Version = 0,
+                        PrevHash = UInt256.Zero,
+                        MerkleRoot = MerkleTree.ComputeRoot(transactions.Select(t => t.Hash).ToArray()),
+                        Timestamp = 1700000000000,
+                        Nonce = 12345,
+                        Index = 100,
+                        PrimaryIndex = 0,
+                        NextConsensus = UInt160.Zero,
+                        Witness = new Witness
+                        {
+                            InvocationScript = new byte[64],
+                            VerificationScript = new byte[32]
+                        }
+                    },
+                    Transactions = transactions
+                };
+            }
+        }
+
+        [Benchmark(Baseline = true)]
+        public int GetBlockSize()
+        {
+            var block = _blocks[Array.IndexOf(new[] { 1, 10, 50, 100 }, TransactionCount)];
+            return block.Size;
+        }
+
+        [Benchmark]
+        public int GetHeaderSize()
+        {
+            var block = _blocks[Array.IndexOf(new[] { 1, 10, 50, 100 }, TransactionCount)];
+            return block.Header.Size;
+        }
     }
 }

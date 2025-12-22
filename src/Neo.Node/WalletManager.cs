@@ -1,56 +1,63 @@
 // Copyright (C) 2015-2025 The Neo Project.
 //
 // WalletManager.cs file belongs to the neo project and is free
-// software distributed under the MIT software license.
+// software distributed under the MIT software license, see the
+// accompanying file LICENSE in the main directory of the
+// repository or http://www.opensource.org/licenses/mit-license.php
+// for more details.
+//
+// Redistribution and use in source and binary forms with or without
+// modifications are permitted.
 
 using Neo;
 using Neo.Wallets;
 using System;
 
-namespace Neo.Node;
-
-public sealed class WalletManager : IWalletProvider
+namespace Neo.Node
 {
-    private readonly object _syncRoot = new();
-    private Wallet? _wallet;
-
-    public event EventHandler<Wallet?>? WalletChanged;
-
-    public Wallet? GetWallet()
+    public sealed class WalletManager : IWalletProvider
     {
-        lock (_syncRoot)
+        private readonly object _syncRoot = new();
+        private Wallet? _wallet;
+
+        public event EventHandler<Wallet?>? WalletChanged;
+
+        public Wallet? GetWallet()
         {
-            return _wallet;
-        }
-    }
-
-    public Wallet Open(string path, string password, ProtocolSettings settings)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(path, nameof(path));
-        ArgumentNullException.ThrowIfNull(settings);
-
-        var wallet = Wallet.Open(path, password, settings)
-            ?? throw new InvalidOperationException($"Failed to open wallet at '{path}'.");
-
-        if (!wallet.VerifyPassword(password))
-            throw new InvalidOperationException("Invalid wallet password.");
-
-        lock (_syncRoot)
-        {
-            _wallet = wallet;
+            lock (_syncRoot)
+            {
+                return _wallet;
+            }
         }
 
-        WalletChanged?.Invoke(this, wallet);
-        return wallet;
-    }
-
-    public void Close()
-    {
-        lock (_syncRoot)
+        public Wallet Open(string path, string password, ProtocolSettings settings)
         {
-            _wallet = null;
+            ArgumentException.ThrowIfNullOrWhiteSpace(path, nameof(path));
+            ArgumentNullException.ThrowIfNull(settings);
+
+            var wallet = Wallet.Open(path, password, settings)
+                ?? throw new InvalidOperationException($"Failed to open wallet at '{path}'.");
+
+            if (!wallet.VerifyPassword(password))
+                throw new InvalidOperationException("Invalid wallet password.");
+
+            lock (_syncRoot)
+            {
+                _wallet = wallet;
+            }
+
+            WalletChanged?.Invoke(this, wallet);
+            return wallet;
         }
 
-        WalletChanged?.Invoke(this, null);
+        public void Close()
+        {
+            lock (_syncRoot)
+            {
+                _wallet = null;
+            }
+
+            WalletChanged?.Invoke(this, null);
+        }
     }
 }

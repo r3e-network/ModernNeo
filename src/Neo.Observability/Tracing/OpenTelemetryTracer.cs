@@ -9,11 +9,11 @@
 // Redistribution and use in source and binary forms with or without
 // modifications are permitted.
 
+using Neo.Observability.Tracing.Propagation;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using Neo.Observability.Tracing.Propagation;
 using OtelActivityKind = System.Diagnostics.ActivityKind;
 using OtelActivityStatusCode = System.Diagnostics.ActivityStatusCode;
 

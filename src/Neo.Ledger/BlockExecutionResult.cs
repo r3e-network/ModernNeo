@@ -1,52 +1,59 @@
 // Copyright (C) 2015-2025 The Neo Project.
 //
 // BlockExecutionResult.cs file belongs to the neo project and is free
-// software distributed under the MIT software license.
+// software distributed under the MIT software license, see the
+// accompanying file LICENSE in the main directory of the
+// repository or http://www.opensource.org/licenses/mit-license.php
+// for more details.
+//
+// Redistribution and use in source and binary forms with or without
+// modifications are permitted.
 
-namespace Neo.Ledger;
-
-/// <summary>
-/// Default implementation of block execution result.
-/// </summary>
-public class BlockExecutionResult : IBlockExecutionResult
+namespace Neo.Ledger
 {
-    /// <inheritdoc/>
-    public byte[] TransactionHash { get; init; } = Array.Empty<byte>();
-
-    /// <inheritdoc/>
-    public byte State { get; init; }
-
-    /// <inheritdoc/>
-    public bool ShouldCommit { get; init; }
-
-    /// <inheritdoc/>
-    public object? ApplicationExecuted { get; init; }
-
     /// <summary>
-    /// Creates a successful result that should be committed.
+    /// Default implementation of block execution result.
     /// </summary>
-    public static BlockExecutionResult Success(byte[] hash, object applicationExecuted)
+    public class BlockExecutionResult : IBlockExecutionResult
     {
-        return new BlockExecutionResult
-        {
-            TransactionHash = hash,
-            State = 1, // HALT
-            ShouldCommit = true,
-            ApplicationExecuted = applicationExecuted
-        };
-    }
+        /// <inheritdoc/>
+        public byte[] TransactionHash { get; init; } = Array.Empty<byte>();
 
-    /// <summary>
-    /// Creates a failed result that should not be committed.
-    /// </summary>
-    public static BlockExecutionResult Failure(byte[] hash, object applicationExecuted)
-    {
-        return new BlockExecutionResult
+        /// <inheritdoc/>
+        public byte State { get; init; }
+
+        /// <inheritdoc/>
+        public bool ShouldCommit { get; init; }
+
+        /// <inheritdoc/>
+        public object? ApplicationExecuted { get; init; }
+
+        /// <summary>
+        /// Creates a successful result that should be committed.
+        /// </summary>
+        public static BlockExecutionResult Success(byte[] hash, object applicationExecuted)
         {
-            TransactionHash = hash,
-            State = 2, // FAULT
-            ShouldCommit = false,
-            ApplicationExecuted = applicationExecuted
-        };
+            return new BlockExecutionResult
+            {
+                TransactionHash = hash,
+                State = 1, // HALT
+                ShouldCommit = true,
+                ApplicationExecuted = applicationExecuted
+            };
+        }
+
+        /// <summary>
+        /// Creates a failed result that should not be committed.
+        /// </summary>
+        public static BlockExecutionResult Failure(byte[] hash, object applicationExecuted)
+        {
+            return new BlockExecutionResult
+            {
+                TransactionHash = hash,
+                State = 2, // FAULT
+                ShouldCommit = false,
+                ApplicationExecuted = applicationExecuted
+            };
+        }
     }
 }

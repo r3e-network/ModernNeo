@@ -12,6 +12,7 @@
 using Akka.Actor;
 using Akka.IO;
 using Neo.Extensions.Exceptions;
+using Neo.P2P.Abstractions;
 using System;
 using System.Net;
 
@@ -47,6 +48,7 @@ namespace Neo.Network.P2P
 
         private ICancelable timer;
         private readonly IActorRef? tcp;
+        private readonly IActorRef? bridge;
         private bool disconnected = false;
 
         /// <summary>
@@ -62,7 +64,12 @@ namespace Neo.Network.P2P
             timer = Context.System.Scheduler.ScheduleTellOnceCancelable(TimeSpan.FromSeconds(connectionTimeoutLimitStart), Self, new Close { Abort = true }, ActorRefs.NoSender);
             switch (connection)
             {
+                case BridgeConnection bc:
+                    // Bridge actor - use abstraction messages (WriteBytes/CloseConnection)
+                    bridge = bc.Bridge;
+                    break;
                 case IActorRef tcp:
+                    // Native TCP actor - use Akka.IO.Tcp messages
                     this.tcp = tcp;
                     break;
             }
@@ -75,7 +82,11 @@ namespace Neo.Network.P2P
         public void Disconnect(bool abort = false)
         {
             disconnected = true;
-            if (tcp != null)
+            if (bridge != null)
+            {
+                bridge.Tell(new CloseConnection(abort));
+            }
+            else if (tcp != null)
             {
                 tcp.Tell(abort ? Tcp.Abort.Instance : Tcp.Close.Instance);
             }
@@ -105,6 +116,9 @@ namespace Neo.Network.P2P
                 case Ack _:
                     OnAck();
                     break;
+                case Neo.P2P.Abstractions.DataReceived data:
+                    OnReceived(ByteString.FromBytes(data.Data));
+                    break;
                 case Tcp.Received received:
                     OnReceived(received.Data);
                     break;
@@ -124,7 +138,12 @@ namespace Neo.Network.P2P
         protected override void PostStop()
         {
             if (!disconnected)
-                tcp?.Tell(Tcp.Close.Instance);
+            {
+                if (bridge != null)
+                    bridge.Tell(new CloseConnection(false));
+                else
+                    tcp?.Tell(Tcp.Close.Instance);
+            }
             timer.CancelIfNotNull();
             base.PostStop();
         }
@@ -135,7 +154,11 @@ namespace Neo.Network.P2P
         /// <param name="data"></param>
         protected void SendData(ByteString data)
         {
-            if (tcp != null)
+            if (bridge != null)
+            {
+                bridge.Tell(new WriteBytes(data.ToArray()));
+            }
+            else if (tcp != null)
             {
                 tcp.Tell(Tcp.Write.Create(data, Ack.Instance));
             }

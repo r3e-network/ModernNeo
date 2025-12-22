@@ -13,6 +13,7 @@ using Akka.Actor;
 using Neo.Extensions.Exceptions;
 using Neo.Extensions.Factories;
 using Neo.IO;
+using Neo.Network.P2P;
 using Neo.Network.P2P.Capabilities;
 using Neo.Network.P2P.Payloads;
 using Neo.SmartContract.Native;
@@ -32,6 +33,7 @@ namespace Neo.Network.P2P
     /// </summary>
     public class LocalNode : Peer
     {
+        public record AcceptWebSocket(Akka.Actor.IActorRef Bridge, IPEndPoint Remote, IPEndPoint Local);
         /// <summary>
         /// Sent to <see cref="LocalNode"/> to relay an <see cref="IInventory"/>.
         /// </summary>
@@ -223,6 +225,12 @@ namespace Neo.Network.P2P
             base.OnReceive(message);
             switch (message)
             {
+                case AcceptWebSocket ws:
+                    HandleAcceptBridge(ws.Bridge, ws.Remote, ws.Local);
+                    break;
+                case Neo.P2P.Abstractions.AcceptBridge ab:
+                    HandleAcceptBridge(ab.Bridge, ab.Remote, ab.Local);
+                    break;
                 case Message msg:
                     BroadcastMessage(msg);
                     break;
@@ -236,6 +244,25 @@ namespace Neo.Network.P2P
                     Sender.Tell(this);
                     break;
             }
+        }
+
+        private void HandleAcceptBridge(IActorRef bridge, IPEndPoint remote, IPEndPoint local)
+        {
+            if (Config is null)
+            {
+                Stash.Stash();
+                return;
+            }
+
+            // Use BridgeConnection wrapper to signal Connection to use abstraction messages
+            var conn = Context.ActorOf(ProtocolProps(new Neo.P2P.Abstractions.BridgeConnection(bridge), remote, local), $"bridge_connection_{Guid.NewGuid()}");
+            Context.Watch(conn);
+            ConnectedPeers.TryAdd(conn, remote);
+
+            // Send abstraction-level bind to the bridge
+            bridge.Tell(new Neo.P2P.Abstractions.BridgeBind(conn));
+
+            conn.Tell(new RemoteNode.StartProtocol());
         }
 
         private void OnRelayDirectly(IInventory inventory)

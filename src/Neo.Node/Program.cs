@@ -9,6 +9,7 @@
 // Redistribution and use in source and binary forms with or without
 // modifications are permitted.
 
+using Akka.Actor;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Http;
@@ -19,8 +20,11 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Neo.Network.P2P;
+using Neo.Network.P2P.Transport;
 using Neo.Persistence;
 using Neo.Persistence.Providers;
+using Neo.RPC;
+using Neo.SmartContract.Native;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using System;
@@ -28,6 +32,8 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Net;
+using System.Net.WebSockets;
+using System.Reflection;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -100,6 +106,135 @@ namespace Neo.Node
             // Map ready endpoint
             app.MapGet("/ready", () => Results.Ok(new { status = "ready", timestamp = DateTimeOffset.UtcNow }));
 
+            // Node information endpoint (quick status)
+            app.MapGet("/info", async (IServiceProvider sp) =>
+            {
+                var node = sp.GetRequiredService<NeoSystemNode>();
+                var system = node.System;
+
+                var info = new Dictionary<string, object?>
+                {
+                    ["network"] = system.Settings.Network,
+                    ["p2p_port"] = node.ChannelsConfig.Tcp?.Port,
+                    ["mempool_count"] = system.MemPool.Count,
+                    ["mempool_verified"] = system.MemPool.VerifiedCount,
+                    ["mempool_unverified"] = system.MemPool.UnVerifiedCount,
+                    ["block_height"] = NativeContract.Ledger.CurrentIndex(system.StoreView)
+                };
+
+                // Query LocalNode counts best-effort
+                try
+                {
+                    var askTimeout = TimeSpan.FromSeconds(2);
+                    var getInstance = new LocalNode.GetInstance();
+                    var localNode = await system.LocalNode.Ask<LocalNode>(getInstance, askTimeout);
+                    info["peers_connected"] = localNode.ConnectedCount;
+                    info["peers_unconnected"] = localNode.UnconnectedCount;
+                }
+                catch { }
+
+                return Results.Ok(info);
+            });
+
+            // WebSocket P2P endpoint (optional)
+            app.Map("/p2p", async context =>
+            {
+                if (context.WebSockets.IsWebSocketRequest)
+                {
+                    using var ws = await context.WebSockets.AcceptWebSocketAsync();
+                    var system = app.Services.GetRequiredService<NeoSystemNode>().System;
+
+                    // Wrap ClientWebSocket into IWsConnection compatible shim
+                    var wsConn = new ServerAcceptedWsConnection(ws);
+
+                    var remote = new IPEndPoint(context.Connection.RemoteIpAddress ?? IPAddress.Loopback, context.Connection.RemotePort);
+                    var local = new IPEndPoint(context.Connection.LocalIpAddress ?? IPAddress.Any, context.Connection.LocalPort);
+
+                    // Create bridge actor and target RemoteNode
+                    var actorSystem = system.ActorSystem;
+                    var localNode = system.LocalNode; // actor ref to LocalNode already running
+                    // Spawn bridge actor and protocol actor under LocalNode
+                    var bridge = actorSystem.ActorOf(Akka.Actor.Props.Create(() => new WsServerConnection()));
+                    // handoff to LocalNode actor to create protocol actor
+                    // Use transport-agnostic accept message (from Neo.P2P.Abstractions)
+                    system.LocalNode.Tell(new Neo.P2P.Abstractions.AcceptBridge(bridge, remote, local), Akka.Actor.ActorRefs.NoSender);
+                    bridge.Tell(new WsServerConnection.Start(wsConn), Akka.Actor.ActorRefs.NoSender);
+
+                    // Keep middleware alive while websocket is open
+                    while (ws.State == WebSocketState.Open)
+                    {
+                        await Task.Delay(200);
+                    }
+                }
+                else
+                {
+                    context.Response.StatusCode = 400;
+                }
+            });
+
+            // QUIC P2P listener (optional, platform dependent)
+            var quicEnabled = builder.Configuration.GetValue("ApplicationConfiguration:P2P:Quic:Enabled", false);
+            if (quicEnabled && QuicTransport.IsSupported)
+            {
+                var quicPort = builder.Configuration.GetValue("ApplicationConfiguration:P2P:Quic:Port", 10334);
+                var quicProto = builder.Configuration.GetValue("ApplicationConfiguration:P2P:Quic:Alpn", "neo-p2p");
+
+                var system = app.Services.GetRequiredService<NeoSystemNode>().System;
+                var actorSystem = system.ActorSystem;
+                var localNode = system.LocalNode;
+
+                var quic = new QuicTransport(new QuicTransportOptions
+                {
+                    ListenEndPoint = new IPEndPoint(IPAddress.Any, quicPort),
+                    ApplicationProtocol = quicProto
+                });
+
+                quic.OnPeerConnected += async peer =>
+                {
+                    // Guard with OS platform support to satisfy analyzers
+                    if (OperatingSystem.IsLinux() || OperatingSystem.IsWindows() || OperatingSystem.IsMacOS())
+                    {
+                        var remote = (System.Net.IPEndPoint)peer.RemoteEndPoint;
+                        var local = (System.Net.IPEndPoint)peer.LocalEndPoint;
+                        // Guarded type creation for platform analyzers
+                        Akka.Actor.IActorRef? bridge = null;
+                        if (OperatingSystem.IsLinux() || OperatingSystem.IsWindows() || OperatingSystem.IsMacOS())
+                        {
+                            // Create via reflection to satisfy analyzers
+                            var type = Type.GetType("Neo.Network.P2P.Transport.QuicServerConnection, Neo.Network");
+                            if (type != null)
+                            {
+                                var props = Akka.Actor.Props.Create(type);
+                                bridge = actorSystem.ActorOf(props);
+                            }
+                        }
+
+                        // Ask LocalNode to create protocol actor and bind
+                        if (bridge != null)
+                        {
+                            // Use transport-agnostic accept to support QUIC bridge
+                            localNode.Tell(new Neo.P2P.Abstractions.AcceptBridge(bridge, remote, local), Akka.Actor.ActorRefs.NoSender);
+                            if (OperatingSystem.IsLinux() || OperatingSystem.IsWindows() || OperatingSystem.IsMacOS())
+                            {
+                                bridge.Tell(new QuicServerConnection.Start(peer));
+                            }
+                        }
+                    }
+                };
+
+                await quic.StartAsync();
+
+                app.Lifetime.ApplicationStopping.Register(() =>
+                {
+                    try
+                    {
+                        if (OperatingSystem.IsLinux() || OperatingSystem.IsWindows() || OperatingSystem.IsMacOS())
+                            quic.DisposeAsync().GetAwaiter().GetResult();
+                    }
+                    catch { }
+                });
+            }
+
             // Start Neo system
             var node = app.Services.GetRequiredService<NeoSystemNode>();
             var logger = app.Services.GetRequiredService<ILogger<NeoSystemNode>>();
@@ -110,6 +245,56 @@ namespace Neo.Node
             node.Start();
             logger.LogInformation("Neo.Node started on P2P port {Port}", node.ChannelsConfig.Tcp?.Port ?? 0);
             logger.LogInformation("Management endpoints available at http://localhost:{Port}", managementPort);
+
+            // Optionally start JSON-RPC server
+            var rpcEnabled = builder.Configuration.GetValue("ApplicationConfiguration:Rpc:Enabled", false);
+            HttpRpcServer? rpcServer = null;
+            if (rpcEnabled)
+            {
+                var rpcEndpoint = builder.Configuration.GetValue("ApplicationConfiguration:Rpc:ListenAddress", "http://localhost:10332/");
+                rpcServer = new HttpRpcServer(new HttpRpcServerOptions { ListenAddress = rpcEndpoint });
+
+                // Register RPC methods dynamically from Neo.Node.Rpc namespace
+                var rpcTypes = Assembly.GetExecutingAssembly()
+                    .GetTypes()
+                    .Where(t => typeof(IRpcMethod).IsAssignableFrom(t) && !t.IsAbstract && t.IsClass)
+                    .ToList();
+
+                foreach (var t in rpcTypes)
+                {
+                    try
+                    {
+                        IRpcMethod? method = null;
+                        // Prefer constructor with NeoSystemNode
+                        var ctor = t.GetConstructor(new[] { typeof(NeoSystemNode) });
+                        if (ctor != null)
+                        {
+                            method = (IRpcMethod)ctor.Invoke(new object[] { node });
+                        }
+                        else if (t.GetConstructor(Type.EmptyTypes) is { } defaultCtor)
+                        {
+                            method = (IRpcMethod)defaultCtor.Invoke(null);
+                        }
+
+                        if (method != null)
+                            rpcServer.RegisterMethod(method);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogWarning(ex, "Failed to register RPC method {Type}", t.FullName);
+                    }
+                }
+
+                await rpcServer.StartAsync();
+                logger.LogInformation("JSON-RPC server listening at {Endpoint}", rpcServer.Endpoint);
+
+                app.Lifetime.ApplicationStopping.Register(() =>
+                {
+                    try { rpcServer.StopAsync().GetAwaiter().GetResult(); }
+                    catch { }
+                    rpcServer.Dispose();
+                });
+            }
 
             await app.RunAsync();
 

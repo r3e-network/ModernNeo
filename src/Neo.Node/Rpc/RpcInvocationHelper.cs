@@ -1,10 +1,15 @@
 // Copyright (C) 2015-2025 The Neo Project.
 //
 // RpcInvocationHelper.cs file belongs to the neo project and is free
-// software distributed under the MIT software license.
+// software distributed under the MIT software license, see the
+// accompanying file LICENSE in the main directory of the
+// repository or http://www.opensource.org/licenses/mit-license.php
+// for more details.
+//
+// Redistribution and use in source and binary forms with or without
+// modifications are permitted.
 
 using Neo.Extensions;
-using System.Threading.Tasks;
 using Neo.Json;
 using Neo.Network.P2P.Payloads;
 using Neo.RPC;
@@ -15,138 +20,140 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Threading.Tasks;
 
-namespace Neo.Node.Rpc;
-
-internal static class RpcInvocationHelper
+namespace Neo.Node.Rpc
 {
-    public static Signer[] ParseSigners(JToken? token)
+    internal static class RpcInvocationHelper
     {
-        if (token is null)
-            return Array.Empty<Signer>();
-
-        if (token is not JArray signerArray)
-            throw new RpcException(RpcError.InvalidParams.Code, "Invalid signers format.");
-
-        if (signerArray.Count == 0)
-            return Array.Empty<Signer>();
-
-        var signers = new List<Signer>(signerArray.Count);
-        foreach (var entry in signerArray)
+        public static Signer[] ParseSigners(JToken? token)
         {
-            if (entry is not JObject signerJson)
-                throw new RpcException(RpcError.InvalidParams.Code, "Invalid signer entry.");
+            if (token is null)
+                return Array.Empty<Signer>();
 
-            signers.Add(Signer.FromJson(signerJson));
+            if (token is not JArray signerArray)
+                throw new RpcException(RpcError.InvalidParams.Code, "Invalid signers format.");
+
+            if (signerArray.Count == 0)
+                return Array.Empty<Signer>();
+
+            var signers = new List<Signer>(signerArray.Count);
+            foreach (var entry in signerArray)
+            {
+                if (entry is not JObject signerJson)
+                    throw new RpcException(RpcError.InvalidParams.Code, "Invalid signer entry.");
+
+                signers.Add(Signer.FromJson(signerJson));
+            }
+
+            return signers.ToArray();
         }
 
-        return signers.ToArray();
-    }
-
-    public static IReadOnlyList<ContractParameter> ParseParameters(JToken? token)
-    {
-        if (token is null)
-            return Array.Empty<ContractParameter>();
-
-        if (token is not JArray array)
-            throw new RpcException(RpcError.InvalidParams.Code, "Invalid parameters format.");
-
-        if (array.Count == 0)
-            return Array.Empty<ContractParameter>();
-
-        var parameters = new List<ContractParameter>(array.Count);
-        foreach (var entry in array)
+        public static IReadOnlyList<ContractParameter> ParseParameters(JToken? token)
         {
-            if (entry is not JObject paramJson)
-                throw new RpcException(RpcError.InvalidParams.Code, "Invalid parameter entry.");
+            if (token is null)
+                return Array.Empty<ContractParameter>();
 
-            try
+            if (token is not JArray array)
+                throw new RpcException(RpcError.InvalidParams.Code, "Invalid parameters format.");
+
+            if (array.Count == 0)
+                return Array.Empty<ContractParameter>();
+
+            var parameters = new List<ContractParameter>(array.Count);
+            foreach (var entry in array)
             {
-                parameters.Add(ContractParameter.FromJson(paramJson));
+                if (entry is not JObject paramJson)
+                    throw new RpcException(RpcError.InvalidParams.Code, "Invalid parameter entry.");
+
+                try
+                {
+                    parameters.Add(ContractParameter.FromJson(paramJson));
+                }
+                catch (Exception ex)
+                {
+                    throw new RpcException(RpcError.InvalidParams.Code, "Invalid parameter value.", new JString(ex.Message));
+                }
             }
-            catch (Exception ex)
-            {
-                throw new RpcException(RpcError.InvalidParams.Code, "Invalid parameter value.", new JString(ex.Message));
-            }
+
+            return parameters;
         }
 
-        return parameters;
-    }
-
-    public static UInt160 ResolveContractHash(NeoSystem system, JToken token)
-    {
-        var text = token.AsString();
-        if (!string.IsNullOrWhiteSpace(text))
+        public static UInt160 ResolveContractHash(NeoSystem system, JToken token)
         {
-            if (UInt160.TryParse(text, out var parsed) && parsed is not null)
-                return parsed;
+            var text = token.AsString();
+            if (!string.IsNullOrWhiteSpace(text))
+            {
+                if (UInt160.TryParse(text, out var parsed) && parsed is not null)
+                    return parsed;
 
-            if (int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id))
-            {
-                var contract = NativeContract.ContractManagement.GetContractById(system.StoreView, id);
-                if (contract is null)
-                    throw new RpcException(RpcError.InvalidParams.Code, "Unknown contract id.");
-                return contract.Hash;
+                if (int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id))
+                {
+                    var contract = NativeContract.ContractManagement.GetContractById(system.StoreView, id);
+                    if (contract is null)
+                        throw new RpcException(RpcError.InvalidParams.Code, "Unknown contract id.");
+                    return contract.Hash;
+                }
+
+                try
+                {
+                    return text.ToScriptHash(system.Settings.AddressVersion);
+                }
+                catch (Exception ex)
+                {
+                    throw new RpcException(RpcError.InvalidParams.Code, "Invalid contract hash.", new JString(ex.Message));
+                }
             }
 
-            try
-            {
-                return text.ToScriptHash(system.Settings.AddressVersion);
-            }
-            catch (Exception ex)
-            {
-                throw new RpcException(RpcError.InvalidParams.Code, "Invalid contract hash.", new JString(ex.Message));
-            }
+            throw new RpcException(RpcError.InvalidParams.Code, "Invalid contract hash or id.");
         }
 
-        throw new RpcException(RpcError.InvalidParams.Code, "Invalid contract hash or id.");
-    }
-
-    public static CallFlags ParseCallFlags(JToken? token)
-    {
-        if (token is null)
-            return CallFlags.All;
-
-        var text = token.AsString();
-        if (!string.IsNullOrWhiteSpace(text) &&
-            Enum.TryParse<CallFlags>(text, ignoreCase: true, out var flags))
-            return flags;
-
-        var number = token.AsNumber();
-        if (!double.IsNaN(number))
+        public static CallFlags ParseCallFlags(JToken? token)
         {
-            if (number < 0 || number > byte.MaxValue)
-                throw new RpcException(RpcError.InvalidParams.Code, "Invalid call flags.");
+            if (token is null)
+                return CallFlags.All;
 
-            return (CallFlags)(byte)number;
+            var text = token.AsString();
+            if (!string.IsNullOrWhiteSpace(text) &&
+                Enum.TryParse<CallFlags>(text, ignoreCase: true, out var flags))
+                return flags;
+
+            var number = token.AsNumber();
+            if (!double.IsNaN(number))
+            {
+                if (number < 0 || number > byte.MaxValue)
+                    throw new RpcException(RpcError.InvalidParams.Code, "Invalid call flags.");
+
+                return (CallFlags)(byte)number;
+            }
+
+            throw new RpcException(RpcError.InvalidParams.Code, "Invalid call flags.");
         }
 
-        throw new RpcException(RpcError.InvalidParams.Code, "Invalid call flags.");
-    }
-
-    public static Transaction CreateInvocationTransaction(NeoSystem system, ReadOnlyMemory<byte> script, IReadOnlyList<Signer> signers)
-    {
-        var effectiveSigners = signers.Count == 0
-            ? new[] { new Signer { Account = UInt160.Zero, Scopes = WitnessScope.None } }
-            : signers.ToArray();
-
-        var currentIndex = NativeContract.Ledger.CurrentIndex(system.StoreView);
-        var maxIncrement = system.GetMaxValidUntilBlockIncrement();
-        var validUntilBlock = currentIndex + maxIncrement;
-        if (validUntilBlock < currentIndex)
-            validUntilBlock = uint.MaxValue;
-
-        return new Transaction
+        public static Transaction CreateInvocationTransaction(NeoSystem system, ReadOnlyMemory<byte> script, IReadOnlyList<Signer> signers)
         {
-            Version = 0,
-            Nonce = 0,
-            SystemFee = 0,
-            NetworkFee = 0,
-            ValidUntilBlock = validUntilBlock,
-            Signers = effectiveSigners,
-            Attributes = Array.Empty<TransactionAttribute>(),
-            Script = script,
-            Witnesses = effectiveSigners.Select(_ => Witness.Empty).ToArray()
-        };
+            var effectiveSigners = signers.Count == 0
+                ? new[] { new Signer { Account = UInt160.Zero, Scopes = WitnessScope.None } }
+                : signers.ToArray();
+
+            var currentIndex = NativeContract.Ledger.CurrentIndex(system.StoreView);
+            var maxIncrement = system.GetMaxValidUntilBlockIncrement();
+            var validUntilBlock = currentIndex + maxIncrement;
+            if (validUntilBlock < currentIndex)
+                validUntilBlock = uint.MaxValue;
+
+            return new Transaction
+            {
+                Version = 0,
+                Nonce = 0,
+                SystemFee = 0,
+                NetworkFee = 0,
+                ValidUntilBlock = validUntilBlock,
+                Signers = effectiveSigners,
+                Attributes = Array.Empty<TransactionAttribute>(),
+                Script = script,
+                Witnesses = effectiveSigners.Select(_ => Witness.Empty).ToArray()
+            };
+        }
     }
 }

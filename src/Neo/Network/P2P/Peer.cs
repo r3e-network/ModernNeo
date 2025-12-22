@@ -175,6 +175,9 @@ namespace Neo.Network.P2P
         {
             switch (message)
             {
+                case (string msg) when msg == "WsAccepted":
+                    // Placeholder: handled in LocalNode with a strongly-typed message
+                    break;
                 case ChannelsConfig config:
                     OnStart(config);
                     Stash.UnstashAll();

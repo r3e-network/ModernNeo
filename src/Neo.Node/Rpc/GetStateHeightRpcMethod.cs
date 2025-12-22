@@ -1,34 +1,41 @@
 // Copyright (C) 2015-2025 The Neo Project.
 //
 // GetStateHeightRpcMethod.cs file belongs to the neo project and is free
-// software distributed under the MIT software license.
+// software distributed under the MIT software license, see the
+// accompanying file LICENSE in the main directory of the
+// repository or http://www.opensource.org/licenses/mit-license.php
+// for more details.
+//
+// Redistribution and use in source and binary forms with or without
+// modifications are permitted.
 
 using Neo.Json;
-using System.Threading.Tasks;
 using Neo.RPC;
 using Neo.SmartContract.Native;
 using System;
+using System.Threading.Tasks;
 
-namespace Neo.Node.Rpc;
-
-public sealed class GetStateHeightRpcMethod : IRpcMethod
+namespace Neo.Node.Rpc
 {
-    private readonly NeoSystemNode _node;
-
-    public string Name => "getstateheight";
-
-    public GetStateHeightRpcMethod(NeoSystemNode node)
+    public sealed class GetStateHeightRpcMethod : IRpcMethod
     {
-        _node = node ?? throw new ArgumentNullException(nameof(node));
-    }
+        private readonly NeoSystemNode _node;
 
-    public Task<JToken?> ProcessAsync(JArray? parameters)
-    {
-        var height = NativeContract.Ledger.CurrentIndex(_node.System.StoreView);
-        return Task.FromResult<JToken?>(new JObject
+        public string Name => "getstateheight";
+
+        public GetStateHeightRpcMethod(NeoSystemNode node)
         {
-            ["local"] = new JNumber(height),
-            ["validated"] = new JNumber(height)
-        });
+            _node = node ?? throw new ArgumentNullException(nameof(node));
+        }
+
+        public Task<JToken?> ProcessAsync(JArray? parameters)
+        {
+            var height = NativeContract.Ledger.CurrentIndex(_node.System.StoreView);
+            return Task.FromResult<JToken?>(new JObject
+            {
+                ["local"] = new JNumber(height),
+                ["validated"] = new JNumber(height)
+            });
+        }
     }
 }

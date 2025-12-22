@@ -14,7 +14,16 @@
       "MinDesiredConnections": 10,
       "MaxConnections": 40,
       "MaxConnectionsPerAddress": 3,
-      "EnableCompression": true
+      "EnableCompression": true,
+      "Quic": {
+        "Enabled": false,
+        "Port": 10334,
+        "Alpn": "neo-p2p"
+      }
+    },
+    "Rpc": {
+      "Enabled": false,
+      "ListenAddress": "http://localhost:10332/"
     }
   },
   "ProtocolConfiguration": {
@@ -59,4 +68,3 @@
     ]
   }
 }
-

@@ -1,7 +1,13 @@
 // Copyright (C) 2015-2025 The Neo Project.
 //
 // GetConnectionCountRpcMethod.cs file belongs to the neo project and is free
-// software distributed under the MIT software license.
+// software distributed under the MIT software license, see the
+// accompanying file LICENSE in the main directory of the
+// repository or http://www.opensource.org/licenses/mit-license.php
+// for more details.
+//
+// Redistribution and use in source and binary forms with or without
+// modifications are permitted.
 
 using Akka.Actor;
 using Neo.Json;
@@ -10,32 +16,33 @@ using Neo.RPC;
 using System;
 using System.Threading.Tasks;
 
-namespace Neo.Node.Rpc;
-
-public sealed class GetConnectionCountRpcMethod : IRpcMethod
+namespace Neo.Node.Rpc
 {
-    private static readonly TimeSpan DefaultAskTimeout = TimeSpan.FromSeconds(5);
-
-    private readonly NeoSystemNode _node;
-
-    public string Name => "getconnectioncount";
-
-    public GetConnectionCountRpcMethod(NeoSystemNode node)
+    public sealed class GetConnectionCountRpcMethod : IRpcMethod
     {
-        _node = node ?? throw new ArgumentNullException(nameof(node));
-    }
+        private static readonly TimeSpan DefaultAskTimeout = TimeSpan.FromSeconds(5);
 
-    public async Task<JToken?> ProcessAsync(JArray? parameters)
-    {
-        try
+        private readonly NeoSystemNode _node;
+
+        public string Name => "getconnectioncount";
+
+        public GetConnectionCountRpcMethod(NeoSystemNode node)
         {
-            var localNode = await _node.System.LocalNode.Ask<LocalNode>(new LocalNode.GetInstance(), DefaultAskTimeout);
-            var count = localNode.ConnectedCount;
-            return new JNumber(count);
+            _node = node ?? throw new ArgumentNullException(nameof(node));
         }
-        catch
+
+        public async Task<JToken?> ProcessAsync(JArray? parameters)
         {
-            return new JNumber(0);
+            try
+            {
+                var localNode = await _node.System.LocalNode.Ask<LocalNode>(new LocalNode.GetInstance(), DefaultAskTimeout);
+                var count = localNode.ConnectedCount;
+                return new JNumber(count);
+            }
+            catch
+            {
+                return new JNumber(0);
+            }
         }
     }
 }

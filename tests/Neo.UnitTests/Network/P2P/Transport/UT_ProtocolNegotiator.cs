@@ -1,7 +1,13 @@
 // Copyright (C) 2015-2025 The Neo Project.
 //
 // UT_ProtocolNegotiator.cs file belongs to the neo project and is free
-// software distributed under the MIT software license.
+// software distributed under the MIT software license, see the
+// accompanying file LICENSE in the main directory of the
+// repository or http://www.opensource.org/licenses/mit-license.php
+// for more details.
+//
+// Redistribution and use in source and binary forms with or without
+// modifications are permitted.
 
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Neo.Network.P2P.Transport;
@@ -13,6 +19,7 @@ namespace Neo.UnitTests.Network.P2P.Transport
     [TestClass]
     public class UT_ProtocolNegotiator
     {
+        public TestContext TestContext { get; set; } = null!;
         [TestMethod]
         public void TestQuicAvailable_WithoutTransport_ReturnsFalse()
         {
@@ -43,7 +50,7 @@ namespace Neo.UnitTests.Network.P2P.Transport
             var tcpEndPoint = new IPEndPoint(IPAddress.Loopback, 10333);
             var quicEndPoint = new IPEndPoint(IPAddress.Loopback, 10334);
 
-            var result = await negotiator.ConnectAsync(tcpEndPoint, quicEndPoint, default);
+            var result = await negotiator.ConnectAsync(tcpEndPoint, quicEndPoint, wsUri: null, TestContext!.CancellationTokenSource.Token);
 
             Assert.AreEqual(TransportProtocol.Tcp, result.Protocol);
             Assert.IsNull(result.QuicConnection);
@@ -57,7 +64,7 @@ namespace Neo.UnitTests.Network.P2P.Transport
             var negotiator = new ProtocolNegotiator(quicTransport: null);
             var tcpEndPoint = new IPEndPoint(IPAddress.Loopback, 10333);
 
-            var result = await negotiator.ConnectAsync(tcpEndPoint, quicEndPoint: null, default);
+            var result = await negotiator.ConnectAsync(tcpEndPoint, quicEndPoint: null, wsUri: null, TestContext!.CancellationTokenSource.Token);
 
             Assert.AreEqual(TransportProtocol.Tcp, result.Protocol);
             Assert.AreEqual(tcpEndPoint, result.RemoteEndPoint);

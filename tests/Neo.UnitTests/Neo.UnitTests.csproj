@@ -55,6 +55,7 @@
     <ProjectReference Include="..\..\src\Neo.Consensus\Neo.Consensus.csproj" />
     <ProjectReference Include="..\..\src\Neo.RPC\Neo.RPC.csproj" />
     <ProjectReference Include="..\..\src\Neo.Grpc\Neo.Grpc.csproj" />
+    <ProjectReference Include="..\..\src\Neo.Orleans\Neo.Orleans.csproj" />
   </ItemGroup>
 
 </Project>

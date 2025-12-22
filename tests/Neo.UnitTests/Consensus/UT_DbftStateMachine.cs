@@ -1,7 +1,13 @@
 // Copyright (C) 2015-2025 The Neo Project.
 //
 // UT_DbftStateMachine.cs file belongs to the neo project and is free
-// software distributed under the MIT software license.
+// software distributed under the MIT software license, see the
+// accompanying file LICENSE in the main directory of the
+// repository or http://www.opensource.org/licenses/mit-license.php
+// for more details.
+//
+// Redistribution and use in source and binary forms with or without
+// modifications are permitted.
 
 #nullable enable
 
@@ -10,232 +16,233 @@ using Moq;
 using Neo.Consensus;
 using Neo.Core.Interfaces;
 
-namespace Neo.UnitTests.Consensus;
-
-[TestClass]
-public class UT_DbftStateMachine
+namespace Neo.UnitTests.Consensus
 {
-    public TestContext TestContext { get; set; } = null!;
-
-    private Mock<IConsensusContext> _mockContext = null!;
-    private DbftStateMachine _stateMachine = null!;
-    private DbftOptions _options = null!;
-
-    [TestInitialize]
-    public void Setup()
+    [TestClass]
+    public class UT_DbftStateMachine
     {
-        _mockContext = new Mock<IConsensusContext>();
-        _mockContext.Setup(c => c.BlockIndex).Returns(100);
-        _mockContext.Setup(c => c.ViewNumber).Returns((byte)0);
-        _mockContext.Setup(c => c.MyIndex).Returns(0);
-        _mockContext.Setup(c => c.ValidatorCount).Returns(7);
-        _mockContext.Setup(c => c.Validators).Returns(new List<byte[]>
+        public TestContext TestContext { get; set; } = null!;
+
+        private Mock<IConsensusContext> _mockContext = null!;
+        private DbftStateMachine _stateMachine = null!;
+        private DbftOptions _options = null!;
+
+        [TestInitialize]
+        public void Setup()
         {
-            new byte[33], new byte[33], new byte[33], new byte[33],
-            new byte[33], new byte[33], new byte[33]
-        });
-        _mockContext.Setup(c => c.PrepareResponseCount).Returns(0);
-        _mockContext.Setup(c => c.CommitCount).Returns(0);
+            _mockContext = new Mock<IConsensusContext>();
+            _mockContext.Setup(c => c.BlockIndex).Returns(100);
+            _mockContext.Setup(c => c.ViewNumber).Returns((byte)0);
+            _mockContext.Setup(c => c.MyIndex).Returns(0);
+            _mockContext.Setup(c => c.ValidatorCount).Returns(7);
+            _mockContext.Setup(c => c.Validators).Returns(new List<byte[]>
+            {
+                new byte[33], new byte[33], new byte[33], new byte[33],
+                new byte[33], new byte[33], new byte[33]
+            });
+            _mockContext.Setup(c => c.PrepareResponseCount).Returns(0);
+            _mockContext.Setup(c => c.CommitCount).Returns(0);
 
-        _options = new DbftOptions
+            _options = new DbftOptions
+            {
+                BlockInterval = TimeSpan.FromSeconds(1),
+                ViewChangeTimeout = TimeSpan.FromSeconds(5)
+            };
+
+            _stateMachine = new DbftStateMachine(_mockContext.Object, _options);
+        }
+
+        [TestCleanup]
+        public void Cleanup()
         {
-            BlockInterval = TimeSpan.FromSeconds(1),
-            ViewChangeTimeout = TimeSpan.FromSeconds(5)
-        };
+            _stateMachine.Dispose();
+        }
 
-        _stateMachine = new DbftStateMachine(_mockContext.Object, _options);
-    }
-
-    [TestCleanup]
-    public void Cleanup()
-    {
-        _stateMachine.Dispose();
-    }
-
-    [TestMethod]
-    public void TestConstructor_NullContext_ThrowsException()
-    {
-        Assert.ThrowsExactly<ArgumentNullException>(() =>
-            new DbftStateMachine(null!, _options));
-    }
-
-    [TestMethod]
-    public void TestConstructor_DefaultOptions()
-    {
-        using var sm = new DbftStateMachine(_mockContext.Object);
-        Assert.IsNotNull(sm);
-        Assert.IsFalse(sm.IsRunning);
-    }
-
-    [TestMethod]
-    public void TestIsRunning_InitiallyFalse()
-    {
-        Assert.IsFalse(_stateMachine.IsRunning);
-    }
-
-    [TestMethod]
-    public async Task TestStartAsync()
-    {
-        await _stateMachine.StartAsync(TestContext.CancellationTokenSource.Token);
-
-        Assert.IsTrue(_stateMachine.IsRunning);
-        _mockContext.Verify(c => c.Reset(It.IsAny<uint>(), It.IsAny<byte>()), Times.Once);
-    }
-
-    [TestMethod]
-    public async Task TestStartAsync_AlreadyRunning()
-    {
-        var ct = TestContext.CancellationTokenSource.Token;
-        await _stateMachine.StartAsync(ct);
-        await _stateMachine.StartAsync(ct); // Should not throw
-
-        Assert.IsTrue(_stateMachine.IsRunning);
-        _mockContext.Verify(c => c.Reset(It.IsAny<uint>(), It.IsAny<byte>()), Times.Once);
-    }
-
-    [TestMethod]
-    public async Task TestStopAsync()
-    {
-        var ct = TestContext.CancellationTokenSource.Token;
-        await _stateMachine.StartAsync(ct);
-        await _stateMachine.StopAsync(ct);
-
-        Assert.IsFalse(_stateMachine.IsRunning);
-    }
-
-    [TestMethod]
-    public async Task TestStopAsync_NotRunning()
-    {
-        await _stateMachine.StopAsync(TestContext.CancellationTokenSource.Token); // Should not throw
-        Assert.IsFalse(_stateMachine.IsRunning);
-    }
-
-    [TestMethod]
-    public async Task TestGetStateAsync()
-    {
-        var ct = TestContext.CancellationTokenSource.Token;
-        await _stateMachine.StartAsync(ct);
-
-        var state = await _stateMachine.GetStateAsync();
-
-        Assert.AreEqual(100u, state.BlockIndex);
-        Assert.IsTrue(state.IsRunning);
-    }
-
-    [TestMethod]
-    public async Task TestOnBlockPersistedAsync()
-    {
-        var ct = TestContext.CancellationTokenSource.Token;
-        await _stateMachine.StartAsync(ct);
-        await _stateMachine.OnBlockPersistedAsync(100);
-
-        var state = await _stateMachine.GetStateAsync();
-        Assert.AreEqual(101u, state.BlockIndex);
-    }
-
-    [TestMethod]
-    public async Task TestOnMessageAsync_NotRunning()
-    {
-        var mockMessage = new Mock<IConsensusMessage>();
-        mockMessage.Setup(m => m.Type).Returns(ConsensusMessageType.PrepareRequest);
-
-        // Should not throw when not running
-        await _stateMachine.OnMessageAsync(mockMessage.Object, new byte[33]);
-    }
-
-    [TestMethod]
-    public void TestContext_ReturnsInjectedContext()
-    {
-        Assert.AreSame(_mockContext.Object, _stateMachine.Context);
-    }
-
-    [TestMethod]
-    public void TestDispose()
-    {
-        _stateMachine.Dispose();
-        _stateMachine.Dispose(); // Should not throw on double dispose
-    }
-}
-
-[TestClass]
-public class UT_DbftOptions
-{
-    [TestMethod]
-    public void TestDefaultValues()
-    {
-        var options = new DbftOptions();
-
-        Assert.AreEqual(TimeSpan.FromSeconds(15), options.BlockInterval);
-        Assert.AreEqual(TimeSpan.FromSeconds(30), options.ViewChangeTimeout);
-        Assert.AreEqual(10, options.MaxViewChanges);
-    }
-
-    [TestMethod]
-    public void TestCustomValues()
-    {
-        var options = new DbftOptions
+        [TestMethod]
+        public void TestConstructor_NullContext_ThrowsException()
         {
-            BlockInterval = TimeSpan.FromSeconds(5),
-            ViewChangeTimeout = TimeSpan.FromSeconds(10),
-            MaxViewChanges = 5
-        };
+            Assert.ThrowsExactly<ArgumentNullException>(() =>
+                new DbftStateMachine(null!, _options));
+        }
 
-        Assert.AreEqual(TimeSpan.FromSeconds(5), options.BlockInterval);
-        Assert.AreEqual(TimeSpan.FromSeconds(10), options.ViewChangeTimeout);
-        Assert.AreEqual(5, options.MaxViewChanges);
+        [TestMethod]
+        public void TestConstructor_DefaultOptions()
+        {
+            using var sm = new DbftStateMachine(_mockContext.Object);
+            Assert.IsNotNull(sm);
+            Assert.IsFalse(sm.IsRunning);
+        }
+
+        [TestMethod]
+        public void TestIsRunning_InitiallyFalse()
+        {
+            Assert.IsFalse(_stateMachine.IsRunning);
+        }
+
+        [TestMethod]
+        public async Task TestStartAsync()
+        {
+            await _stateMachine.StartAsync(TestContext.CancellationTokenSource.Token);
+
+            Assert.IsTrue(_stateMachine.IsRunning);
+            _mockContext.Verify(c => c.Reset(It.IsAny<uint>(), It.IsAny<byte>()), Times.Once);
+        }
+
+        [TestMethod]
+        public async Task TestStartAsync_AlreadyRunning()
+        {
+            var ct = TestContext.CancellationTokenSource.Token;
+            await _stateMachine.StartAsync(ct);
+            await _stateMachine.StartAsync(ct); // Should not throw
+
+            Assert.IsTrue(_stateMachine.IsRunning);
+            _mockContext.Verify(c => c.Reset(It.IsAny<uint>(), It.IsAny<byte>()), Times.Once);
+        }
+
+        [TestMethod]
+        public async Task TestStopAsync()
+        {
+            var ct = TestContext.CancellationTokenSource.Token;
+            await _stateMachine.StartAsync(ct);
+            await _stateMachine.StopAsync(ct);
+
+            Assert.IsFalse(_stateMachine.IsRunning);
+        }
+
+        [TestMethod]
+        public async Task TestStopAsync_NotRunning()
+        {
+            await _stateMachine.StopAsync(TestContext.CancellationTokenSource.Token); // Should not throw
+            Assert.IsFalse(_stateMachine.IsRunning);
+        }
+
+        [TestMethod]
+        public async Task TestGetStateAsync()
+        {
+            var ct = TestContext.CancellationTokenSource.Token;
+            await _stateMachine.StartAsync(ct);
+
+            var state = await _stateMachine.GetStateAsync();
+
+            Assert.AreEqual(100u, state.BlockIndex);
+            Assert.IsTrue(state.IsRunning);
+        }
+
+        [TestMethod]
+        public async Task TestOnBlockPersistedAsync()
+        {
+            var ct = TestContext.CancellationTokenSource.Token;
+            await _stateMachine.StartAsync(ct);
+            await _stateMachine.OnBlockPersistedAsync(100);
+
+            var state = await _stateMachine.GetStateAsync();
+            Assert.AreEqual(101u, state.BlockIndex);
+        }
+
+        [TestMethod]
+        public async Task TestOnMessageAsync_NotRunning()
+        {
+            var mockMessage = new Mock<IConsensusMessage>();
+            mockMessage.Setup(m => m.Type).Returns(ConsensusMessageType.PrepareRequest);
+
+            // Should not throw when not running
+            await _stateMachine.OnMessageAsync(mockMessage.Object, new byte[33]);
+        }
+
+        [TestMethod]
+        public void TestContext_ReturnsInjectedContext()
+        {
+            Assert.AreSame(_mockContext.Object, _stateMachine.Context);
+        }
+
+        [TestMethod]
+        public void TestDispose()
+        {
+            _stateMachine.Dispose();
+            _stateMachine.Dispose(); // Should not throw on double dispose
+        }
     }
-}
 
-[TestClass]
-public class UT_ConsensusStateSnapshot
-{
-    [TestMethod]
-    public void TestRecordCreation()
+    [TestClass]
+    public class UT_DbftOptions
     {
-        var snapshot = new ConsensusStateSnapshot(
-            BlockIndex: 100,
-            ViewNumber: 1,
-            Phase: ConsensusPhase.Primary,
-            IsPrimary: true,
-            ValidatorCount: 7,
-            PrepareResponseCount: 5,
-            CommitCount: 3,
-            IsRunning: true);
+        [TestMethod]
+        public void TestDefaultValues()
+        {
+            var options = new DbftOptions();
 
-        Assert.AreEqual(100u, snapshot.BlockIndex);
-        Assert.AreEqual((byte)1, snapshot.ViewNumber);
-        Assert.AreEqual(ConsensusPhase.Primary, snapshot.Phase);
-        Assert.IsTrue(snapshot.IsPrimary);
-        Assert.AreEqual(7, snapshot.ValidatorCount);
-        Assert.AreEqual(5, snapshot.PrepareResponseCount);
-        Assert.AreEqual(3, snapshot.CommitCount);
-        Assert.IsTrue(snapshot.IsRunning);
+            Assert.AreEqual(TimeSpan.FromSeconds(15), options.BlockInterval);
+            Assert.AreEqual(TimeSpan.FromSeconds(30), options.ViewChangeTimeout);
+            Assert.AreEqual(10, options.MaxViewChanges);
+        }
+
+        [TestMethod]
+        public void TestCustomValues()
+        {
+            var options = new DbftOptions
+            {
+                BlockInterval = TimeSpan.FromSeconds(5),
+                ViewChangeTimeout = TimeSpan.FromSeconds(10),
+                MaxViewChanges = 5
+            };
+
+            Assert.AreEqual(TimeSpan.FromSeconds(5), options.BlockInterval);
+            Assert.AreEqual(TimeSpan.FromSeconds(10), options.ViewChangeTimeout);
+            Assert.AreEqual(5, options.MaxViewChanges);
+        }
     }
 
-    [TestMethod]
-    public void TestRecordEquality()
+    [TestClass]
+    public class UT_ConsensusStateSnapshot
     {
-        var snapshot1 = new ConsensusStateSnapshot(100, 1, ConsensusPhase.Primary, true, 7, 5, 3, true);
-        var snapshot2 = new ConsensusStateSnapshot(100, 1, ConsensusPhase.Primary, true, 7, 5, 3, true);
+        [TestMethod]
+        public void TestRecordCreation()
+        {
+            var snapshot = new ConsensusStateSnapshot(
+                BlockIndex: 100,
+                ViewNumber: 1,
+                Phase: ConsensusPhase.Primary,
+                IsPrimary: true,
+                ValidatorCount: 7,
+                PrepareResponseCount: 5,
+                CommitCount: 3,
+                IsRunning: true);
 
-        Assert.AreEqual(snapshot1, snapshot2);
+            Assert.AreEqual(100u, snapshot.BlockIndex);
+            Assert.AreEqual((byte)1, snapshot.ViewNumber);
+            Assert.AreEqual(ConsensusPhase.Primary, snapshot.Phase);
+            Assert.IsTrue(snapshot.IsPrimary);
+            Assert.AreEqual(7, snapshot.ValidatorCount);
+            Assert.AreEqual(5, snapshot.PrepareResponseCount);
+            Assert.AreEqual(3, snapshot.CommitCount);
+            Assert.IsTrue(snapshot.IsRunning);
+        }
+
+        [TestMethod]
+        public void TestRecordEquality()
+        {
+            var snapshot1 = new ConsensusStateSnapshot(100, 1, ConsensusPhase.Primary, true, 7, 5, 3, true);
+            var snapshot2 = new ConsensusStateSnapshot(100, 1, ConsensusPhase.Primary, true, 7, 5, 3, true);
+
+            Assert.AreEqual(snapshot1, snapshot2);
+        }
     }
-}
 
-[TestClass]
-public class UT_ConsensusPhase
-{
-    [TestMethod]
-    public void TestPhaseValues()
+    [TestClass]
+    public class UT_ConsensusPhase
     {
-        Assert.AreEqual((byte)0, (byte)ConsensusPhase.Initial);
-        Assert.AreEqual((byte)1, (byte)ConsensusPhase.Primary);
-        Assert.AreEqual((byte)2, (byte)ConsensusPhase.Backup);
-        Assert.AreEqual((byte)3, (byte)ConsensusPhase.RequestSent);
-        Assert.AreEqual((byte)4, (byte)ConsensusPhase.RequestReceived);
-        Assert.AreEqual((byte)5, (byte)ConsensusPhase.ResponseSent);
-        Assert.AreEqual((byte)6, (byte)ConsensusPhase.CommitSent);
-        Assert.AreEqual((byte)7, (byte)ConsensusPhase.ViewChanging);
-        Assert.AreEqual((byte)8, (byte)ConsensusPhase.BlockSent);
+        [TestMethod]
+        public void TestPhaseValues()
+        {
+            Assert.AreEqual((byte)0, (byte)ConsensusPhase.Initial);
+            Assert.AreEqual((byte)1, (byte)ConsensusPhase.Primary);
+            Assert.AreEqual((byte)2, (byte)ConsensusPhase.Backup);
+            Assert.AreEqual((byte)3, (byte)ConsensusPhase.RequestSent);
+            Assert.AreEqual((byte)4, (byte)ConsensusPhase.RequestReceived);
+            Assert.AreEqual((byte)5, (byte)ConsensusPhase.ResponseSent);
+            Assert.AreEqual((byte)6, (byte)ConsensusPhase.CommitSent);
+            Assert.AreEqual((byte)7, (byte)ConsensusPhase.ViewChanging);
+            Assert.AreEqual((byte)8, (byte)ConsensusPhase.BlockSent);
+        }
     }
 }

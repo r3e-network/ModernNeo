@@ -1,56 +1,63 @@
 // Copyright (C) 2015-2025 The Neo Project.
 //
 // ISerializableFormatter.cs file belongs to the neo project and is free
-// software distributed under the MIT software license.
+// software distributed under the MIT software license, see the
+// accompanying file LICENSE in the main directory of the
+// repository or http://www.opensource.org/licenses/mit-license.php
+// for more details.
+//
+// Redistribution and use in source and binary forms with or without
+// modifications are permitted.
 
-using System.Buffers;
 using MessagePack;
 using MessagePack.Formatters;
 using Neo.IO;
+using System.Buffers;
 
-namespace Neo.Serialization.MessagePack.Formatters;
-
-/// <summary>
-/// Generic MessagePack formatter for Neo ISerializable types.
-/// Bridges Neo's binary serialization with MessagePack format.
-/// </summary>
-/// <typeparam name="T">The ISerializable type to format.</typeparam>
-public sealed class ISerializableFormatter<T> : IMessagePackFormatter<T?>
-    where T : ISerializable, new()
+namespace Neo.Serialization.MessagePack.Formatters
 {
-    public static readonly ISerializableFormatter<T> Instance = new();
-
-    private ISerializableFormatter() { }
-
-    public void Serialize(ref MessagePackWriter writer, T? value, MessagePackSerializerOptions options)
+    /// <summary>
+    /// Generic MessagePack formatter for Neo ISerializable types.
+    /// Bridges Neo's binary serialization with MessagePack format.
+    /// </summary>
+    /// <typeparam name="T">The ISerializable type to format.</typeparam>
+    public sealed class ISerializableFormatter<T> : IMessagePackFormatter<T?>
+        where T : ISerializable, new()
     {
-        if (value is null)
+        public static readonly ISerializableFormatter<T> Instance = new();
+
+        private ISerializableFormatter() { }
+
+        public void Serialize(ref MessagePackWriter writer, T? value, MessagePackSerializerOptions options)
         {
-            writer.WriteNil();
-            return;
+            if (value is null)
+            {
+                writer.WriteNil();
+                return;
+            }
+
+            // Serialize using Neo's binary format, then wrap in MessagePack binary
+            using var ms = new MemoryStream();
+            using var bw = new BinaryWriter(ms);
+            value.Serialize(bw);
+            var data = ms.ToArray();
+            writer.Write(data);
         }
 
-        // Serialize using Neo's binary format, then wrap in MessagePack binary
-        using var ms = new MemoryStream();
-        using var bw = new BinaryWriter(ms);
-        value.Serialize(bw);
-        var data = ms.ToArray();
-        writer.Write(data);
-    }
+        public T? Deserialize(ref MessagePackReader reader, MessagePackSerializerOptions options)
+        {
+            if (reader.TryReadNil())
+                return default;
 
-    public T? Deserialize(ref MessagePackReader reader, MessagePackSerializerOptions options)
-    {
-        if (reader.TryReadNil())
-            return default;
+            var bytes = reader.ReadBytes();
+            if (bytes is null)
+                return default;
 
-        var bytes = reader.ReadBytes();
-        if (bytes is null)
-            return default;
-
-        var data = bytes.Value.ToArray();
-        var value = new T();
-        var memReader = new MemoryReader(data);
-        value.Deserialize(ref memReader);
-        return value;
+            var data = bytes.Value.ToArray();
+            var value = new T();
+            var memReader = new MemoryReader(data);
+            value.Deserialize(ref memReader);
+            return value;
+        }
     }
 }

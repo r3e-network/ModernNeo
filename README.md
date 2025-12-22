@@ -6,7 +6,7 @@
   </a>
 </p>
 
-<h3 align="center">ModernNeo - A Modernized Neo Blockchain Implementation</h3>
+<h3 align="center">ModernNeo - A Modernized, Modular Neo Node (NeoAN‑aligned)</h3>
 
 <p align="center">
    A refactored, modular implementation of the Neo blockchain with modern .NET practices.
@@ -101,12 +101,15 @@
 
 1. [Overview](#overview)
 2. [Fork Information](#fork-information)
-3. [Project structure](#project-structure)
-4. [Related projects](#related-projects)
-5. [Opening a new issue](#opening-a-new-issue)
-6. [Contributing](#contributing)
-7. [Bounty program](#bounty-program)
-8. [License](#license)
+3. [Architecture](#architecture)
+4. [Project structure](#project-structure)
+5. [Running the Node](#running-the-node)
+6. [Compliance Checklist](#compliance-checklist)
+7. [Related projects](#related-projects)
+8. [Opening a new issue](#opening-a-new-issue)
+9. [Contributing](#contributing)
+10. [Bounty program](#bounty-program)
+11. [License](#license)
 
 ## Overview
 
@@ -155,6 +158,24 @@ git cherry-pick <commit-hash>
 - **Observability**: OpenTelemetry-based distributed tracing and metrics
 - **Plugin System**: Hot-reloadable plugin architecture with dependency injection
 
+## Architecture
+
+ModernNeo follows the Neo Advanced Node (NeoAN) design. See docs for full details:
+
+- Architecture: docs/ARCHITECTURE.md
+- Module map: docs/neoan-module-map.md
+- Refactor strategy: docs/neoan-refactor.md
+- Roadmap: docs/ROADMAP.md
+
+Layers and key modules:
+
+- Application: `Neo.Node` (host, health, metrics), `Neo.RPC`, `Neo.Grpc`, `Neo.GraphQL`
+- Services: `Neo.Services`, `Neo.Plugins`
+- Core: `Neo.Execution`, `Neo.Ledger`, `Neo.TxPool`, `Neo.Consensus`, `Neo.SmartContract*`, `Neo.Protocol*`
+- Infrastructure: `Neo.Network` (TCP/QUIC/WS), `Neo.Storage` (providers, snapshot/cache), `Neo.Cryptography`, `Neo.IO`, `Neo.Extensions`, `Neo.Observability`
+- Base: `Neo.Core` primitives and serialization
+
+
 ## Project structure
 
 An overview of the project folders can be seen below.
@@ -172,6 +193,72 @@ An overview of the project folders can be seen below.
 | [/src/Neo.Extensions/](https://github.com/neo-project/neo/tree/master/src/Neo.Extensions)       | Extensions to expand the existing functionality.                                                  |
 | [/src/Neo.Json/](https://github.com/neo-project/neo/tree/master/src/Neo.Json)                   | Neo's JSON specification.                                                                         |
 | [/tests/](https://github.com/neo-project/neo/tree/master/tests)                                 | All unit tests.                                                                                   |
+
+Additional ModernNeo modules of interest:
+
+- `src/Neo.Node` — Node host with health (`/health`), ready (`/ready`), metrics (`/metrics`), and optional P2P WebSocket endpoint (`/p2p`).
+- `src/Neo.Network` — Dual‑stack transport with `ProtocolNegotiator`, `QuicTransport`, and WebSocket peer/server bridges.
+- `src/Neo.Execution` — Parallel transaction execution with dependency analysis and scheduler.
+- `src/Neo.Storage` — Abstractions and providers (`Memory`, `LevelDB`, `RocksDB`).
+- `src/Neo.Observability` — OpenTelemetry metrics/tracing and health interfaces.
+- `src/Neo.Services` — Query/services used by GraphQL and future APIs.
+- `src/Neo.GraphQL` — Minimal GraphQL endpoint backed by `Neo.Services`.
+
+### GraphQL (optional)
+
+- Build and run the standalone GraphQL host:
+
+```
+dotnet run -c Release -p src/Neo.GraphQL -- --urls http://localhost:4000
+```
+
+- Query examples:
+  - `POST http://localhost:4000/graphql` with body `{ network height mempoolCount }`
+  - Blocks range: `{ blocks(start: 0, count: 5) }`
+
+## Running the Node
+
+Run the node host with the bundled configuration:
+
+```bash
+dotnet run -c Release -p src/Neo.Node -- --config src/Neo.Node/config.json
+```
+
+Management endpoints:
+
+- Health: http://localhost:5000/health
+- Ready: http://localhost:5000/ready
+- Metrics (Prometheus): http://localhost:5000/metrics
+
+Optional P2P WebSocket (server‑side): http://localhost:5000/p2p
+
+### QUIC (optional)
+
+- Enable QUIC in `src/Neo.Node/config.json`:
+
+```
+"ApplicationConfiguration": {
+  "P2P": {
+    "Port": 10333,
+    "EnableCompression": true,
+    "Quic": {
+      "Enabled": true,
+      "Port": 10334,
+      "Alpn": "neo-p2p"
+    }
+  }
+}
+```
+
+- QUIC runs only on supported platforms (Windows 11+, Linux with libmsquic, macOS 14+). TCP remains the default.
+
+### Node Info Endpoint
+
+- `GET /info` returns quick status: network magic, P2P port, mempool counts, current height, and peer counts.
+
+## Compliance Checklist
+
+See docs/NEOAN-COMPLIANCE.md for status against the NeoAN plan (compatibility, observability, execution, network, storage, services).
 
 ## Related projects
 
