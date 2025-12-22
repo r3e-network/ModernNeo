@@ -169,7 +169,7 @@ namespace Neo.Wallets
                     if (invocationScript != null) engine.LoadScript(invocationScript, configureState: p => p.CallFlags = CallFlags.None);
                     if (engine.Execute() == VMState.HALT)
                     {
-                        // https://github.com/neo-project/neo/issues/2805
+                        // https://github.com/r3e-network/neo/issues/2805
                         if (engine.ResultStack.Count != 1) throw new ArgumentException($"Smart contract {contract.Hash} verification fault.");
                         _ = engine.ResultStack.Pop().GetBoolean(); // Ensure that the result is boolean
                     }

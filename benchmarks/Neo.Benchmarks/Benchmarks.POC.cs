@@ -25,7 +25,7 @@ namespace Neo.Benchmark
         [Benchmark]
         public void NeoIssue2725()
         {
-            // https://github.com/neo-project/neo/issues/2725
+            // https://github.com/r3e-network/neo/issues/2725
             // L00: INITSSLOT 1
             // L01: NEWARRAY0
             // L02: PUSHDATA1 6161616161 //"aaaaa"

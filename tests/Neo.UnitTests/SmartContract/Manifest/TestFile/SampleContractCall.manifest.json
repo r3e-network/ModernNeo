@@ -41,6 +41,6 @@
         "Author": "core-dev",
         "Version": "0.0.1",
         "Description": "A sample contract to demonstrate how to call a contract",
-        "Sourcecode": "https://github.com/neo-project/neo-devpack-dotnet/tree/master/examples/"
+        "Sourcecode": "https://github.com/r3e-network/neo-devpack-dotnet/tree/master/examples/"
     }
 }

@@ -57,6 +57,6 @@
         "Author": "code-dev",
         "Description": "A sample contract that demonstrates how to use Events",
         "Version": "0.0.1",
-        "Sourcecode": "https://github.com/neo-project/neo-devpack-dotnet/tree/master/examples/"
+        "Sourcecode": "https://github.com/r3e-network/neo-devpack-dotnet/tree/master/examples/"
     }
 }

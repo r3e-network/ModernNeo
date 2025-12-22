@@ -28,7 +28,7 @@ namespace Neo.Wallets.NEP6
     /// <summary>
     /// An implementation of the NEP-6 wallet standard.
     /// </summary>
-    /// <remarks>https://github.com/neo-project/proposals/blob/master/nep-6.mediawiki</remarks>
+    /// <remarks>https://github.com/r3e-network/proposals/blob/master/nep-6.mediawiki</remarks>
     public class NEP6Wallet : Wallet
     {
         private SecureString password;

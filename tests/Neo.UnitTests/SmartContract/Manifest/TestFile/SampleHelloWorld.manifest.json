@@ -26,6 +26,6 @@
         "Description": "A simple \u0060hello world\u0060 contract",
         "E-mail": "dev@neo.org",
         "Version": "0.0.1",
-        "Sourcecode": "https://github.com/neo-project/neo-devpack-dotnet/tree/master/examples/"
+        "Sourcecode": "https://github.com/r3e-network/neo-devpack-dotnet/tree/master/examples/"
     }
 }

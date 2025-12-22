@@ -57,7 +57,7 @@ Note that PRs for issues in this state may also be discarded if the team disagre
 ### Tags for Project Modules 
 These tags do not necessarily represent each module at code level. Modules consensus and compiler are not recommended for beginners.
 
-![Compiler](./.github/images/compiler.png) Issues that are related or influence the behavior of our C# compiler. Note that the compiler itself is hosted in the [neo-devpack-dotnet](https://github.com/neo-project/neo-devpack-dotnet) repository.
+![Compiler](./.github/images/compiler.png) Issues that are related or influence the behavior of our C# compiler. Note that the compiler itself is hosted in the [neo-devpack-dotnet](https://github.com/r3e-network/neo-devpack-dotnet) repository.
 
 ![Consensus](./.github/images/consensus.png) Changes to consensus are usually harder to make and test. Avoid implementing issues in this module that are not yet decided.
 

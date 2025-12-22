@@ -64,7 +64,7 @@ namespace Neo.Network.P2P.Payloads
 
         /// <summary>
         /// Calculates the network fee needed to pay for NotaryAssisted attribute. According to the
-        /// https://github.com/neo-project/neo/issues/1573#issuecomment-704874472, network fee consists of
+        /// https://github.com/r3e-network/neo/issues/1573#issuecomment-704874472, network fee consists of
         /// the base Notary service fee per key multiplied by the expected number of transactions that should
         /// be collected by the service to complete Notary request increased by one (for Notary node witness
         /// itself).

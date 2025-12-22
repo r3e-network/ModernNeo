@@ -238,7 +238,7 @@ namespace Neo.SmartContract.Native
                 cachedCommittee.Clear();
                 cachedCommittee.AddRange(ComputeCommitteeMembers(engine.SnapshotCache, engine.ProtocolSettings));
 
-                // Hardfork check for https://github.com/neo-project/neo/pull/3158
+                // Hardfork check for https://github.com/r3e-network/neo/pull/3158
                 // New notification will case 3.7.0 and 3.6.0 have different behavior
                 if (engine.IsHardforkEnabled(Hardfork.HF_Cockatrice))
                 {

@@ -14,11 +14,11 @@
   <a href="https://docs.neo.org/"><strong>Documentation »</strong></a>
   <br>
   <br>
-  <a href="https://github.com/neo-project/neo"><strong>Legacy Neo</strong></a>
+  <a href="https://github.com/r3e-network/neo"><strong>Legacy Neo</strong></a>
   ·
   <a href="https://github.com/r3e-network/ModernNeo">ModernNeo</a>
   ·
-  <a href="https://github.com/neo-project/neo-devpack-dotnet">Neo DevPack</a>
+  <a href="https://github.com/r3e-network/neo-devpack-dotnet">Neo DevPack</a>
 </p>
 <p align="center">
   <a href="https://twitter.com/neo_blockchain">
@@ -77,22 +77,22 @@
   </a>
 </p>
 <p align="center">
-  <a href="https://github.com/neo-project/neo/releases">
-    <img src="https://badge.fury.io/gh/neo-project%2Fneo.svg" alt="Current neo version.">
+  <a href="https://github.com/r3e-network/neo/releases">
+    <img src="https://badge.fury.io/gh/r3e-network%2Fneo.svg" alt="Current neo version.">
   </a>
-  <a href='https://coveralls.io/github/neo-project/neo'>
-    <img src='https://coveralls.io/repos/github/neo-project/neo/badge.svg' alt='Coverage Status' />
+  <a href='https://coveralls.io/github/r3e-network/neo'>
+    <img src='https://coveralls.io/repos/github/r3e-network/neo/badge.svg' alt='Coverage Status' />
   </a>
-  <a href="https://deepwiki.com/neo-project/neo">
+  <a href="https://deepwiki.com/r3e-network/neo">
     <img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki.">
   </a>
-  <a href="https://github.com/neo-project/neo/blob/master/LICENSE">
+  <a href="https://github.com/r3e-network/neo/blob/master/LICENSE">
     <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License.">
   </a>
 </p>
 
 <p align="center">
-  <a href="https://codespaces.new/neo-project/neo">
+  <a href="https://codespaces.new/r3e-network/neo">
     <img src="https://github.com/codespaces/badge.svg" alt="Open in GitHub Codespaces.">
   </a>
 </p>
@@ -118,7 +118,7 @@ Visit the [tutorials](https://docs.neo.org) to get started.
 
 ## Fork Information
 
-**ModernNeo** is a modernized, modular refactoring of the [legacy Neo blockchain](https://github.com/neo-project/neo) implementation.
+**ModernNeo** is a modernized, modular refactoring of the [legacy Neo blockchain](https://github.com/r3e-network/neo) implementation.
 
 ### Base Commit
 
@@ -126,8 +126,8 @@ This project was forked and refactored from the following commit in the legacy N
 
 | Property           | Value                                                                                                                            |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
-| **Repository**     | [neo-project/neo](https://github.com/neo-project/neo)                                                                            |
-| **Commit Hash**    | [`d3949f9203a51fea1b5a6957d5d3b963646fde0e`](https://github.com/neo-project/neo/commit/d3949f9203a51fea1b5a6957d5d3b963646fde0e) |
+| **Repository**     | [r3e-network/neo](https://github.com/r3e-network/neo)                                                                            |
+| **Commit Hash**    | [`d3949f9203a51fea1b5a6957d5d3b963646fde0e`](https://github.com/r3e-network/neo/commit/d3949f9203a51fea1b5a6957d5d3b963646fde0e) |
 | **Commit Date**    | 2025-11-14                                                                                                                       |
 | **Commit Message** | Revert "Fix: consistent behavior for hash methods (#4305)" (#4310)                                                               |
 
@@ -137,7 +137,7 @@ To sync future updates from the legacy Neo repository:
 
 ```bash
 # Add upstream remote (if not already added)
-git remote add upstream https://github.com/neo-project/neo.git
+git remote add upstream https://github.com/r3e-network/neo.git
 
 # Fetch upstream changes
 git fetch upstream
@@ -182,17 +182,17 @@ An overview of the project folders can be seen below.
 
 | Folder                                                                                          | Content                                                                                           |
 | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| [/src/neo/Cryptography/](https://github.com/neo-project/neo/tree/master/src/Neo/Cryptography)   | General cryptography implementation, including ECC.                                               |
-| [/src/neo/IO/](https://github.com/neo-project/neo/tree/master/src/Neo/IO)                       | Data structures used for caching and collection interaction.                                      |
-| [/src/neo/Ledger/](https://github.com/neo-project/neo/tree/master/src/Neo/Ledger)               | Classes responsible for the state control, including the `MemoryPool` and `Blockchain`.           |
-| [/src/neo/Network/](https://github.com/neo-project/neo/tree/master/src/Neo/Network)             | Peer-to-peer protocol implementation.                                                             |
-| [/src/neo/Persistence/](https://github.com/neo-project/neo/tree/master/src/Neo/Persistence)     | Classes used to allow other classes to access application state.                                  |
-| [/src/neo/Plugins/](https://github.com/neo-project/neo/tree/master/src/Neo/Plugins)             | Interfaces used to extend Neo, including the storage interface.                                   |
-| [/src/neo/SmartContract/](https://github.com/neo-project/neo/tree/master/src/Neo/SmartContract) | Native contracts, `ApplicationEngine`, `InteropService` and other smart-contract related classes. |
-| [/src/neo/Wallets/](https://github.com/neo-project/neo/tree/master/src/Neo/Wallets)             | Wallet and account implementation.                                                                |
-| [/src/Neo.Extensions/](https://github.com/neo-project/neo/tree/master/src/Neo.Extensions)       | Extensions to expand the existing functionality.                                                  |
-| [/src/Neo.Json/](https://github.com/neo-project/neo/tree/master/src/Neo.Json)                   | Neo's JSON specification.                                                                         |
-| [/tests/](https://github.com/neo-project/neo/tree/master/tests)                                 | All unit tests.                                                                                   |
+| [/src/neo/Cryptography/](https://github.com/r3e-network/neo/tree/master/src/Neo/Cryptography)   | General cryptography implementation, including ECC.                                               |
+| [/src/neo/IO/](https://github.com/r3e-network/neo/tree/master/src/Neo/IO)                       | Data structures used for caching and collection interaction.                                      |
+| [/src/neo/Ledger/](https://github.com/r3e-network/neo/tree/master/src/Neo/Ledger)               | Classes responsible for the state control, including the `MemoryPool` and `Blockchain`.           |
+| [/src/neo/Network/](https://github.com/r3e-network/neo/tree/master/src/Neo/Network)             | Peer-to-peer protocol implementation.                                                             |
+| [/src/neo/Persistence/](https://github.com/r3e-network/neo/tree/master/src/Neo/Persistence)     | Classes used to allow other classes to access application state.                                  |
+| [/src/neo/Plugins/](https://github.com/r3e-network/neo/tree/master/src/Neo/Plugins)             | Interfaces used to extend Neo, including the storage interface.                                   |
+| [/src/neo/SmartContract/](https://github.com/r3e-network/neo/tree/master/src/Neo/SmartContract) | Native contracts, `ApplicationEngine`, `InteropService` and other smart-contract related classes. |
+| [/src/neo/Wallets/](https://github.com/r3e-network/neo/tree/master/src/Neo/Wallets)             | Wallet and account implementation.                                                                |
+| [/src/Neo.Extensions/](https://github.com/r3e-network/neo/tree/master/src/Neo.Extensions)       | Extensions to expand the existing functionality.                                                  |
+| [/src/Neo.Json/](https://github.com/r3e-network/neo/tree/master/src/Neo.Json)                   | Neo's JSON specification.                                                                         |
+| [/tests/](https://github.com/r3e-network/neo/tree/master/tests)                                 | All unit tests.                                                                                   |
 
 Additional ModernNeo modules of interest:
 
@@ -264,21 +264,21 @@ See docs/NEOAN-COMPLIANCE.md for status against the NeoAN plan (compatibility, o
 
 Code references are provided for all platform building blocks. That includes the base library, the VM, a command line application and the compiler.
 
-- [neo:](https://github.com/neo-project/neo/) Included libraries are Neo, Neo-CLI, Neo-GUI, Neo-VM, test and plugin modules.
-- [neo-express:](https://github.com/neo-project/neo-express/) A private net optimized for development scenarios.
-- [neo-devpack-dotnet:](https://github.com/neo-project/neo-devpack-dotnet/) These are the official tools used to convert a C# smart-contract into a _neo executable file_.
-- [neo-proposals:](https://github.com/neo-project/proposals) NEO Enhancement Proposals (NEPs) describe standards for the NEO platform, including core protocol specifications, client APIs, and contract standards.
-- [neo-non-native-contracts:](https://github.com/neo-project/non-native-contracts) Includes non-native contracts that live on the blockchain, included but not limited to NeoNameService.
+- [neo:](https://github.com/r3e-network/neo/) Included libraries are Neo, Neo-CLI, Neo-GUI, Neo-VM, test and plugin modules.
+- [neo-express:](https://github.com/r3e-network/neo-express/) A private net optimized for development scenarios.
+- [neo-devpack-dotnet:](https://github.com/r3e-network/neo-devpack-dotnet/) These are the official tools used to convert a C# smart-contract into a _neo executable file_.
+- [neo-proposals:](https://github.com/r3e-network/proposals) NEO Enhancement Proposals (NEPs) describe standards for the NEO platform, including core protocol specifications, client APIs, and contract standards.
+- [neo-non-native-contracts:](https://github.com/r3e-network/non-native-contracts) Includes non-native contracts that live on the blockchain, included but not limited to NeoNameService.
 
 ## Opening a new issue
 
 Please feel free to create new issues to suggest features or ask questions.
 
-- [Feature request](https://github.com/neo-project/neo/issues/new?assignees=&labels=discussion&template=feature-or-enhancement-request.md&title=)
-- [Bug report](https://github.com/neo-project/neo/issues/new?assignees=&labels=&template=bug_report.md&title=)
-- [Questions](https://github.com/neo-project/neo/issues/new?assignees=&labels=question&template=questions.md&title=)
+- [Feature request](https://github.com/r3e-network/neo/issues/new?assignees=&labels=discussion&template=feature-or-enhancement-request.md&title=)
+- [Bug report](https://github.com/r3e-network/neo/issues/new?assignees=&labels=&template=bug_report.md&title=)
+- [Questions](https://github.com/r3e-network/neo/issues/new?assignees=&labels=question&template=questions.md&title=)
 
-If you found a security issue, please refer to our [security policy](https://github.com/neo-project/neo/security/policy).
+If you found a security issue, please refer to our [security policy](https://github.com/r3e-network/neo/security/policy).
 
 ## Contributing
 

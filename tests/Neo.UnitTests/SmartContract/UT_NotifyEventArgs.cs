@@ -39,7 +39,7 @@ namespace Neo.UnitTests.SmartContract
         }
 
         [TestMethod]
-        public void TestIssue3300() // https://github.com/neo-project/neo/issues/3300
+        public void TestIssue3300() // https://github.com/r3e-network/neo/issues/3300
         {
             var snapshot = _snapshotCache.CloneCache();
             using var engine = ApplicationEngine.Create(TriggerType.Application, null, snapshot, settings: TestProtocolSettings.Default, gas: 1100_00000000);
