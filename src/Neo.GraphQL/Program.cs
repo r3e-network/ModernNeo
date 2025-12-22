@@ -16,6 +16,7 @@ using GraphQL.SystemTextJson;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Neo.GraphQL.Types;
 
 namespace Neo.GraphQL
 {
@@ -29,6 +30,12 @@ namespace Neo.GraphQL
                 .AddSingleton<NeoSchema>()
                 .AddSingleton<Neo.Services.NodeInfo.INodeInfoService, Neo.Services.NodeInfo.NodeInfoService>()
                 .AddSingleton<Neo.Services.Blocks.IBlockQueryService, Neo.Services.Blocks.BlockQueryService>()
+                .AddSingleton<Neo.Services.Transactions.ITransactionQueryService, Neo.Services.Transactions.TransactionQueryService>()
+                // Register GraphQL types
+                .AddSingleton<BlockType>()
+                .AddSingleton<TransactionType>()
+                .AddSingleton<SignerType>()
+                .AddSingleton<WitnessType>()
                 .AddGraphQL(b => b
                     .AddSystemTextJson()
                     .AddSchema<NeoSchema>());

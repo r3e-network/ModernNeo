@@ -119,6 +119,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Neo.Node.Tests", "tests\Neo
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Neo.PerformanceTests", "tests\Neo.PerformanceTests\Neo.PerformanceTests.csproj", "{0A9C6BF5-4293-42C1-BA8C-610737009250}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Neo.GraphQL.Tests", "tests\Neo.GraphQL.Tests\Neo.GraphQL.Tests.csproj", "{447AB50A-7199-4BEA-ADB4-50829C6D3D31}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -789,6 +791,18 @@ Global
 		{0A9C6BF5-4293-42C1-BA8C-610737009250}.Release|x64.Build.0 = Release|Any CPU
 		{0A9C6BF5-4293-42C1-BA8C-610737009250}.Release|x86.ActiveCfg = Release|Any CPU
 		{0A9C6BF5-4293-42C1-BA8C-610737009250}.Release|x86.Build.0 = Release|Any CPU
+		{447AB50A-7199-4BEA-ADB4-50829C6D3D31}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{447AB50A-7199-4BEA-ADB4-50829C6D3D31}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{447AB50A-7199-4BEA-ADB4-50829C6D3D31}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{447AB50A-7199-4BEA-ADB4-50829C6D3D31}.Debug|x64.Build.0 = Debug|Any CPU
+		{447AB50A-7199-4BEA-ADB4-50829C6D3D31}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{447AB50A-7199-4BEA-ADB4-50829C6D3D31}.Debug|x86.Build.0 = Debug|Any CPU
+		{447AB50A-7199-4BEA-ADB4-50829C6D3D31}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{447AB50A-7199-4BEA-ADB4-50829C6D3D31}.Release|Any CPU.Build.0 = Release|Any CPU
+		{447AB50A-7199-4BEA-ADB4-50829C6D3D31}.Release|x64.ActiveCfg = Release|Any CPU
+		{447AB50A-7199-4BEA-ADB4-50829C6D3D31}.Release|x64.Build.0 = Release|Any CPU
+		{447AB50A-7199-4BEA-ADB4-50829C6D3D31}.Release|x86.ActiveCfg = Release|Any CPU
+		{447AB50A-7199-4BEA-ADB4-50829C6D3D31}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -849,6 +863,7 @@ Global
 		{5F010FBD-F255-40A1-9309-3BC4B5D63581} = {EDE05FA8-8E73-4924-BC63-DD117127EEE1}
 		{F2D1BA5D-EB0A-42CC-ACFD-C0C9B8B1BCB7} = {EDE05FA8-8E73-4924-BC63-DD117127EEE1}
 		{0A9C6BF5-4293-42C1-BA8C-610737009250} = {EDE05FA8-8E73-4924-BC63-DD117127EEE1}
+		{447AB50A-7199-4BEA-ADB4-50829C6D3D31} = {EDE05FA8-8E73-4924-BC63-DD117127EEE1}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {BCBA19D9-F868-4C6D-8061-A2B91E06E3EC}
