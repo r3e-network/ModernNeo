@@ -11,7 +11,7 @@
 
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Neo.Core.Interfaces;
-using Neo.Ledger;
+using Neo.Execution;
 
 namespace Neo.UnitTests.Ledger
 {

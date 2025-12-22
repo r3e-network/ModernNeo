@@ -75,6 +75,7 @@ namespace Neo.Execution
         private int _successfulTransactions;
         private int _failedTransactions;
         private int _retriedTransactions;
+        private int _peakParallelism;
 
         /// <inheritdoc/>
         public int TotalTransactions { get; set; }
@@ -93,7 +94,11 @@ namespace Neo.Execution
         public int ConflictsResolved { get; set; }
 
         /// <inheritdoc/>
-        public int PeakParallelism { get; set; }
+        public int PeakParallelism
+        {
+            get => _peakParallelism;
+            set => _peakParallelism = value;
+        }
 
         /// <summary>
         /// Number of transactions that executed successfully.
@@ -136,6 +141,20 @@ namespace Neo.Execution
         /// Thread-safe increment of retried transactions.
         /// </summary>
         public void IncrementRetried() => Interlocked.Increment(ref _retriedTransactions);
+
+        /// <summary>
+        /// Thread-safe update of peak parallelism if the new value is higher.
+        /// </summary>
+        /// <param name="value">The parallelism value to compare.</param>
+        public void UpdatePeakParallelism(int value)
+        {
+            int current;
+            do
+            {
+                current = PeakParallelism;
+                if (value <= current) return;
+            } while (Interlocked.CompareExchange(ref _peakParallelism, value, current) != current);
+        }
 
         /// <summary>
         /// Average execution time per transaction in microseconds.

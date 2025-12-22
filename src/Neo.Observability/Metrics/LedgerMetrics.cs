@@ -13,7 +13,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.Metrics;
 
-namespace Neo.Ledger
+namespace Neo.Observability.Metrics
 {
     internal static class LedgerMetrics
     {

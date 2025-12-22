@@ -6,35 +6,18 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <AssemblyName>Neo.Node.Core</AssemblyName>
     <PackageTags>NEO;Node;Runtime</PackageTags>
+    <Description>Neo Node Runtime Bridge - Akka actor bridge for unified runtime interface.</Description>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Akka" Version="1.5.55" />
-    <PackageReference Include="BouncyCastle.Cryptography" Version="2.6.2" />
-    <PackageReference Include="K4os.Compression.LZ4" Version="1.3.8" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.0" />
-    <PackageReference Include="Microsoft.IdentityModel.Tokens" Version="8.14.0" />
-    <PackageReference Include="Neo.Cryptography.BLS12_381" Version="3.9.0-CI00010" />
-    <PackageReference Include="Neo.VM" Version="3.9.0-CI00344" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\\Neo\\Neo.csproj" />
-    <ProjectReference Include="..\\Neo.Core\\Neo.Core.csproj" />
-    <ProjectReference Include="..\\Neo.Execution\\Neo.Execution.csproj" />
-    <ProjectReference Include="..\\Neo.Cryptography\\Neo.Cryptography.csproj" />
-    <ProjectReference Include="..\\Neo.Extensions\\Neo.Extensions.csproj" />
-    <ProjectReference Include="..\\Neo.IO\\Neo.IO.csproj" />
-    <ProjectReference Include="..\\Neo.Json\\Neo.Json.csproj" />
-    <ProjectReference Include="..\\Neo.Ledger\\Neo.Ledger.csproj" />
-    <ProjectReference Include="..\\Neo.Network\\Neo.Network.csproj" />
-    <ProjectReference Include="..\\Neo.Observability\\Neo.Observability.csproj" />
-    <ProjectReference Include="..\\Neo.Plugins\\Neo.Plugins.csproj" />
-    <ProjectReference Include="..\\Neo.Protocol\\Neo.Protocol.csproj" />
-    <ProjectReference Include="..\\Neo.SmartContract\\Neo.SmartContract.csproj" />
-    <ProjectReference Include="..\\Neo.Storage\\Neo.Storage.csproj" />
-    <ProjectReference Include="..\\Neo.Wallets\\Neo.Wallets.csproj" />
+    <ProjectReference Include="..\Neo\Neo.csproj" />
+    <ProjectReference Include="..\Neo.Core\Neo.Core.csproj" />
+    <ProjectReference Include="..\Neo.Ledger\Neo.Ledger.csproj" />
+    <ProjectReference Include="..\Neo.Network\Neo.Network.csproj" />
   </ItemGroup>
 
   <ItemGroup>

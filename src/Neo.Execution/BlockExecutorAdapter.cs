@@ -10,7 +10,7 @@
 // modifications are permitted.
 
 using Neo.Core.Interfaces;
-using Neo.Execution;
+using Neo.Ledger;
 using Neo.Network.P2P.Payloads;
 using Neo.Persistence;
 using Neo.SmartContract;
@@ -21,7 +21,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace Neo.Ledger
+namespace Neo.Execution
 {
     /// <summary>
     /// Adapts the ParallelExecutor for use with Blockchain.Persist.
