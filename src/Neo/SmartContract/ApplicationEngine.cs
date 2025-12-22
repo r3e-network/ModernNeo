@@ -729,7 +729,10 @@ namespace Neo.SmartContract
                 parameters[i] = Convert(Pop(), descriptor.Parameters[i]);
 
             object? returnValue = descriptor.Handler.Invoke(this, parameters);
-            if (descriptor.Handler.ReturnType != typeof(void))
+            // Align syscall behavior with NativeContract.Invoke:
+            // - If the handler returns ContractTask, do NOT push it to the VM stack.
+            //   The async flow is cooperatively driven by ContractTask/ContextUnloaded.
+            if (descriptor.Handler.ReturnType != typeof(void) && descriptor.Handler.ReturnType != typeof(ContractTask))
                 Push(Convert(returnValue));
 
             // Record syscall metrics

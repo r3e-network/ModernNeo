@@ -149,7 +149,7 @@ namespace Neo.SmartContract
         /// The implementation of System.Contract.NativeOnPersist.
         /// Calls to the <see cref="NativeContract.OnPersistAsync"/> of all native contracts.
         /// </summary>
-        protected internal async void NativeOnPersistAsync()
+        internal async ContractTask NativeOnPersistAsync()
         {
             try
             {
@@ -171,7 +171,7 @@ namespace Neo.SmartContract
         /// The implementation of System.Contract.NativePostPersist.
         /// Calls to the <see cref="NativeContract.PostPersistAsync"/> of all native contracts.
         /// </summary>
-        protected internal async void NativePostPersistAsync()
+        internal async ContractTask NativePostPersistAsync()
         {
             try
             {

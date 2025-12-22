@@ -796,14 +796,14 @@ namespace Neo.Plugins
                 EnableRaisingEvents = true
             };
 
-            watcher.Changed += (_, e) => OnConfigFileChanged(pluginName, e.FullPath);
-            watcher.Created += (_, e) => OnConfigFileChanged(pluginName, e.FullPath);
-            watcher.Renamed += (_, e) => OnConfigFileChanged(pluginName, e.FullPath);
+            watcher.Changed += (_, e) => _ = OnConfigFileChangedAsync(pluginName, e.FullPath);
+            watcher.Created += (_, e) => _ = OnConfigFileChangedAsync(pluginName, e.FullPath);
+            watcher.Renamed += (_, e) => _ = OnConfigFileChangedAsync(pluginName, e.FullPath);
 
             _configWatchers[pluginName] = watcher;
         }
 
-        private async void OnConfigFileChanged(string pluginName, string configPath)
+        private async Task OnConfigFileChangedAsync(string pluginName, string configPath)
         {
             if (!_options.EnableConfigReload) return;
 
@@ -833,7 +833,13 @@ namespace Neo.Plugins
             }
         }
 
-        private async void OnPluginFileChanged(object sender, FileSystemEventArgs e)
+        private void OnPluginFileChanged(object sender, FileSystemEventArgs e)
+        {
+            // Fire-and-forget
+            _ = OnPluginFileChangedAsync(e);
+        }
+
+        private async Task OnPluginFileChangedAsync(FileSystemEventArgs e)
         {
             if (!_options.EnableHotReload) return;
 
@@ -850,7 +856,13 @@ namespace Neo.Plugins
             }
         }
 
-        private async void OnPluginFileDeleted(object sender, FileSystemEventArgs e)
+        private void OnPluginFileDeleted(object sender, FileSystemEventArgs e)
+        {
+            // Fire-and-forget
+            _ = OnPluginFileDeletedAsync(e);
+        }
+
+        private async Task OnPluginFileDeletedAsync(FileSystemEventArgs e)
         {
             if (!_options.EnableHotReload) return;
 

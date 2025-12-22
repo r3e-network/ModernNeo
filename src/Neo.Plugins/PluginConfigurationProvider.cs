@@ -244,14 +244,14 @@ namespace Neo.Plugins
                 EnableRaisingEvents = true
             };
 
-            watcher.Changed += (_, e) => OnConfigurationFileChanged(pluginName, e.FullPath);
-            watcher.Created += (_, e) => OnConfigurationFileChanged(pluginName, e.FullPath);
-            watcher.Renamed += (_, e) => OnConfigurationFileChanged(pluginName, e.FullPath);
+            watcher.Changed += (_, e) => _ = OnConfigurationFileChangedAsync(pluginName, e.FullPath);
+            watcher.Created += (_, e) => _ = OnConfigurationFileChangedAsync(pluginName, e.FullPath);
+            watcher.Renamed += (_, e) => _ = OnConfigurationFileChangedAsync(pluginName, e.FullPath);
 
             _watchers[pluginName] = watcher;
         }
 
-        private async void OnConfigurationFileChanged(string pluginName, string configPath)
+        private async Task OnConfigurationFileChangedAsync(string pluginName, string configPath)
         {
             if (!_enableHotReload)
                 return;

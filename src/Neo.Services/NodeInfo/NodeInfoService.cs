@@ -12,6 +12,7 @@
 using Neo;
 using Neo.Ledger;
 using Neo.SmartContract.Native;
+using System;
 
 namespace Neo.Services.NodeInfo
 {
@@ -21,7 +22,7 @@ namespace Neo.Services.NodeInfo
 
         public NodeInfoService(NeoSystem system)
         {
-            _system = system;
+            _system = system ?? throw new ArgumentNullException(nameof(system));
         }
 
         public string Network => _system.Settings.Network.ToString();

@@ -187,32 +187,46 @@ namespace Neo.Consensus
             }
         }
 
-        private async void OnTimeout(object? state)
+        private void OnTimeout(object? state)
+        {
+            // Fire-and-forget wrapper with proper error isolation.
+            _ = OnTimeoutAsync(state);
+        }
+
+        private async Task OnTimeoutAsync(object? state)
         {
             if (!IsRunning)
                 return;
 
-            await _lock.WaitAsync();
             try
             {
-                switch (_phase)
+                await _lock.WaitAsync().ConfigureAwait(false);
+                try
                 {
-                    case ConsensusPhase.Primary:
-                        // Time to send PrepareRequest
-                        await SendPrepareRequestAsync();
-                        break;
+                    switch (_phase)
+                    {
+                        case ConsensusPhase.Primary:
+                            // Time to send PrepareRequest
+                            await SendPrepareRequestAsync().ConfigureAwait(false);
+                            break;
 
-                    case ConsensusPhase.Backup:
-                    case ConsensusPhase.RequestReceived:
-                    case ConsensusPhase.ResponseSent:
-                        // Timeout waiting - initiate view change
-                        await InitiateViewChangeAsync(ViewChangeReason.Timeout);
-                        break;
+                        case ConsensusPhase.Backup:
+                        case ConsensusPhase.RequestReceived:
+                        case ConsensusPhase.ResponseSent:
+                            // Timeout waiting - initiate view change
+                            await InitiateViewChangeAsync(ViewChangeReason.Timeout).ConfigureAwait(false);
+                            break;
+                    }
+                }
+                finally
+                {
+                    _lock.Release();
                 }
             }
-            finally
+            catch
             {
-                _lock.Release();
+                // Swallow to prevent timer thread termination.
+                // Consider logging if a logger is available in this context.
             }
         }
 
