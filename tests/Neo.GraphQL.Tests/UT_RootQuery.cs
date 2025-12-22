@@ -17,14 +17,14 @@ namespace Neo.GraphQL.Tests
         [TestMethod]
         public void RootQuery_HasCorrectName()
         {
-            var query = new RootQuery(null, null, null);
+            var query = new RootQuery(null, null, null, null, null);
             Assert.AreEqual("Query", query.Name);
         }
 
         [TestMethod]
         public void RootQuery_HasDescription()
         {
-            var query = new RootQuery(null, null, null);
+            var query = new RootQuery(null, null, null, null, null);
             Assert.IsNotNull(query.Description);
             Assert.IsTrue(query.Description.Contains("Neo"));
         }
@@ -32,7 +32,7 @@ namespace Neo.GraphQL.Tests
         [TestMethod]
         public void RootQuery_HasNodeInfoQueries()
         {
-            var query = new RootQuery(null, null, null);
+            var query = new RootQuery(null, null, null, null, null);
             var fields = query.Fields.Select(f => f.Name).ToList();
 
             Assert.IsTrue(fields.Contains("version"));
@@ -44,7 +44,7 @@ namespace Neo.GraphQL.Tests
         [TestMethod]
         public void RootQuery_HasBlockQueries()
         {
-            var query = new RootQuery(null, null, null);
+            var query = new RootQuery(null, null, null, null, null);
             var fields = query.Fields.Select(f => f.Name).ToList();
 
             Assert.IsTrue(fields.Contains("block"));
@@ -56,7 +56,7 @@ namespace Neo.GraphQL.Tests
         [TestMethod]
         public void RootQuery_HasTransactionQueries()
         {
-            var query = new RootQuery(null, null, null);
+            var query = new RootQuery(null, null, null, null, null);
             var fields = query.Fields.Select(f => f.Name).ToList();
 
             Assert.IsTrue(fields.Contains("transaction"));
@@ -68,16 +68,43 @@ namespace Neo.GraphQL.Tests
         [TestMethod]
         public void RootQuery_HasBlockTransactionQueries()
         {
-            var query = new RootQuery(null, null, null);
+            var query = new RootQuery(null, null, null, null, null);
             var fields = query.Fields.Select(f => f.Name).ToList();
 
             Assert.IsTrue(fields.Contains("blockTransactions"));
         }
 
         [TestMethod]
-        public void RootQuery_VersionReturnsV1()
+        public void RootQuery_HasAccountQueries()
         {
-            var query = new RootQuery(null, null, null);
+            var query = new RootQuery(null, null, null, null, null);
+            var fields = query.Fields.Select(f => f.Name).ToList();
+
+            Assert.IsTrue(fields.Contains("account"));
+            Assert.IsTrue(fields.Contains("neoBalance"));
+            Assert.IsTrue(fields.Contains("gasBalance"));
+            Assert.IsTrue(fields.Contains("unclaimedGas"));
+            Assert.IsTrue(fields.Contains("isValidAddress"));
+        }
+
+        [TestMethod]
+        public void RootQuery_HasContractQueries()
+        {
+            var query = new RootQuery(null, null, null, null, null);
+            var fields = query.Fields.Select(f => f.Name).ToList();
+
+            Assert.IsTrue(fields.Contains("contract"));
+            Assert.IsTrue(fields.Contains("contractById"));
+            Assert.IsTrue(fields.Contains("contractExists"));
+            Assert.IsTrue(fields.Contains("contractHasMethod"));
+            Assert.IsTrue(fields.Contains("contracts"));
+            Assert.IsTrue(fields.Contains("contractCount"));
+        }
+
+        [TestMethod]
+        public void RootQuery_VersionReturnsV1_1()
+        {
+            var query = new RootQuery(null, null, null, null, null);
             var versionField = query.Fields.First(f => f.Name == "version");
 
             Assert.IsNotNull(versionField);
@@ -87,15 +114,17 @@ namespace Neo.GraphQL.Tests
         [TestMethod]
         public void RootQuery_TotalFieldCount()
         {
-            var query = new RootQuery(null, null, null);
+            var query = new RootQuery(null, null, null, null, null);
             var fieldCount = query.Fields.Count();
 
             // Node info: 4 (version, network, height, mempoolCount)
             // Block: 4 (block, blockByHash, blocks, blockHashes)
             // Transaction: 4 (transaction, transactionExists, transactionBlockIndex, mempoolTransactions)
             // Block transactions: 1 (blockTransactions)
-            // Total: 13
-            Assert.AreEqual(13, fieldCount);
+            // Account: 5 (account, neoBalance, gasBalance, unclaimedGas, isValidAddress)
+            // Contract: 6 (contract, contractById, contractExists, contractHasMethod, contracts, contractCount)
+            // Total: 24
+            Assert.AreEqual(24, fieldCount);
         }
     }
 }

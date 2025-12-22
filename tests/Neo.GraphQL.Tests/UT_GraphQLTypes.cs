@@ -125,5 +125,51 @@ namespace Neo.GraphQL.Tests
             Assert.IsTrue(fields.Contains("verificationScript"));
             Assert.IsTrue(fields.Contains("scriptHash"));
         }
+
+        [TestMethod]
+        public void AccountBalanceType_HasCorrectName()
+        {
+            var accountType = new AccountBalanceType();
+            Assert.AreEqual("AccountBalance", accountType.Name);
+        }
+
+        [TestMethod]
+        public void AccountBalanceType_HasRequiredFields()
+        {
+            var accountType = new AccountBalanceType();
+            var fields = accountType.Fields.Select(f => f.Name).ToList();
+
+            Assert.IsTrue(fields.Contains("address"));
+            Assert.IsTrue(fields.Contains("scriptHash"));
+            Assert.IsTrue(fields.Contains("neoBalance"));
+            Assert.IsTrue(fields.Contains("gasBalance"));
+            Assert.IsTrue(fields.Contains("unclaimedGas"));
+        }
+
+        [TestMethod]
+        public void ContractType_HasCorrectName()
+        {
+            var contractType = new ContractType();
+            Assert.AreEqual("Contract", contractType.Name);
+        }
+
+        [TestMethod]
+        public void ContractType_HasRequiredFields()
+        {
+            var contractType = new ContractType();
+            var fields = contractType.Fields.Select(f => f.Name).ToList();
+
+            Assert.IsTrue(fields.Contains("id"));
+            Assert.IsTrue(fields.Contains("hash"));
+            Assert.IsTrue(fields.Contains("updateCounter"));
+            Assert.IsTrue(fields.Contains("name"));
+            Assert.IsTrue(fields.Contains("supportedStandards"));
+            Assert.IsTrue(fields.Contains("methods"));
+            Assert.IsTrue(fields.Contains("events"));
+            Assert.IsTrue(fields.Contains("permissions"));
+            Assert.IsTrue(fields.Contains("trusts"));
+            Assert.IsTrue(fields.Contains("script"));
+            Assert.IsTrue(fields.Contains("compiler"));
+        }
     }
 }

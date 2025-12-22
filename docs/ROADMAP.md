@@ -31,6 +31,7 @@ This roadmap mirrors the NeoAN plan and tracks repository alignment. Phases emph
 ## Status in Repo
 
 - Modules present for: Core, Crypto, Storage, Network (including QUIC stubs), Execution, Ledger, Consensus, Observability, RPC/gRPC, Plugins, Node host.
-- Pending scaffolds: GraphQL endpoint, richer `Neo.Services` layer.
-- Solution file `neo.sln` currently includes a subset of projects; needs update to include all module csprojs.
-
+- ✅ GraphQL endpoint implemented with 13 query endpoints (blocks, transactions, node info)
+- ✅ Solution file `neo.sln` updated to include all module csprojs
+- Neo.Services layer expanded with BlockQueryService, NodeInfoService, TransactionQueryService
+- Pending: richer Neo.Services layer (account queries, contract queries, event subscriptions)

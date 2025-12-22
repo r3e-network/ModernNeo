@@ -28,14 +28,20 @@ namespace Neo.GraphQL
 
             builder.Services
                 .AddSingleton<NeoSchema>()
+                // Node and Block services
                 .AddSingleton<Neo.Services.NodeInfo.INodeInfoService, Neo.Services.NodeInfo.NodeInfoService>()
                 .AddSingleton<Neo.Services.Blocks.IBlockQueryService, Neo.Services.Blocks.BlockQueryService>()
                 .AddSingleton<Neo.Services.Transactions.ITransactionQueryService, Neo.Services.Transactions.TransactionQueryService>()
+                // Account and Contract services
+                .AddSingleton<Neo.Services.Accounts.IAccountQueryService, Neo.Services.Accounts.AccountQueryService>()
+                .AddSingleton<Neo.Services.Contracts.IContractQueryService, Neo.Services.Contracts.ContractQueryService>()
                 // Register GraphQL types
                 .AddSingleton<BlockType>()
                 .AddSingleton<TransactionType>()
                 .AddSingleton<SignerType>()
                 .AddSingleton<WitnessType>()
+                .AddSingleton<AccountBalanceType>()
+                .AddSingleton<ContractType>()
                 .AddGraphQL(b => b
                     .AddSystemTextJson()
                     .AddSchema<NeoSchema>());
