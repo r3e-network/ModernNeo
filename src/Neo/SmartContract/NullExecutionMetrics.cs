@@ -11,12 +11,14 @@
 
 using Neo.Observability.Metrics;
 using System;
+using System.Runtime.CompilerServices;
 
 namespace Neo.SmartContract
 {
     /// <summary>
     /// A no-op implementation of <see cref="IExecutionMetrics"/> that does nothing.
     /// Used as default when no metrics collection is configured.
+    /// All methods are aggressively inlined to eliminate call overhead in hot paths.
     /// </summary>
     public sealed class NullExecutionMetrics : IExecutionMetrics
     {
@@ -31,18 +33,23 @@ namespace Neo.SmartContract
         public IMetricsProvider MetricsProvider => NullMetricsProvider.Instance;
 
         /// <inheritdoc/>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void RecordExecutionStart(UInt160 contractHash, string method) { }
 
         /// <inheritdoc/>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void RecordExecutionComplete(UInt160 contractHash, string method, long gasConsumed, bool success, TimeSpan duration) { }
 
         /// <inheritdoc/>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void RecordSyscall(string syscallName, long gasConsumed) { }
 
         /// <inheritdoc/>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void RecordInstruction(byte opCode, long gasConsumed) { }
 
         /// <inheritdoc/>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void RecordStorageOperation(StorageOperationType operation, int keySize, int valueSize) { }
     }
 }

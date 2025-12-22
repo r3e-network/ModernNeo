@@ -15,6 +15,8 @@ using System.Net;
 using System.Runtime.Versioning;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Neo.Network.P2P.Transport
 {
@@ -27,6 +29,7 @@ namespace Neo.Network.P2P.Transport
         private readonly QuicTransport? _quicTransport;
         private readonly WsTransport? _wsTransport;
         private readonly TimeSpan _quicTimeout;
+        private readonly ILogger<ProtocolNegotiator> _logger;
 
         /// <summary>
         /// Gets whether QUIC transport is available.
@@ -39,11 +42,17 @@ namespace Neo.Network.P2P.Transport
         /// <param name="quicTransport">Optional QUIC transport instance.</param>
         /// <param name="wsTransport">Optional WebSocket transport instance.</param>
         /// <param name="quicTimeout">Timeout for QUIC connection attempts before falling back to TCP.</param>
-        public ProtocolNegotiator(QuicTransport? quicTransport = null, WsTransport? wsTransport = null, TimeSpan? quicTimeout = null)
+        /// <param name="logger">Optional logger for diagnostics.</param>
+        public ProtocolNegotiator(
+            QuicTransport? quicTransport = null,
+            WsTransport? wsTransport = null,
+            TimeSpan? quicTimeout = null,
+            ILogger<ProtocolNegotiator>? logger = null)
         {
             _quicTransport = quicTransport;
             _wsTransport = wsTransport;
             _quicTimeout = quicTimeout ?? TimeSpan.FromSeconds(5);
+            _logger = logger ?? NullLogger<ProtocolNegotiator>.Instance;
         }
 
         /// <summary>
@@ -81,11 +90,11 @@ namespace Neo.Network.P2P.Transport
                 }
                 catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
                 {
-                    // QUIC timeout, fall back to TCP
+                    _logger.LogDebug("QUIC connection to {EndPoint} timed out, falling back to TCP", quicEndPoint);
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
-                    // QUIC failed, fall back to TCP
+                    _logger.LogDebug(ex, "QUIC connection to {EndPoint} failed: {Message}, falling back to TCP", quicEndPoint, ex.Message);
                 }
             }
 
@@ -102,9 +111,9 @@ namespace Neo.Network.P2P.Transport
                         RemoteEndPoint = tcpEndPoint
                     };
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // Fallback to TCP
+                    _logger.LogDebug(ex, "WebSocket connection to {Uri} failed: {Message}, falling back to TCP", wsUri, ex.Message);
                 }
             }
 

@@ -10,6 +10,8 @@
 // modifications are permitted.
 
 using Neo.Json;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using System.Collections.Concurrent;
 
 namespace Neo.RPC
@@ -20,6 +22,7 @@ namespace Neo.RPC
     public class RpcProcessor
     {
         private readonly ConcurrentDictionary<string, IRpcMethod> _methods = new();
+        private readonly ILogger<RpcProcessor> _logger;
 
         /// <summary>
         /// Gets the number of registered methods.
@@ -30,6 +33,15 @@ namespace Neo.RPC
         /// Gets the names of all registered methods.
         /// </summary>
         public IEnumerable<string> RegisteredMethods => _methods.Keys;
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="RpcProcessor"/> class.
+        /// </summary>
+        /// <param name="logger">Optional logger for diagnostics.</param>
+        public RpcProcessor(ILogger<RpcProcessor>? logger = null)
+        {
+            _logger = logger ?? NullLogger<RpcProcessor>.Instance;
+        }
 
         /// <summary>
         /// Registers an RPC method handler.
@@ -98,8 +110,9 @@ namespace Neo.RPC
                     return RpcResponse.Failure(null, RpcError.InvalidRequest).ToJson().ToString();
                 }
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                _logger.LogWarning(ex, "Failed to parse JSON-RPC request: {Message}", ex.Message);
                 return RpcResponse.Failure(null, RpcError.ParseError).ToJson().ToString();
             }
         }

@@ -9,12 +9,14 @@
 // Redistribution and use in source and binary forms with or without
 // modifications are permitted.
 
+using System.Runtime.CompilerServices;
 using System.Threading;
 
 namespace Neo.Observability.Metrics
 {
     /// <summary>
     /// A no-op metrics provider that does nothing. Used as default when no metrics are configured.
+    /// All methods are aggressively inlined to eliminate call overhead in hot paths.
     /// </summary>
     public sealed class NullMetricsProvider : IMetricsProvider
     {
@@ -26,12 +28,15 @@ namespace Neo.Observability.Metrics
         private NullMetricsProvider() { }
 
         /// <inheritdoc/>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ICounter CreateCounter(string name, string description) => NullCounter.Instance;
 
         /// <inheritdoc/>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public IGauge CreateGauge(string name, string description) => NullGauge.Instance;
 
         /// <inheritdoc/>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public IHistogram CreateHistogram(string name, string description, double[]? buckets = null) => NullHistogram.Instance;
     }
 
@@ -42,7 +47,11 @@ namespace Neo.Observability.Metrics
 
         public string Name => string.Empty;
         public long Value => 0;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Increment() { }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Increment(long value) { }
     }
 
@@ -53,8 +62,14 @@ namespace Neo.Observability.Metrics
 
         public string Name => string.Empty;
         public double Value => 0;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Set(double value) { }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Increment() { }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Decrement() { }
     }
 
@@ -66,6 +81,8 @@ namespace Neo.Observability.Metrics
         public string Name => string.Empty;
         public long Count => 0;
         public double Sum => 0;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Observe(double value) { }
     }
 }
