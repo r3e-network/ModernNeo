@@ -171,5 +171,48 @@ namespace Neo.GraphQL.Tests
             Assert.IsTrue(fields.Contains("script"));
             Assert.IsTrue(fields.Contains("compiler"));
         }
+
+        [TestMethod]
+        public void SubscriptionType_HasCorrectName()
+        {
+            var subscriptionType = new SubscriptionType(null);
+            Assert.AreEqual("Subscription", subscriptionType.Name);
+        }
+
+        [TestMethod]
+        public void SubscriptionType_HasDescription()
+        {
+            var subscriptionType = new SubscriptionType(null);
+            Assert.IsNotNull(subscriptionType.Description);
+            Assert.IsTrue(subscriptionType.Description.Contains("subscription") || subscriptionType.Description.Contains("event"));
+        }
+
+        [TestMethod]
+        public void SubscriptionType_HasRequiredFields()
+        {
+            var subscriptionType = new SubscriptionType(null);
+            var fields = subscriptionType.Fields.Select(f => f.Name).ToList();
+
+            Assert.IsTrue(fields.Contains("blockCommitted"));
+            Assert.IsTrue(fields.Contains("transactionAdded"));
+            Assert.IsTrue(fields.Contains("transactionRemoved"));
+        }
+
+        [TestMethod]
+        public void TransactionRemovedType_HasCorrectName()
+        {
+            var txRemovedType = new TransactionRemovedType();
+            Assert.AreEqual("TransactionRemoved", txRemovedType.Name);
+        }
+
+        [TestMethod]
+        public void TransactionRemovedType_HasRequiredFields()
+        {
+            var txRemovedType = new TransactionRemovedType();
+            var fields = txRemovedType.Fields.Select(f => f.Name).ToList();
+
+            Assert.IsTrue(fields.Contains("transaction"));
+            Assert.IsTrue(fields.Contains("reason"));
+        }
     }
 }

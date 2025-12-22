@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <PackageReference Include="Neo.VM" Version="3.9.0-CI00344" />
+    <PackageReference Include="System.Reactive" Version="6.0.1" />
   </ItemGroup>
 
   <ItemGroup>

@@ -35,6 +35,8 @@ namespace Neo.GraphQL
                 // Account and Contract services
                 .AddSingleton<Neo.Services.Accounts.IAccountQueryService, Neo.Services.Accounts.AccountQueryService>()
                 .AddSingleton<Neo.Services.Contracts.IContractQueryService, Neo.Services.Contracts.ContractQueryService>()
+                // Event service for subscriptions
+                .AddSingleton<Neo.Services.Events.IBlockchainEventService, Neo.Services.Events.BlockchainEventService>()
                 // Register GraphQL types
                 .AddSingleton<BlockType>()
                 .AddSingleton<TransactionType>()
@@ -42,12 +44,16 @@ namespace Neo.GraphQL
                 .AddSingleton<WitnessType>()
                 .AddSingleton<AccountBalanceType>()
                 .AddSingleton<ContractType>()
+                .AddSingleton<SubscriptionType>()
+                .AddSingleton<TransactionRemovedType>()
                 .AddGraphQL(b => b
                     .AddSystemTextJson()
                     .AddSchema<NeoSchema>());
 
             var app = builder.Build();
 
+            // Enable WebSocket support for GraphQL subscriptions
+            app.UseWebSockets();
             app.MapGraphQL("/graphql");
 
             app.Run();

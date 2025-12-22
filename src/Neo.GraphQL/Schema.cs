@@ -15,6 +15,7 @@ using Neo.GraphQL.Types;
 using Neo.Services.Accounts;
 using Neo.Services.Blocks;
 using Neo.Services.Contracts;
+using Neo.Services.Events;
 using Neo.Services.NodeInfo;
 using Neo.Services.Transactions;
 using System;
@@ -32,6 +33,9 @@ namespace Neo.GraphQL
                 provider.GetService(typeof(ITransactionQueryService)) as ITransactionQueryService,
                 provider.GetService(typeof(IAccountQueryService)) as IAccountQueryService,
                 provider.GetService(typeof(IContractQueryService)) as IContractQueryService);
+
+            Subscription = new SubscriptionType(
+                provider.GetService(typeof(IBlockchainEventService)) as IBlockchainEventService);
         }
     }
 
@@ -53,7 +57,7 @@ namespace Neo.GraphQL
 
             Field<NonNullGraphType<StringGraphType>>("version")
                 .Description("Returns GraphQL API version")
-                .Resolve(_ => "v1.1");
+                .Resolve(_ => "v1.2");
 
             Field<NonNullGraphType<StringGraphType>>("network")
                 .Description("Network magic identifier")
