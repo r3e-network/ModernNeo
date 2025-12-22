@@ -27,6 +27,7 @@
   </a>
   <img src="https://img.shields.io/badge/.NET-10.0-purple.svg" alt=".NET 10">
   <img src="https://img.shields.io/badge/modules-36+-green.svg" alt="Modules">
+  <img src="https://img.shields.io/badge/origin-synced-brightgreen.svg" alt="Origin Synced">
 </p>
 
 ---
@@ -41,6 +42,17 @@
 - **Distributed Architecture**: Microsoft Orleans integration for actor-based consensus
 - **Observability**: OpenTelemetry tracing, Prometheus metrics, health endpoints
 - **Pluggable Storage**: LevelDB, RocksDB, LMDB, and in-memory providers
+
+### Fork Tracking
+
+This repository is a modular refactoring of [neo-project/neo](https://github.com/neo-project/neo). We maintain compatibility with the origin `master-n3` branch:
+
+| Origin Commit | Description                                       | Status    |
+| ------------- | ------------------------------------------------- | --------- |
+| `72846744`    | Fix create Snapshot inside loops (#4369)          | ✅ Synced |
+| `1f32e67e`    | Policy blockAccount callflags for HF_Faun (#4385) | ✅ Synced |
+
+**Last sync**: December 2025
 
 ## Architecture
 
@@ -243,7 +255,20 @@ Supported engines: `Memory`, `LevelDB`, `RocksDB`
 - OpenTelemetry distributed tracing
 - Prometheus metrics export
 - Structured logging
-- Health check endpoints
+- Health check endpoints with aggregation
+
+### GraphQL API (v1.3)
+
+- **26 Query Endpoints**: Blocks, transactions, accounts, contracts, node info
+- **3 Real-time Subscriptions**: `blockCommitted`, `transactionAdded`, `transactionRemoved`
+- **Health Queries**: `health`, `healthStatus` for system monitoring
+- **Service Layer**: BlockQueryService, AccountQueryService, ContractQueryService
+
+### Health Check System
+
+- **5 Health Checks**: Network, Mempool, Blockchain, Consensus, Storage
+- **Aggregated Status**: Healthy, Degraded, Unhealthy with timeout handling
+- **GraphQL Integration**: Query health status via GraphQL API
 
 ## Development
 
