@@ -39,7 +39,7 @@
     <ProjectReference Include="..\..\src\Neo.Json\Neo.Json.csproj" />
     <ProjectReference Include="..\..\src\Neo.Ledger\Neo.Ledger.csproj" />
     <ProjectReference Include="..\..\src\Neo.Network\Neo.Network.csproj" />
-    <ProjectReference Include="..\..\src\Neo.Node.Core\Neo.Node.Core.csproj" />
+    <!-- Neo.Node.Core removed - empty shell project -->
     <ProjectReference Include="..\..\src\Neo.Plugins\Neo.Plugins.csproj" />
     <ProjectReference Include="..\..\src\Neo.Protocol\Neo.Protocol.csproj" />
     <ProjectReference Include="..\..\src\Neo.Protocol.Payloads\Neo.Protocol.Payloads.csproj" />

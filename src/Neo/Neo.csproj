@@ -32,7 +32,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Neo.UnitTests" />
-    <InternalsVisibleTo Include="Neo.Node.Core" />
+    <!-- Neo.Node.Core removed - empty shell project -->
     <InternalsVisibleTo Include="Neo.SmartContract.Testing" />
     <InternalsVisibleTo Include="Neo.SmartContract.TestEngine" />
     <InternalsVisibleTo Include="Neo.Plugins.RpcServer.Tests" />

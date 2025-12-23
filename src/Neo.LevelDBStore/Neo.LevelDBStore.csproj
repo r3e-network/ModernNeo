@@ -8,8 +8,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\\Neo.Node.Core\\Neo.Node.Core.csproj" />
-    <ProjectReference Include="..\\Neo.Plugins\\Neo.Plugins.csproj" />
+    <!-- Neo.Node.Core removed - direct reference to Neo -->
+    <ProjectReference Include="..\Neo\Neo.csproj" />
+    <ProjectReference Include="..\Neo.Plugins\Neo.Plugins.csproj" />
   </ItemGroup>
 
 </Project>
