@@ -106,53 +106,53 @@ namespace Neo.Ledger
         }
 
         /// <inheritdoc/>
-        public Task<VerifyResult> VerifyBlockAsync(IBlockData block)
+        public async Task<VerifyResult> VerifyBlockAsync(IBlockData block)
         {
             ArgumentNullException.ThrowIfNull(block);
 
             // Check if block already exists
             var hashBytes = GetBlockHashBytes(block);
-            if (_state.ContainsBlockAsync(hashBytes).Result)
-                return Task.FromResult(VerifyResult.AlreadyExists);
+            if (await _state.ContainsBlockAsync(hashBytes))
+                return VerifyResult.AlreadyExists;
 
             // Check previous block hash
             if (block.Index > 0)
             {
-                var prevBlock = _state.GetBlockByIndexAsync(block.Index - 1).Result;
+                var prevBlock = await _state.GetBlockByIndexAsync(block.Index - 1);
                 if (prevBlock == null)
-                    return Task.FromResult(VerifyResult.UnableToVerify);
+                    return VerifyResult.UnableToVerify;
 
                 var prevHash = GetBlockHashBytes(prevBlock);
                 if (!block.PrevHash.GetSpan().SequenceEqual(prevHash))
-                    return Task.FromResult(VerifyResult.Invalid);
+                    return VerifyResult.Invalid;
             }
 
             // Use custom validator if available
             if (_validator != null)
-                return _validator.ValidateBlockAsync(block);
+                return await _validator.ValidateBlockAsync(block);
 
-            return Task.FromResult(VerifyResult.Succeed);
+            return VerifyResult.Succeed;
         }
 
         /// <inheritdoc/>
-        public Task<VerifyResult> VerifyTransactionAsync(ITransactionData transaction)
+        public async Task<VerifyResult> VerifyTransactionAsync(ITransactionData transaction)
         {
             ArgumentNullException.ThrowIfNull(transaction);
 
             // Check if transaction already exists
             var hashBytes = transaction.Hash.GetSpan().ToArray();
-            if (_state.ContainsTransactionAsync(hashBytes).Result)
-                return Task.FromResult(VerifyResult.AlreadyExists);
+            if (await _state.ContainsTransactionAsync(hashBytes))
+                return VerifyResult.AlreadyExists;
 
             // Basic validation
             if (transaction.ValidUntilBlock <= _state.Height)
-                return Task.FromResult(VerifyResult.Expired);
+                return VerifyResult.Expired;
 
             // Use custom validator if available
             if (_validator != null)
-                return _validator.ValidateTransactionAsync(transaction);
+                return await _validator.ValidateTransactionAsync(transaction);
 
-            return Task.FromResult(VerifyResult.Succeed);
+            return VerifyResult.Succeed;
         }
 
         private static byte[] GetBlockHashBytes(IBlockData block)

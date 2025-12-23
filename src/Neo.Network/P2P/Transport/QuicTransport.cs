@@ -174,8 +174,8 @@ namespace Neo.Network.P2P.Transport
                 }
                 catch (QuicException ex)
                 {
-                    // Log and continue accepting
-                    Console.WriteLine($"QUIC accept error: {ex.Message}");
+                    // Log error and continue accepting connections
+                    System.Diagnostics.Trace.TraceWarning($"QUIC accept error: {ex.Message}");
                 }
             }
         }
