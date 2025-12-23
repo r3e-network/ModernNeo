@@ -9,11 +9,23 @@
 // Redistribution and use in source and binary forms with or without
 // modifications are permitted.
 
-using Akka.Actor;
 using System.Net;
 
 namespace Neo.P2P.Abstractions
 {
+    /// <summary>
+    /// Transport-agnostic message target abstraction replacing Akka IActorRef.
+    /// Implementations can wrap Orleans grain references, actors, or other messaging targets.
+    /// </summary>
+    public interface IMessageTarget
+    {
+        /// <summary>
+        /// Sends a message to this target.
+        /// </summary>
+        /// <param name="message">The message to send.</param>
+        void Tell(object message);
+    }
+
     /// <summary>
     /// Minimal abstraction for a P2P bridge that can be bound to a protocol actor.
     /// Implementations should also accept concrete Bind messages for backward compatibility.
@@ -34,13 +46,13 @@ namespace Neo.P2P.Abstractions
     /// Transport-agnostic bridge accept used to attach a server-side connection bridge (WS/QUIC/etc.)
     /// to a protocol actor that speaks Neo P2P.
     /// </summary>
-    public readonly record struct AcceptBridge(IActorRef Bridge, IPEndPoint Remote, IPEndPoint Local);
+    public readonly record struct AcceptBridge(IMessageTarget Bridge, IPEndPoint Remote, IPEndPoint Local);
 
     /// <summary>
     /// Transport-agnostic bind message that instructs a bridge actor to forward
     /// subsequent bytes to the provided protocol actor target.
     /// </summary>
-    public readonly record struct BridgeBind(IActorRef Target);
+    public readonly record struct BridgeBind(IMessageTarget Target);
 
     /// <summary>
     /// Bytes received by a protocol connection.
@@ -58,7 +70,7 @@ namespace Neo.P2P.Abstractions
     public readonly record struct CloseConnection(bool Abort);
 
     /// <summary>
-    /// Wrapper to pass a bridge actor to Connection constructor, distinguishing it from native TCP actors.
+    /// Wrapper to pass a bridge to Connection constructor, distinguishing it from native TCP actors.
     /// </summary>
-    public readonly record struct BridgeConnection(IActorRef Bridge);
+    public readonly record struct BridgeConnection(IMessageTarget Bridge);
 }

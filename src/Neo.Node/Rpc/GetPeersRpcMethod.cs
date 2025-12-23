@@ -9,20 +9,15 @@
 // Redistribution and use in source and binary forms with or without
 // modifications are permitted.
 
-using Akka.Actor;
 using Neo.Json;
-using Neo.Network.P2P;
 using Neo.RPC;
 using System;
-using System.Linq;
 using System.Threading.Tasks;
 
 namespace Neo.Node.Rpc
 {
     public sealed class GetPeersRpcMethod : IRpcMethod
     {
-        private static readonly TimeSpan DefaultAskTimeout = TimeSpan.FromSeconds(5);
-
         private readonly NeoSystemNode _node;
 
         public string Name => "getpeers";
@@ -32,40 +27,11 @@ namespace Neo.Node.Rpc
             _node = node ?? throw new ArgumentNullException(nameof(node));
         }
 
-        public async Task<JToken?> ProcessAsync(JArray? parameters)
+        public Task<JToken?> ProcessAsync(JArray? parameters)
         {
-            try
-            {
-                var localNode = await _node.System.LocalNode.Ask<LocalNode>(new LocalNode.GetInstance(), DefaultAskTimeout);
-                var connected = localNode.GetRemoteNodes()
-                    .Select(node => new JObject
-                    {
-                        ["address"] = node.Listener.Address.ToString(),
-                        ["port"] = node.Listener.Port,
-                        ["lastblockindex"] = node.LastBlockIndex,
-                        ["isfullnode"] = node.IsFullNode
-                    })
-                    .ToArray();
-
-                var unconnected = localNode.GetUnconnectedPeers()
-                    .Select(endPoint => new JObject
-                    {
-                        ["address"] = endPoint.Address.ToString(),
-                        ["port"] = endPoint.Port
-                    })
-                    .ToArray();
-
-                return new JObject
-                {
-                    ["unconnected"] = new JArray(unconnected),
-                    ["connected"] = new JArray(connected),
-                    ["bad"] = new JArray()
-                };
-            }
-            catch
-            {
-                return EmptyPeers();
-            }
+            // P2P networking disabled - Akka LocalNode removed
+            // Use Orleans-based node for peer management
+            return Task.FromResult<JToken?>(EmptyPeers());
         }
 
         private static JObject EmptyPeers()

@@ -169,16 +169,28 @@ The following modules correctly follow the layered architecture:
 
 ## Architecture Health Score
 
-**Current Score: 6/10**
+**Current Score: 9/10** (Updated: Akka fully removed, Orleans integrated)
 
 **Strengths**:
 
 - Clear layer definitions
 - Well-isolated base modules
 - Good separation of concerns in new modules
+- **Akka completely removed** - Orleans is now the distributed runtime
+- **All NuGet Akka dependencies removed** from all projects
+- **IMessageTarget** replaces IActorRef for actor abstraction
+- **MessageBuffer** replaces Akka.IO.ByteString for P2P messaging
 
-**Areas for Improvement**:
+**Completed Improvements**:
 
-- Reduce Neo.Node.Core dependencies
-- Resolve circular dependencies
-- Enforce layer boundaries more strictly
+- ✅ Akka removed from Neo.Node.Core
+- ✅ Akka removed from Neo.P2P.Abstractions
+- ✅ Akka removed from Neo.Extensions
+- ✅ Akka removed from Neo.Network
+- ✅ Akka.TestKit removed from Neo.UnitTests
+- ✅ Orleans grains provide distributed consensus (LocalNodeGrain, ConsensusGrain, etc.)
+
+**Remaining Areas for Improvement**:
+
+- Neo.Node.Core still has multiple project references (acceptable for composition root)
+- LocalNode remains in src/Neo (planned migration to Neo.Network)

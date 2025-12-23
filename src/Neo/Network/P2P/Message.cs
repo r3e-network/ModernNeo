@@ -9,7 +9,6 @@
 // Redistribution and use in source and binary forms with or without
 // modifications are permitted.
 
-using Akka.IO;
 using Neo.Extensions;
 using Neo.IO;
 using Neo.IO.Caching;
@@ -156,7 +155,7 @@ namespace Neo.Network.P2P
             }
         }
 
-        public static int TryDeserialize(ByteString data, out Message? msg)
+        public static int TryDeserialize(MessageBuffer data, out Message? msg)
         {
             msg = null;
             if (data.Count < 3) return 0;

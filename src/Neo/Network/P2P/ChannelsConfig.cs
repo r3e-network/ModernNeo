@@ -14,7 +14,7 @@ using System.Net;
 namespace Neo.Network.P2P
 {
     /// <summary>
-    /// Represents the settings to start <see cref="LocalNode"/>.
+    /// Represents the settings to start the local node.
     /// </summary>
     public class ChannelsConfig
     {

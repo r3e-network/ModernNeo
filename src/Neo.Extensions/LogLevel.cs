@@ -9,8 +9,6 @@
 // Redistribution and use in source and binary forms with or without
 // modifications are permitted.
 
-using static Akka.Event.LogLevel;
-
 namespace Neo
 {
     /// <summary>
@@ -21,26 +19,26 @@ namespace Neo
         /// <summary>
         /// The debug log level.
         /// </summary>
-        Debug = DebugLevel,
+        Debug = 0,
 
         /// <summary>
         /// The information log level.
         /// </summary>
-        Info = InfoLevel,
+        Info = 1,
 
         /// <summary>
         /// The warning log level.
         /// </summary>
-        Warning = WarningLevel,
+        Warning = 2,
 
         /// <summary>
         /// The error log level.
         /// </summary>
-        Error = ErrorLevel,
+        Error = 3,
 
         /// <summary>
         /// The fatal log level.
         /// </summary>
-        Fatal = Error + 1
+        Fatal = 4
     }
 }

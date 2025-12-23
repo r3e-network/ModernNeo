@@ -9,7 +9,6 @@
 // Redistribution and use in source and binary forms with or without
 // modifications are permitted.
 
-using Akka.Actor;
 using Neo;
 using Neo.Ledger;
 using Neo.Network.P2P.Payloads;

@@ -9,12 +9,12 @@
 // Redistribution and use in source and binary forms with or without
 // modifications are permitted.
 
-using Akka.Actor;
 using Neo.Extensions;
 using Neo.IO.Caching;
 using Neo.Ledger;
 using Neo.Network.P2P;
 using Neo.Network.P2P.Payloads;
+using Neo.P2P.Abstractions;
 using Neo.Persistence;
 using Neo.Persistence.Providers;
 using Neo.Plugins;
@@ -26,11 +26,50 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace Neo
 {
     /// <summary>
+    /// Represents a message target that can receive messages.
+    /// This is a transport-agnostic abstraction replacing Akka IActorRef.
+    /// </summary>
+    public interface ISystemMessageTarget : IMessageTarget
+    {
+        /// <summary>
+        /// Sends a message and waits for a response.
+        /// </summary>
+        Task<TResponse> Ask<TResponse>(object message, TimeSpan? timeout = null);
+    }
+
+    /// <summary>
+    /// Simple in-process message target implementation.
+    /// </summary>
+    internal class InProcessMessageTarget : ISystemMessageTarget
+    {
+        private readonly Action<object> _handler;
+        private readonly Func<object, Task<object>>? _askHandler;
+
+        public InProcessMessageTarget(Action<object> handler, Func<object, Task<object>>? askHandler = null)
+        {
+            _handler = handler;
+            _askHandler = askHandler;
+        }
+
+        public void Tell(object message) => _handler(message);
+
+        public async Task<TResponse> Ask<TResponse>(object message, TimeSpan? timeout = null)
+        {
+            if (_askHandler == null)
+                throw new NotSupportedException("Ask pattern not supported for this target");
+            var result = await _askHandler(message);
+            return (TResponse)result;
+        }
+    }
+
+    /// <summary>
     /// Represents the basic unit that contains all the components required for running of a NEO node.
+    /// This is the Orleans-compatible version without Akka dependencies.
     /// </summary>
     public class NeoSystem : IDisposable, Ledger.IBlockchainOperations
     {
@@ -45,38 +84,29 @@ namespace Neo
         public ProtocolSettings Settings { get; }
 
         /// <summary>
-        /// The <see cref="Akka.Actor.ActorSystem"/> used to create actors for the <see cref="NeoSystem"/>.
-        /// </summary>
-        public ActorSystem ActorSystem { get; } = ActorSystem.Create(nameof(NeoSystem),
-            $"akka {{ log-dead-letters = off , loglevel = warning, loggers = [ \"{typeof(Utility.Logger).AssemblyQualifiedName}\" ] }}" +
-            $"blockchain-mailbox {{ mailbox-type: \"{typeof(BlockchainMailbox).AssemblyQualifiedName}\" }}" +
-            $"task-manager-mailbox {{ mailbox-type: \"{typeof(TaskManagerMailbox).AssemblyQualifiedName}\" }}" +
-            $"remote-node-mailbox {{ mailbox-type: \"{typeof(RemoteNodeMailbox).AssemblyQualifiedName}\" }}");
-
-        /// <summary>
         /// The genesis block of the NEO blockchain.
         /// </summary>
         public Block GenesisBlock { get; }
 
         /// <summary>
-        /// The <see cref="Ledger.Blockchain"/> actor of the <see cref="NeoSystem"/>.
+        /// The blockchain message target of the <see cref="NeoSystem"/>.
         /// </summary>
-        public IActorRef Blockchain { get; }
+        public ISystemMessageTarget Blockchain { get; private set; } = null!;
 
         /// <summary>
-        /// The <see cref="Network.P2P.LocalNode"/> actor of the <see cref="NeoSystem"/>.
+        /// The local node message target of the <see cref="NeoSystem"/>.
         /// </summary>
-        public IActorRef LocalNode { get; }
+        public ISystemMessageTarget LocalNode { get; private set; } = null!;
 
         /// <summary>
-        /// The <see cref="Network.P2P.TaskManager"/> actor of the <see cref="NeoSystem"/>.
+        /// The task manager message target of the <see cref="NeoSystem"/>.
         /// </summary>
-        public IActorRef TaskManager { get; }
+        public ISystemMessageTarget TaskManager { get; private set; } = null!;
 
         /// <summary>
-        /// The transaction router actor of the <see cref="NeoSystem"/>.
+        /// The transaction router message target of the <see cref="NeoSystem"/>.
         /// </summary>
-        public IActorRef TxRouter { get; }
+        public ISystemMessageTarget TxRouter { get; private set; } = null!;
 
         /// <summary>
         /// A readonly view of the store.
@@ -103,6 +133,7 @@ namespace Neo
         private readonly IStore _store;
         private ChannelsConfig? _startMessage = null;
         private int _suspend = 0;
+        private bool _disposed = false;
 
         static NeoSystem()
         {
@@ -146,14 +177,60 @@ namespace Neo
             StorageProvider = storageProvider;
             _store = storageProvider.GetStore(storagePath);
             MemPool = new MemoryPool(this);
-            Blockchain = ActorSystem.ActorOf(Ledger.Blockchain.Props(this));
-            LocalNode = ActorSystem.ActorOf(Network.P2P.LocalNode.Props(this));
-            TaskManager = ActorSystem.ActorOf(Network.P2P.TaskManager.Props(this));
-            TxRouter = ActorSystem.ActorOf(TransactionRouter.Props(this));
+
+            // Initialize message targets with placeholder handlers
+            // In Orleans mode, these will be replaced with grain references
+            InitializeMessageTargets();
+
             foreach (var plugin in Plugin.Plugins)
                 plugin.OnSystemLoaded(this);
-            Blockchain.Ask(new Blockchain.Initialize()).ConfigureAwait(false).GetAwaiter().GetResult();
         }
+
+        /// <summary>
+        /// Initializes message targets with default in-process handlers.
+        /// Override this in derived classes for Orleans integration.
+        /// </summary>
+        protected virtual void InitializeMessageTargets()
+        {
+            // Default no-op handlers - will be replaced by Orleans grains or other implementations
+            Blockchain = new InProcessMessageTarget(
+                msg => Utility.Log(nameof(Blockchain), LogLevel.Debug, $"Message: {msg?.GetType().Name}"),
+                async msg =>
+                {
+                    if (msg is Ledger.Blockchain.Initialize)
+                        return true;
+                    return await Task.FromResult<object>(null!);
+                });
+
+            LocalNode = new InProcessMessageTarget(
+                msg => Utility.Log(nameof(LocalNode), LogLevel.Debug, $"Message: {msg?.GetType().Name}"));
+
+            TaskManager = new InProcessMessageTarget(
+                msg => Utility.Log(nameof(TaskManager), LogLevel.Debug, $"Message: {msg?.GetType().Name}"));
+
+            TxRouter = new InProcessMessageTarget(
+                msg => Utility.Log(nameof(TxRouter), LogLevel.Debug, $"Message: {msg?.GetType().Name}"));
+        }
+
+        /// <summary>
+        /// Sets the blockchain message target (for Orleans integration).
+        /// </summary>
+        public void SetBlockchain(ISystemMessageTarget target) => Blockchain = target;
+
+        /// <summary>
+        /// Sets the local node message target (for Orleans integration).
+        /// </summary>
+        public void SetLocalNode(ISystemMessageTarget target) => LocalNode = target;
+
+        /// <summary>
+        /// Sets the task manager message target (for Orleans integration).
+        /// </summary>
+        public void SetTaskManager(ISystemMessageTarget target) => TaskManager = target;
+
+        /// <summary>
+        /// Sets the transaction router message target (for Orleans integration).
+        /// </summary>
+        public void SetTxRouter(ISystemMessageTarget target) => TxRouter = target;
 
         /// <summary>
         /// Creates the genesis block for the NEO blockchain.
@@ -187,13 +264,12 @@ namespace Neo
 
         public void Dispose()
         {
-            EnsureStopped(LocalNode);
-            EnsureStopped(Blockchain);
+            if (_disposed) return;
+            _disposed = true;
+
             foreach (var p in Plugin.Plugins)
                 p.Dispose();
-            // Dispose will call ActorSystem.Terminate()
-            ActorSystem.Dispose();
-            ActorSystem.WhenTerminated.Wait();
+
             HeaderCache.Dispose();
             _store.Dispose();
             GC.SuppressFinalize(this);
@@ -214,7 +290,7 @@ namespace Neo
         /// </summary>
         /// <typeparam name="T">The type of the service object.</typeparam>
         /// <param name="filter">
-        /// An action used to filter the service objects. his parameter can be <see langword="null"/>.
+        /// An action used to filter the service objects. This parameter can be <see langword="null"/>.
         /// </param>
         /// <returns>The service object found.</returns>
         public T? GetService<T>(Func<T, bool>? filter = null)
@@ -223,18 +299,6 @@ namespace Neo
             if (filter is null)
                 return result.FirstOrDefault();
             return result.FirstOrDefault(filter);
-        }
-
-        /// <summary>
-        /// Blocks the current thread until the specified actor has stopped.
-        /// </summary>
-        /// <param name="actor">The actor to wait.</param>
-        public void EnsureStopped(IActorRef actor)
-        {
-            using var inbox = Inbox.Create(ActorSystem);
-            inbox.Watch(actor);
-            ActorSystem.Stop(actor);
-            inbox.Receive(TimeSpan.FromSeconds(30));
         }
 
         /// <summary>

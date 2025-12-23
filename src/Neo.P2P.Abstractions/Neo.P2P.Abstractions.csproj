@@ -8,9 +8,7 @@
     <Description>Abstractions for Neo P2P (transport-agnostic messages and contracts)</Description>
   </PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Akka" Version="1.5.55" />
-  </ItemGroup>
+  <!-- Akka removed - Orleans is now the distributed runtime -->
 
 </Project>
 

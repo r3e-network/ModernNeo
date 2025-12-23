@@ -9,10 +9,10 @@
 // Redistribution and use in source and binary forms with or without
 // modifications are permitted.
 
-using Akka.Actor;
 using Neo.Core.Interfaces;
 using Neo.Ledger;
 using Neo.Network.P2P.Payloads;
+using Neo.P2P.Abstractions;
 using Neo.Persistence;
 using System.Collections.Generic;
 
@@ -36,13 +36,13 @@ namespace Neo.Network.P2P
         /// </summary>
         INeoSystemRuntime Runtime { get; }
 
-        IActorRef LocalNode { get; }
+        IMessageTarget LocalNode { get; }
 
-        IActorRef Blockchain { get; }
+        IMessageTarget Blockchain { get; }
 
-        IActorRef TaskManager { get; }
+        IMessageTarget TaskManager { get; }
 
-        IActorRef TxRouter { get; }
+        IMessageTarget TxRouter { get; }
 
         uint GetCurrentIndex(StoreCache snapshot);
 

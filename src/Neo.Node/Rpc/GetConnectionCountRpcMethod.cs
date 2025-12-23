@@ -9,9 +9,7 @@
 // Redistribution and use in source and binary forms with or without
 // modifications are permitted.
 
-using Akka.Actor;
 using Neo.Json;
-using Neo.Network.P2P;
 using Neo.RPC;
 using System;
 using System.Threading.Tasks;
@@ -20,8 +18,6 @@ namespace Neo.Node.Rpc
 {
     public sealed class GetConnectionCountRpcMethod : IRpcMethod
     {
-        private static readonly TimeSpan DefaultAskTimeout = TimeSpan.FromSeconds(5);
-
         private readonly NeoSystemNode _node;
 
         public string Name => "getconnectioncount";
@@ -31,18 +27,11 @@ namespace Neo.Node.Rpc
             _node = node ?? throw new ArgumentNullException(nameof(node));
         }
 
-        public async Task<JToken?> ProcessAsync(JArray? parameters)
+        public Task<JToken?> ProcessAsync(JArray? parameters)
         {
-            try
-            {
-                var localNode = await _node.System.LocalNode.Ask<LocalNode>(new LocalNode.GetInstance(), DefaultAskTimeout);
-                var count = localNode.ConnectedCount;
-                return new JNumber(count);
-            }
-            catch
-            {
-                return new JNumber(0);
-            }
+            // P2P networking disabled - Akka LocalNode removed
+            // Use Orleans-based node for peer management
+            return Task.FromResult<JToken?>(new JNumber(0));
         }
     }
 }

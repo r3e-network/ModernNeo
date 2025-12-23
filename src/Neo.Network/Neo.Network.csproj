@@ -7,9 +7,7 @@
     <Description>Neo Network Stack - P2P networking with TCP and QUIC transport</Description>
   </PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Akka" Version="1.5.55" />
-  </ItemGroup>
+  <!-- Akka removed - Orleans is now the distributed runtime -->
 
   <ItemGroup>
     <ProjectReference Include="..\Neo.Core\Neo.Core.csproj" />

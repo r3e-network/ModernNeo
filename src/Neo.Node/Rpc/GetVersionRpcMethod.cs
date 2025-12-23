@@ -9,16 +9,21 @@
 // Redistribution and use in source and binary forms with or without
 // modifications are permitted.
 
+using Neo.Extensions.Factories;
 using Neo.Json;
-using Neo.Network.P2P;
 using Neo.RPC;
 using System;
+using System.Reflection;
 using System.Threading.Tasks;
 
 namespace Neo.Node.Rpc
 {
     public sealed class GetVersionRpcMethod : IRpcMethod
     {
+        // Static nonce and user agent (previously from LocalNode)
+        private static readonly uint Nonce = RandomNumberFactory.NextUInt32();
+        private static readonly string UserAgent = $"/{Assembly.GetExecutingAssembly().GetName().Name}:{Assembly.GetExecutingAssembly().GetName().Version?.ToString(3)}/";
+
         private readonly NeoSystemNode _node;
 
         public string Name => "getversion";
@@ -49,8 +54,8 @@ namespace Neo.Node.Rpc
             {
                 ["tcpport"] = new JNumber(tcpPort),
                 ["wsport"] = new JNumber(0),
-                ["nonce"] = new JNumber(LocalNode.Nonce),
-                ["useragent"] = new JString(LocalNode.UserAgent),
+                ["nonce"] = new JNumber(Nonce),
+                ["useragent"] = new JString(UserAgent),
                 ["protocol"] = protocol
             };
 

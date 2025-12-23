@@ -16,11 +16,11 @@ namespace Neo.IEventHandlers
     public interface IMessageReceivedHandler
     {
         /// <summary>
-        /// The handler of MessageReceived event from <see cref="RemoteNode"/>
-        /// Triggered when a new message is received from a peer <see cref="RemoteNode"/>
+        /// The handler of MessageReceived event from remote nodes.
+        /// Triggered when a new message is received from a peer.
         /// </summary>
         /// <param name="system">The <see cref="NeoSystem"/> object</param>
-        /// <param name="message"> The current node received <see cref="Message"/> from a peer <see cref="RemoteNode"/></param>
+        /// <param name="message">The current node received <see cref="Message"/> from a peer</param>
         bool RemoteNode_MessageReceived_Handler(NeoSystem system, Message message);
     }
 }

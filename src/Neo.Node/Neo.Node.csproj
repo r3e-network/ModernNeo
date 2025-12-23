@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\\Neo\\Neo.csproj" />
+    <ProjectReference Include="..\\Neo.Core\\Neo.Core.csproj" />
     <ProjectReference Include="..\\Neo.P2P.Abstractions\\Neo.P2P.Abstractions.csproj" />
     <ProjectReference Include="..\\Neo.Extensions\\Neo.Extensions.csproj" />
     <ProjectReference Include="..\\Neo.RPC\\Neo.RPC.csproj" />

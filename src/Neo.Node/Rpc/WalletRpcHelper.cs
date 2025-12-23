@@ -10,6 +10,7 @@
 // modifications are permitted.
 
 using Neo;
+using Neo.Core;
 using Neo.Json;
 using Neo.Persistence;
 using Neo.RPC;

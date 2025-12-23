@@ -6,12 +6,10 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <AssemblyName>Neo.Node.Core</AssemblyName>
     <PackageTags>NEO;Node;Runtime</PackageTags>
-    <Description>Neo Node Runtime Bridge - Akka actor bridge for unified runtime interface.</Description>
+    <Description>Neo Node Runtime Bridge - Provides unified runtime interface for plugins.</Description>
   </PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Akka" Version="1.5.55" />
-  </ItemGroup>
+  <!-- Akka removed - Orleans is now the distributed runtime -->
 
   <ItemGroup>
     <ProjectReference Include="..\Neo\Neo.csproj" />

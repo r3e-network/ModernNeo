@@ -9,77 +9,75 @@
 // Redistribution and use in source and binary forms with or without
 // modifications are permitted.
 
-using Akka.Actor;
-using Akka.IO;
 using System;
-using System.Buffers;
+using System.Collections.Concurrent;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace Neo.Network.P2P.Transport
 {
     /// <summary>
-    /// Bridges a server-accepted WS connection into Akka ByteString messages for RemoteNode.
+    /// Bridges a server-accepted WS connection for P2P messaging.
     /// </summary>
-    public sealed class WsServerConnection : UntypedActor, Neo.P2P.Abstractions.IProtocolBridge, Neo.P2P.Abstractions.IProtocolConnection
+    public sealed class WsServerConnection : Neo.P2P.Abstractions.IProtocolBridge, Neo.P2P.Abstractions.IProtocolConnection, IDisposable
     {
         public record Start(IWsConnection Connection);
-        public record Bind(IActorRef Target);
-        public record Send(ByteString Data);
+        public record Bind(Neo.P2P.Abstractions.IMessageTarget Target);
+        public record Send(byte[] Data);
 
-        private IWsConnection _connection = null!;
-        private IActorRef? _target;
-        private readonly System.Collections.Concurrent.ConcurrentQueue<ByteString> _pending = new();
+        private IWsConnection? _connection;
+        private Neo.P2P.Abstractions.IMessageTarget? _target;
+        private readonly ConcurrentQueue<byte[]> _pending = new();
+        private bool _disposed;
 
-        protected override void OnReceive(object message)
+        public void Initialize(IWsConnection connection)
         {
-            switch (message)
-            {
-                case Neo.P2P.Abstractions.WriteBytes writeAbstraction:
-                    _ = _connection.SendAsync(writeAbstraction.Data);
-                    break;
-                case Neo.P2P.Abstractions.CloseConnection closeAbstraction:
-                    Context.Stop(Self);
-                    break;
-                case Tcp.Write write:
-                    // Send raw bytes to websocket and acknowledge to sender
-                    _ = _connection.SendAsync(write.Data.ToArray());
-                    if (write.Ack != null)
-                        Sender.Tell(write.Ack);
-                    break;
-                case Tcp.Close _:
-                case Tcp.Abort _:
-                    Context.Stop(Self);
-                    break;
-                case Neo.P2P.Abstractions.BridgeBind bindAbstraction:
-                    _target = bindAbstraction.Target;
-                    FlushPending();
-                    break;
-                case Start start:
-                    _connection = start.Connection;
-                    _connection.OnMessageReceived += OnMessageAsync;
-                    _connection.OnDisconnected += () => Context.Stop(Self);
-                    _ = _connection.StartReceivingAsync(CancellationToken.None);
-                    break;
-                case Bind bind:
-                    _target = bind.Target;
-                    FlushPending();
-                    break;
+            _connection = connection ?? throw new ArgumentNullException(nameof(connection));
+            _connection.OnMessageReceived += OnMessageAsync;
+            _connection.OnDisconnected += OnDisconnected;
+            _ = _connection.StartReceivingAsync(CancellationToken.None);
+        }
 
-                case Send send:
-                    _ = _connection.SendAsync(send.Data.ToArray());
-                    break;
-            }
+        public void BindTarget(Neo.P2P.Abstractions.IMessageTarget target)
+        {
+            _target = target;
+            FlushPending();
         }
 
         public void WriteBytes(byte[] data)
         {
-            _ = _connection.SendAsync(data);
+            if (_connection != null)
+                _ = _connection.SendAsync(data);
         }
 
         public void Close(bool abort)
         {
-            Context.Stop(Self);
+            Dispose();
+        }
+
+        public void Tell(object message)
+        {
+            switch (message)
+            {
+                case Neo.P2P.Abstractions.WriteBytes writeAbstraction:
+                    WriteBytes(writeAbstraction.Data);
+                    break;
+                case Neo.P2P.Abstractions.CloseConnection:
+                    Close(false);
+                    break;
+                case Neo.P2P.Abstractions.BridgeBind bindAbstraction:
+                    BindTarget(bindAbstraction.Target);
+                    break;
+                case Start start:
+                    Initialize(start.Connection);
+                    break;
+                case Bind bind:
+                    BindTarget(bind.Target);
+                    break;
+                case Send send:
+                    WriteBytes(send.Data);
+                    break;
+            }
         }
 
         private Task OnMessageAsync(ReadOnlyMemory<byte> data)
@@ -89,28 +87,30 @@ namespace Neo.Network.P2P.Transport
             if (target != null)
                 target.Tell(new Neo.P2P.Abstractions.DataReceived(arr));
             else
-                _pending.Enqueue(ByteString.FromBytes(arr));
+                _pending.Enqueue(arr);
             return Task.CompletedTask;
+        }
+
+        private void OnDisconnected()
+        {
+            Dispose();
         }
 
         private void FlushPending()
         {
             var target = _target;
             if (target == null) return;
-            while (_pending.TryDequeue(out var bs))
+            while (_pending.TryDequeue(out var data))
             {
-                target.Tell(new Neo.P2P.Abstractions.DataReceived(bs.ToArray()));
+                target.Tell(new Neo.P2P.Abstractions.DataReceived(data));
             }
         }
 
-        protected override void PreStart() { }
-
-        protected override void PostStop()
+        public void Dispose()
         {
-            _connection.DisposeAsync().GetAwaiter().GetResult();
-            base.PostStop();
+            if (_disposed) return;
+            _disposed = true;
+            _connection?.DisposeAsync().GetAwaiter().GetResult();
         }
-
-        // no additional overrides; writes are handled by parent Connection actor
     }
 }
