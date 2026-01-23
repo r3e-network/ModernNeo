@@ -10,6 +10,7 @@
 // modifications are permitted.
 
 using Neo.Core.Interfaces;
+using Neo.Network.P2P.Payloads;
 using System.Collections.Concurrent;
 
 namespace Neo.Orleans.Services
@@ -20,17 +21,24 @@ namespace Neo.Orleans.Services
     /// </summary>
     public class InMemoryBlockStorageService : IBlockStorageService
     {
-        private readonly ConcurrentDictionary<string, IBlockData> _blocksByHash = new();
-        private readonly ConcurrentDictionary<uint, IBlockData> _blocksByIndex = new();
+        private readonly ConcurrentDictionary<string, Block> _blocksByHash = new();
+        private readonly ConcurrentDictionary<uint, Block> _blocksByIndex = new();
+        private readonly ConcurrentDictionary<string, ITransactionData> _transactionsByHash = new();
         private uint _height;
 
-        public Task<bool> StoreBlockAsync(IBlockData block)
+        public Task<bool> StoreBlockAsync(Block block)
         {
             var hashKey = Convert.ToBase64String(block.Hash.GetSpan().ToArray());
 
             if (_blocksByHash.TryAdd(hashKey, block))
             {
                 _blocksByIndex[block.Index] = block;
+
+                foreach (var tx in block.Transactions)
+                {
+                    var txKey = Convert.ToBase64String(tx.Hash.GetSpan().ToArray());
+                    _transactionsByHash.TryAdd(txKey, tx);
+                }
 
                 // Update height if this is a new highest block
                 if (block.Index > _height || _height == 0)
@@ -44,14 +52,14 @@ namespace Neo.Orleans.Services
             return Task.FromResult(false);
         }
 
-        public Task<IBlockData?> GetBlockByHashAsync(byte[] hash)
+        public Task<Block?> GetBlockByHashAsync(byte[] hash)
         {
             var hashKey = Convert.ToBase64String(hash);
             _blocksByHash.TryGetValue(hashKey, out var block);
             return Task.FromResult(block);
         }
 
-        public Task<IBlockData?> GetBlockByIndexAsync(uint index)
+        public Task<Block?> GetBlockByIndexAsync(uint index)
         {
             _blocksByIndex.TryGetValue(index, out var block);
             return Task.FromResult(block);
@@ -65,9 +73,15 @@ namespace Neo.Orleans.Services
 
         public Task<bool> ContainsTransactionAsync(byte[] hash)
         {
-            // In-memory implementation doesn't track transactions separately
-            // This would need to be enhanced if transaction tracking is required
-            return Task.FromResult(false);
+            var hashKey = Convert.ToBase64String(hash);
+            return Task.FromResult(_transactionsByHash.ContainsKey(hashKey));
+        }
+
+        public Task<ITransactionData?> GetTransactionAsync(byte[] hash)
+        {
+            var hashKey = Convert.ToBase64String(hash);
+            _transactionsByHash.TryGetValue(hashKey, out var transaction);
+            return Task.FromResult(transaction);
         }
 
         public Task<uint> GetHeightAsync()

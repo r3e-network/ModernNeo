@@ -91,7 +91,13 @@ namespace Neo.Network.P2P.Transport
         /// <summary>
         /// Connects to a remote peer using QUIC.
         /// </summary>
-        public async Task<QuicPeerConnection> ConnectAsync(IPEndPoint remoteEndPoint, CancellationToken cancellationToken = default)
+        /// <param name="remoteEndPoint">The remote peer endpoint.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <param name="trackConnection">Whether to track the connection for reuse and lifecycle management.</param>
+        public async Task<QuicPeerConnection> ConnectAsync(
+            IPEndPoint remoteEndPoint,
+            CancellationToken cancellationToken = default,
+            bool trackConnection = true)
         {
             if (!IsSupported)
                 throw new PlatformNotSupportedException("QUIC is not supported on this platform");
@@ -101,6 +107,7 @@ namespace Neo.Network.P2P.Transport
                 RemoteEndPoint = remoteEndPoint,
                 DefaultStreamErrorCode = 0,
                 DefaultCloseErrorCode = 0,
+                IdleTimeout = _options.IdleTimeout,
                 ClientAuthenticationOptions = new SslClientAuthenticationOptions
                 {
                     ApplicationProtocols = [new SslApplicationProtocol(_options.ApplicationProtocol)],
@@ -112,10 +119,23 @@ namespace Neo.Network.P2P.Transport
             var connection = await QuicConnection.ConnectAsync(connectionOptions, cancellationToken);
             var peerConnection = new QuicPeerConnection(connection, isIncoming: false);
 
-            _connections.TryAdd(remoteEndPoint, peerConnection);
-            peerConnection.OnDisconnected += () => HandleDisconnection(remoteEndPoint);
+            if (!trackConnection)
+                return peerConnection;
 
-            return peerConnection;
+            while (true)
+            {
+                if (_connections.TryAdd(remoteEndPoint, peerConnection))
+                {
+                    peerConnection.OnDisconnected += () => HandleDisconnection(remoteEndPoint, peerConnection);
+                    return peerConnection;
+                }
+
+                if (_connections.TryGetValue(remoteEndPoint, out var existing))
+                {
+                    await peerConnection.DisposeAsync();
+                    return existing;
+                }
+            }
         }
 
         /// <summary>
@@ -161,8 +181,24 @@ namespace Neo.Network.P2P.Transport
                     var peerConnection = new QuicPeerConnection(connection, isIncoming: true);
 
                     var remoteEndPoint = connection.RemoteEndPoint;
-                    _connections.TryAdd(remoteEndPoint, peerConnection);
-                    peerConnection.OnDisconnected += () => HandleDisconnection(remoteEndPoint);
+                    if (_connections.TryGetValue(remoteEndPoint, out var existing))
+                    {
+                        if (_connections.TryRemove(remoteEndPoint, out var removed))
+                            await removed.DisposeAsync();
+                    }
+                    else if (_connections.Count >= _options.MaxConnections)
+                    {
+                        await peerConnection.DisposeAsync();
+                        continue;
+                    }
+
+                    if (!_connections.TryAdd(remoteEndPoint, peerConnection))
+                    {
+                        await peerConnection.DisposeAsync();
+                        continue;
+                    }
+
+                    peerConnection.OnDisconnected += () => HandleDisconnection(remoteEndPoint, peerConnection);
 
                     // Notify listeners
                     if (OnPeerConnected != null)
@@ -180,10 +216,16 @@ namespace Neo.Network.P2P.Transport
             }
         }
 
-        private void HandleDisconnection(EndPoint remoteEndPoint)
+        private void HandleDisconnection(EndPoint remoteEndPoint, QuicPeerConnection connection)
         {
-            _connections.TryRemove(remoteEndPoint, out _);
-            OnPeerDisconnected?.Invoke(remoteEndPoint);
+            if (_connections.TryGetValue(remoteEndPoint, out var current) &&
+                !ReferenceEquals(current, connection))
+            {
+                return;
+            }
+
+            if (_connections.TryRemove(remoteEndPoint, out _))
+                OnPeerDisconnected?.Invoke(remoteEndPoint);
         }
 
         private QuicServerConnectionOptions CreateServerConnectionOptions()
@@ -192,6 +234,7 @@ namespace Neo.Network.P2P.Transport
             {
                 DefaultStreamErrorCode = 0,
                 DefaultCloseErrorCode = 0,
+                IdleTimeout = _options.IdleTimeout,
                 ServerAuthenticationOptions = new SslServerAuthenticationOptions
                 {
                     ApplicationProtocols = [new SslApplicationProtocol(_options.ApplicationProtocol)],

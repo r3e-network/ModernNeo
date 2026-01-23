@@ -1,6 +1,7 @@
 using Neo;
 using Neo.Core.Interfaces;
 using Neo.IO;
+using Neo.Network.P2P.Payloads;
 using Neo.Orleans.Grains;
 using Neo.Orleans.Interfaces;
 using Orleans.TestingHost;
@@ -162,6 +163,35 @@ public class MemoryPoolGrainTests
 
         Assert.AreEqual(MemoryPoolAddResult.Succeed, result);
         Assert.AreEqual(1, await grain.GetCountAsync());
+    }
+
+    [TestMethod]
+    public async Task GetTransactionAsync_AfterAdd_ReturnsTransaction()
+    {
+        var grain = _cluster!.GrainFactory.GetGrain<IMemoryPoolGrain>(0);
+        var tx = CreateTestTransaction(1);
+
+        await grain.AddTransactionAsync(tx);
+        var retrieved = await grain.GetTransactionAsync(tx.Hash.GetSpan().ToArray());
+
+        Assert.IsNotNull(retrieved);
+        Assert.AreEqual(tx.Hash, retrieved.Hash);
+    }
+
+    private static Transaction CreateTestTransaction(uint nonce)
+    {
+        return new Transaction
+        {
+            Version = 0,
+            Nonce = nonce,
+            SystemFee = 0,
+            NetworkFee = 0,
+            ValidUntilBlock = 1_000_000,
+            Signers = [new Signer { Account = UInt160.Zero, Scopes = WitnessScope.None }],
+            Attributes = Array.Empty<TransactionAttribute>(),
+            Script = new byte[] { 0x01 },
+            Witnesses = [new Witness { InvocationScript = Array.Empty<byte>(), VerificationScript = Array.Empty<byte>() }]
+        };
     }
 }
 

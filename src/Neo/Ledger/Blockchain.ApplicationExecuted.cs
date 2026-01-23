@@ -17,8 +17,6 @@ using Neo.VM;
 using Neo.VM.Types;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
 
 namespace Neo.Ledger
 {
@@ -50,98 +48,53 @@ namespace Neo.Ledger
         /// <summary>
         /// Invokes the Committing event handlers with Plugin exception handling.
         /// </summary>
-        internal static void InvokeCommitting(NeoSystem system, Block block, DataCache snapshot, IReadOnlyList<ApplicationExecuted> applicationExecutedList)
+        public static void InvokeCommitting(NeoSystem system, Block block, DataCache snapshot, IReadOnlyList<ApplicationExecuted> applicationExecutedList)
         {
-            var handler = Committing;
-            if (handler == null) return;
-
-            foreach (var d in handler.GetInvocationList().Cast<CommittingHandler>())
-            {
-                try
-                {
-                    d(system, block, snapshot, applicationExecutedList);
-                }
-                catch (Exception ex)
-                {
-                    HandleEventException(d.Target, ex);
-                }
-            }
+            InvokeHandlers(Committing?.GetInvocationList(), h => ((CommittingHandler)h)(system, block, snapshot, applicationExecutedList));
         }
 
         /// <summary>
         /// Invokes the Committed event handlers with Plugin exception handling.
         /// </summary>
-        internal static void InvokeCommitted(NeoSystem system, Block block)
+        public static void InvokeCommitted(NeoSystem system, Block block)
         {
-            var handler = Committed;
-            if (handler == null) return;
+            InvokeHandlers(Committed?.GetInvocationList(), h => ((CommittedHandler)h)(system, block));
+        }
 
-            foreach (var d in handler.GetInvocationList().Cast<CommittedHandler>())
+        private static void InvokeHandlers(Delegate[]? handlers, Action<Delegate> handlerAction)
+        {
+            if (handlers == null) return;
+
+            foreach (var handler in handlers)
             {
                 try
                 {
-                    d(system, block);
+                    if (handler.Target is Plugin { IsStopped: true })
+                    {
+                        continue;
+                    }
+
+                    handlerAction(handler);
                 }
-                catch (Exception ex)
+                catch (Exception ex) when (handler.Target is Plugin plugin)
                 {
-                    HandleEventException(d.Target, ex);
+                    var cause = ex.InnerException ?? ex;
+                    Utility.Log(nameof(plugin.Name), LogLevel.Error,
+                        $"{plugin.Name} exception: {cause.Message}{Environment.NewLine}{cause.StackTrace}");
+                    switch (plugin.ExceptionPolicy)
+                    {
+                        case UnhandledExceptionPolicy.StopNode:
+                            throw;
+                        case UnhandledExceptionPolicy.StopPlugin:
+                            plugin.IsStopped = true;
+                            break;
+                        case UnhandledExceptionPolicy.Ignore:
+                            break;
+                        default:
+                            throw new InvalidCastException($"The exception policy {plugin.ExceptionPolicy} is not valid.");
+                    }
                 }
             }
-        }
-
-        /// <summary>
-        /// Handles exceptions from event handlers, respecting Plugin exception policies.
-        /// </summary>
-        private static void HandleEventException(object? target, Exception ex)
-        {
-            Utility.Log(nameof(Blockchain), LogLevel.Error, ex);
-
-            // Check if the target is a Plugin or belongs to a Plugin
-            var plugin = target as Plugin ?? FindPluginForTarget(target);
-
-            if (plugin != null)
-            {
-                switch (plugin.ExceptionPolicy)
-                {
-                    case UnhandledExceptionPolicy.StopNode:
-                        throw ex;
-                    case UnhandledExceptionPolicy.StopPlugin:
-                        plugin.IsStopped = true;
-                        break;
-                    case UnhandledExceptionPolicy.Ignore:
-                        break;
-                    default:
-                        throw new InvalidCastException($"The exception policy {plugin.ExceptionPolicy} is not valid.");
-                }
-            }
-            else
-            {
-                // Non-plugin handler - rethrow the exception
-                throw ex;
-            }
-        }
-
-        /// <summary>
-        /// Finds the Plugin instance that owns the target object.
-        /// </summary>
-        private static Plugin? FindPluginForTarget(object? target)
-        {
-            if (target == null) return null;
-
-            // Check if target is a Plugin
-            if (target is Plugin p) return p;
-
-            // Check if target's declaring type is a Plugin
-            var targetType = target.GetType();
-            foreach (var plugin in Plugin.Plugins)
-            {
-                if (plugin.GetType() == targetType || targetType.IsAssignableTo(plugin.GetType()))
-                {
-                    return plugin;
-                }
-            }
-
-            return null;
         }
 
         /// <summary>

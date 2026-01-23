@@ -8,7 +8,7 @@
 
 - `src/Neo`（单程序集承载大部分核心逻辑）
   - `Cryptography/`、`Persistence/`、`Network/`、`Ledger/`、`SmartContract/`、`Wallets/`、`Plugins/`
-  - `NeoSystem`：节点组合入口（Actors + Store + Plugins）
+  - `NeoSystem`：节点组合入口（Orleans runtime + Store + Plugins）
 - `src/Neo.Extensions`（独立程序集，namespace 仍为 `Neo`/`Neo.Extensions`）
 - `src/Neo.IO`（独立程序集）
 - `src/Neo.Json`（独立程序集）
@@ -50,4 +50,3 @@
 - 哈希与签名：椭圆曲线与哈希实现不可改变语义
 - 网络消息：消息 ID、payload 编码、压缩方式、握手 capability
 - 存储格式：表空间/前缀/Key 编码、快照语义
-

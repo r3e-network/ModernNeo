@@ -10,7 +10,7 @@
 
 - `src/Neo`：主要协议实现（网络、账本、持久化、智能合约、钱包、插件等）目前 **集中在同一程序集** 中。
 - `src/Neo.Extensions`、`src/Neo.IO`、`src/Neo.Json`：已拆分成独立项目（说明“多程序集+同命名空间 Neo.*”在本仓库是可行的）。
-- `NeoSystem`：节点核心组合入口（创建 `Blockchain/LocalNode/TaskManager` 等 Akka actors），是后续引入“Application/Service Layer”的最佳切入点。
+- `NeoSystem`：节点核心组合入口（由 `Neo.Orleans` 将运行时绑定到 Orleans grains），是后续引入“Application/Service Layer”的最佳切入点。
 
 ---
 
@@ -77,5 +77,4 @@
 - 初始化 `NeoSystem`
 - 启动 P2P 同步并输出可观测指标（日志/metrics）
 
-后续再把 JSON-RPC / gRPC / WebSocket 作为 **可选模块** 接入。
-
+后续再把 JSON-RPC / gRPC 作为 **可选模块** 接入；WebSocket P2P 已在 `Neo.Orleans` 提供入站支持。

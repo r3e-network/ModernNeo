@@ -7,18 +7,18 @@
     <Description>Neo Network Stack - P2P networking with TCP and QUIC transport</Description>
   </PropertyGroup>
 
-  <!-- Akka removed - Orleans is now the distributed runtime -->
+  <!-- Legacy actor system removed - Orleans is now the distributed runtime -->
 
   <ItemGroup>
-    <ProjectReference Include="..\Neo.Core\Neo.Core.csproj" />
-    <ProjectReference Include="..\Neo.Cryptography\Neo.Cryptography.csproj" />
-    <ProjectReference Include="..\Neo.Extensions\Neo.Extensions.csproj" />
-    <ProjectReference Include="..\Neo.IO\Neo.IO.csproj" />
-    <ProjectReference Include="..\Neo.Ledger\Neo.Ledger.csproj" />
-    <ProjectReference Include="..\Neo.Observability\Neo.Observability.csproj" />
-    <ProjectReference Include="..\Neo.Protocol\Neo.Protocol.csproj" />
-    <ProjectReference Include="..\Neo.Protocol.Payloads\Neo.Protocol.Payloads.csproj" />
-    <ProjectReference Include="..\Neo.Storage\Neo.Storage.csproj" />
+    <ProjectReference Include="../Neo.Core/Neo.Core.csproj" />
+    <ProjectReference Include="../Neo.Cryptography/Neo.Cryptography.csproj" />
+    <ProjectReference Include="../Neo.Extensions/Neo.Extensions.csproj" />
+    <ProjectReference Include="../Neo.IO/Neo.IO.csproj" />
+    <ProjectReference Include="../Neo.Ledger/Neo.Ledger.csproj" />
+    <ProjectReference Include="../Neo.Observability/Neo.Observability.csproj" />
+    <ProjectReference Include="../Neo.Protocol/Neo.Protocol.csproj" />
+    <ProjectReference Include="../Neo.Protocol.Payloads/Neo.Protocol.Payloads.csproj" />
+    <ProjectReference Include="../Neo.Storage/Neo.Storage.csproj" />
   </ItemGroup>
 
   <ItemGroup>

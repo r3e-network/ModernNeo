@@ -29,8 +29,8 @@ namespace Neo.Node.Rpc
 
         public Task<JToken?> ProcessAsync(JArray? parameters)
         {
-            // P2P networking disabled - Akka LocalNode removed
-            // Use Orleans-based node for peer management
+            // P2P networking disabled in Neo.Node
+            // Use Neo.Orleans for peer management
             return Task.FromResult<JToken?>(EmptyPeers());
         }
 

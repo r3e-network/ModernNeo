@@ -50,8 +50,7 @@ namespace Neo.Node.Rpc
             if (!blockExists)
                 return Task.FromResult<JToken?>(JToken.Null);
 
-            // State roots are not yet persisted in this refactor path.
-            return Task.FromResult<JToken?>(JToken.Null);
+            throw new RpcException(RpcError.InternalError.Code, "State roots are not available in this build.");
         }
     }
 }

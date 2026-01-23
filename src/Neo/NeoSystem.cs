@@ -32,7 +32,7 @@ namespace Neo
 {
     /// <summary>
     /// Represents a message target that can receive messages.
-    /// This is a transport-agnostic abstraction replacing Akka IActorRef.
+    /// This is a transport-agnostic abstraction for message targets.
     /// </summary>
     public interface ISystemMessageTarget : IMessageTarget
     {
@@ -69,7 +69,7 @@ namespace Neo
 
     /// <summary>
     /// Represents the basic unit that contains all the components required for running of a NEO node.
-    /// This is the Orleans-compatible version without Akka dependencies.
+    /// This is the Orleans-compatible version without legacy actor dependencies.
     /// </summary>
     public class NeoSystem : IDisposable, Ledger.IBlockchainOperations
     {

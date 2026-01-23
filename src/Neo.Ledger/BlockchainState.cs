@@ -10,6 +10,7 @@
 // modifications are permitted.
 
 using Neo.Core.Interfaces;
+using Neo.Network.P2P.Payloads;
 using Neo.Persistence;
 using System.Collections.Concurrent;
 
@@ -22,8 +23,8 @@ namespace Neo.Ledger
     public sealed class BlockchainState : IBlockchainState
     {
         private readonly IStore? _store;
-        private readonly ConcurrentDictionary<string, IBlockData> _blockCache = new();
-        private readonly ConcurrentDictionary<string, IHeaderData> _headerCache = new();
+        private readonly ConcurrentDictionary<string, Block> _blockCache = new();
+        private readonly ConcurrentDictionary<string, Header> _headerCache = new();
         private readonly ConcurrentDictionary<string, ITransactionData> _txCache = new();
         private readonly ConcurrentDictionary<uint, byte[]> _indexToHash = new();
         private readonly ReaderWriterLockSlim _lock = new();
@@ -89,7 +90,7 @@ namespace Neo.Ledger
         /// <summary>
         /// Initializes the state with genesis block.
         /// </summary>
-        public void Initialize(IBlockData genesisBlock)
+        public void Initialize(Block genesisBlock)
         {
             ArgumentNullException.ThrowIfNull(genesisBlock);
 
@@ -104,6 +105,11 @@ namespace Neo.Ledger
                 var hashKey = Convert.ToHexString(hash);
                 _blockCache[hashKey] = genesisBlock;
                 _indexToHash[0] = hash;
+
+                foreach (var tx in genesisBlock.Transactions)
+                {
+                    _txCache[Convert.ToHexString(tx.Hash.GetSpan())] = tx;
+                }
             }
             finally
             {
@@ -114,7 +120,7 @@ namespace Neo.Ledger
         /// <summary>
         /// Updates state after a block is persisted.
         /// </summary>
-        public void OnBlockPersisted(IBlockData block)
+        public void OnBlockPersisted(Block block)
         {
             ArgumentNullException.ThrowIfNull(block);
 
@@ -128,6 +134,11 @@ namespace Neo.Ledger
                 _indexToHash[block.Index] = hash;
                 _currentBlockHash = hash;
                 _height = block.Index;
+
+                foreach (var tx in block.Transactions)
+                {
+                    _txCache[Convert.ToHexString(tx.Hash.GetSpan())] = tx;
+                }
             }
             finally
             {
@@ -146,49 +157,49 @@ namespace Neo.Ledger
         }
 
         /// <inheritdoc/>
-        public Task<IHeaderData?> GetHeaderAsync(byte[] hash)
+        public Task<Header?> GetHeaderAsync(byte[] hash)
         {
             ArgumentNullException.ThrowIfNull(hash);
             var hashKey = Convert.ToHexString(hash);
 
             if (_headerCache.TryGetValue(hashKey, out var header))
-                return Task.FromResult<IHeaderData?>(header);
+                return Task.FromResult<Header?>(header);
 
             // Try to get from block cache
-            if (_blockCache.TryGetValue(hashKey, out var block) && block is IHeaderData headerData)
-                return Task.FromResult<IHeaderData?>(headerData);
+            if (_blockCache.TryGetValue(hashKey, out var block))
+                return Task.FromResult<Header?>(block.Header);
 
-            return Task.FromResult<IHeaderData?>(null);
+            return Task.FromResult<Header?>(null);
         }
 
         /// <inheritdoc/>
-        public Task<IHeaderData?> GetHeaderByIndexAsync(uint index)
+        public Task<Header?> GetHeaderByIndexAsync(uint index)
         {
             if (_indexToHash.TryGetValue(index, out var hash))
                 return GetHeaderAsync(hash);
 
-            return Task.FromResult<IHeaderData?>(null);
+            return Task.FromResult<Header?>(null);
         }
 
         /// <inheritdoc/>
-        public Task<IBlockData?> GetBlockAsync(byte[] hash)
+        public Task<Block?> GetBlockAsync(byte[] hash)
         {
             ArgumentNullException.ThrowIfNull(hash);
             var hashKey = Convert.ToHexString(hash);
 
             if (_blockCache.TryGetValue(hashKey, out var block))
-                return Task.FromResult<IBlockData?>(block);
+                return Task.FromResult<Block?>(block);
 
-            return Task.FromResult<IBlockData?>(null);
+            return Task.FromResult<Block?>(null);
         }
 
         /// <inheritdoc/>
-        public Task<IBlockData?> GetBlockByIndexAsync(uint index)
+        public Task<Block?> GetBlockByIndexAsync(uint index)
         {
             if (_indexToHash.TryGetValue(index, out var hash))
                 return GetBlockAsync(hash);
 
-            return Task.FromResult<IBlockData?>(null);
+            return Task.FromResult<Block?>(null);
         }
 
         /// <inheritdoc/>
@@ -244,14 +255,9 @@ namespace Neo.Ledger
             };
         }
 
-        private static byte[] GetBlockHashBytes(IBlockData block)
+        private static byte[] GetBlockHashBytes(Block block)
         {
-            // Use the verifiable hash if available
-            if (block is IVerifiableBase verifiable)
-                return verifiable.Hash.GetSpan().ToArray();
-
-            // Fallback: compute from merkle root (simplified)
-            return block.MerkleRoot.GetSpan().ToArray();
+            return block.Hash.GetSpan().ToArray();
         }
     }
 

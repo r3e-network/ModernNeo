@@ -1,0 +1,44 @@
+// Copyright (C) 2015-2025 The Neo Project.
+//
+// InvPayloadSurrogate.cs file belongs to the neo project and is free
+// software distributed under the MIT software license, see the
+// accompanying file LICENSE in the main directory of the
+// repository or http://www.opensource.org/licenses/mit-license.php
+// for more details.
+
+using Neo.Extensions;
+using Neo.IO;
+using Neo.Network.P2P.Payloads;
+using Orleans;
+using System;
+
+namespace Neo.Orleans.Serialization
+{
+    /// <summary>
+    /// Orleans surrogate for InvPayload serialization.
+    /// </summary>
+    [GenerateSerializer]
+    public struct InvPayloadSurrogate
+    {
+        [Id(0)] public byte[] Data { get; set; }
+    }
+
+    /// <summary>
+    /// Converter between InvPayload and its surrogate.
+    /// </summary>
+    [RegisterConverter]
+    public sealed class InvPayloadSurrogateConverter : IConverter<InvPayload, InvPayloadSurrogate>
+    {
+        public InvPayload ConvertFromSurrogate(in InvPayloadSurrogate surrogate)
+        {
+            if (surrogate.Data == null || surrogate.Data.Length == 0)
+                throw new FormatException("InvPayload data is missing.");
+
+            var reader = new MemoryReader(surrogate.Data);
+            return reader.ReadSerializable<InvPayload>();
+        }
+
+        public InvPayloadSurrogate ConvertToSurrogate(in InvPayload value) =>
+            new() { Data = value.ToArray() };
+    }
+}

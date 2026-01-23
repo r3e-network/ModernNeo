@@ -9,7 +9,13 @@
 // Redistribution and use in source and binary forms with or without
 // modifications are permitted.
 
+using Neo;
 using Neo.Core.Interfaces;
+using Neo.Extensions;
+using Neo.IO;
+using Neo.Ledger;
+using Neo.Network.P2P.Payloads;
+using Neo.Orleans.Hosting;
 using Neo.Orleans.Interfaces;
 using Orleans.Runtime;
 using System.Diagnostics;
@@ -18,52 +24,69 @@ namespace Neo.Orleans.Grains
 {
     /// <summary>
     /// Orleans Grain implementation for transaction pre-verification routing.
-    /// Replaces Akka.NET TransactionRouter Actor with parallel verification.
+    /// Supports parallel pre-verification workflows.
     /// </summary>
     public class TxRouterGrain : Grain, ITxRouterGrain
     {
         private readonly IPersistentState<TxRouterState> _state;
         private readonly IGrainFactory _grainFactory;
+        private readonly ProtocolSettings _settings;
+        private readonly NeoOrleansOptions _options;
 
         public TxRouterGrain(
             [PersistentState("txrouter", "TxRouterStore")]
             IPersistentState<TxRouterState> state,
-            IGrainFactory grainFactory)
+            IGrainFactory grainFactory,
+            ProtocolSettings settings,
+            NeoOrleansOptions? options = null)
         {
             _state = state;
             _grainFactory = grainFactory;
+            _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+            _options = options ?? new NeoOrleansOptions();
         }
 
-        public async Task<TxPreverifyResult> PreverifyAsync(ITransactionData transaction, bool relay)
+        public Task<TxPreverifyResult> PreverifyAsync(ITransactionData transaction, bool relay)
         {
             var sw = Stopwatch.StartNew();
 
             try
             {
-                // Perform state-independent verification
-                // In a full implementation, this would call transaction.VerifyStateIndependent()
-                // For now, we do basic validation
-                var isValid = ValidateTransaction(transaction);
+                if (!TryDeserializeTransaction(transaction, out var tx))
+                {
+                    sw.Stop();
+                    UpdateStats(false, sw.ElapsedMilliseconds);
+                    return Task.FromResult(new TxPreverifyResult(
+                        transaction.Hash.GetSpan().ToArray(),
+                        false,
+                        false,
+                        "Transaction deserialization failed"));
+                }
+
+                var verifyResult = _options.ValidationMode == NeoValidationMode.None
+                    ? VerifyResult.Succeed
+                    : tx.VerifyStateIndependent(_settings);
+                var isValid = verifyResult == VerifyResult.Succeed;
 
                 sw.Stop();
                 UpdateStats(isValid, sw.ElapsedMilliseconds);
 
-                return new TxPreverifyResult(
-                    transaction.Hash.GetSpan().ToArray(),
+                return Task.FromResult(new TxPreverifyResult(
+                    tx.Hash.GetSpan().ToArray(),
                     isValid,
                     relay && isValid,
-                    isValid ? null : "Transaction validation failed");
+                    isValid ? null : $"Transaction validation failed: {verifyResult}"));
             }
             catch (Exception ex)
             {
                 sw.Stop();
                 UpdateStats(false, sw.ElapsedMilliseconds);
 
-                return new TxPreverifyResult(
+                return Task.FromResult(new TxPreverifyResult(
                     transaction.Hash.GetSpan().ToArray(),
                     false,
                     false,
-                    ex.Message);
+                    ex.Message));
             }
         }
 
@@ -97,33 +120,33 @@ namespace Neo.Orleans.Grains
             return _state.WriteStateAsync();
         }
 
-        private bool ValidateTransaction(ITransactionData transaction)
+        private static bool TryDeserializeTransaction(ITransactionData transaction, out Transaction tx)
         {
-            // Basic validation checks
-            // In a full implementation, this would perform state-independent verification
+            tx = null!;
+            if (transaction is Transaction fullTransaction)
+            {
+                tx = fullTransaction;
+                return true;
+            }
 
-            // Check hash is not empty
-            var hash = transaction.Hash.GetSpan();
-            if (hash.IsEmpty)
+            var raw = transaction.ToArray();
+            if (raw.Length == 0)
                 return false;
 
-            // Check version
-            if (transaction.Version > 0)
+            try
+            {
+                var reader = new MemoryReader(raw);
+                tx = reader.ReadSerializable<Transaction>();
+                return true;
+            }
+            catch (FormatException)
+            {
                 return false;
-
-            // Check script is not empty
-            if (transaction.Script.IsEmpty)
+            }
+            catch
+            {
                 return false;
-
-            // Check system fee is non-negative
-            if (transaction.SystemFee < 0)
-                return false;
-
-            // Check network fee is non-negative
-            if (transaction.NetworkFee < 0)
-                return false;
-
-            return true;
+            }
         }
 
         private void UpdateStats(bool isValid, long elapsedMs)

@@ -12,7 +12,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Neo.RPC\Neo.RPC.csproj" />
+    <ProjectReference Include="../../src/Neo.RPC/Neo.RPC.csproj" />
   </ItemGroup>
 
   <ItemGroup>

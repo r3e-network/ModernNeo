@@ -16,7 +16,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Neo.Orleans\Neo.Orleans.csproj" />
+    <ProjectReference Include="../../src/Neo.Orleans/Neo.Orleans.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -19,8 +19,8 @@ IDisposable
 StoreFactory
     │
     ├── MemoryStoreProvider ──creates──> MemoryStore
-    ├── LevelDBStore (Plugin) ──creates──> LevelDBStore
-    └── RocksDBStore (Plugin) ──creates──> RocksDBStore
+    ├── LevelDbStoreProvider ──creates──> LevelDbStore
+    └── RocksDbStoreProvider ──creates──> RocksDbStore
                                               │
                                               ▼
                                         IStoreSnapshot

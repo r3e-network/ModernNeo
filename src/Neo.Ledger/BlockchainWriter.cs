@@ -9,7 +9,9 @@
 // Redistribution and use in source and binary forms with or without
 // modifications are permitted.
 
+using Neo;
 using Neo.Core.Interfaces;
+using Neo.Network.P2P.Payloads;
 
 namespace Neo.Ledger
 {
@@ -45,7 +47,7 @@ namespace Neo.Ledger
         }
 
         /// <inheritdoc/>
-        public async Task<bool> PersistBlockAsync(IBlockData block)
+        public async Task<bool> PersistBlockAsync(Block block)
         {
             ArgumentNullException.ThrowIfNull(block);
 
@@ -65,9 +67,9 @@ namespace Neo.Ledger
                 if (block.Index != expectedIndex && _state.Height > 0)
                     return false;
 
-                // Execute transactions (placeholder - actual execution would use ApplicationEngine)
-                var transactions = new List<object>(); // Would be populated from block
-                var results = _executor.Execute(transactions, new object(), block, new object());
+                // Execute block transactions with default protocol settings.
+                var transactions = block.Transactions.Cast<object>().ToList();
+                var results = _executor.Execute(transactions, new object(), block, ProtocolSettings.Default);
 
                 // Update state
                 _state.OnBlockPersisted(block);
@@ -84,7 +86,7 @@ namespace Neo.Ledger
         }
 
         /// <inheritdoc/>
-        public async Task<int> ImportBlocksAsync(IEnumerable<IBlockData> blocks, bool verify = true)
+        public async Task<int> ImportBlocksAsync(IEnumerable<Block> blocks, bool verify = true)
         {
             ArgumentNullException.ThrowIfNull(blocks);
 
@@ -106,7 +108,7 @@ namespace Neo.Ledger
         }
 
         /// <inheritdoc/>
-        public async Task<VerifyResult> VerifyBlockAsync(IBlockData block)
+        public async Task<VerifyResult> VerifyBlockAsync(Block block)
         {
             ArgumentNullException.ThrowIfNull(block);
 
@@ -155,11 +157,9 @@ namespace Neo.Ledger
             return VerifyResult.Succeed;
         }
 
-        private static byte[] GetBlockHashBytes(IBlockData block)
+        private static byte[] GetBlockHashBytes(Block block)
         {
-            if (block is IVerifiableBase verifiable)
-                return verifiable.Hash.GetSpan().ToArray();
-            return block.MerkleRoot.GetSpan().ToArray();
+            return block.Hash.GetSpan().ToArray();
         }
     }
 
@@ -171,7 +171,7 @@ namespace Neo.Ledger
         /// <summary>
         /// Validates a block.
         /// </summary>
-        Task<VerifyResult> ValidateBlockAsync(IBlockData block);
+        Task<VerifyResult> ValidateBlockAsync(Block block);
 
         /// <summary>
         /// Validates a transaction.

@@ -11,6 +11,7 @@
 
 using System;
 using System.Buffers;
+using System.Buffers.Binary;
 using System.IO;
 using System.Net;
 using System.Net.WebSockets;
@@ -25,8 +26,13 @@ namespace Neo.Network.P2P.Transport
     /// </summary>
     public sealed class WsPeerConnection : IAsyncDisposable
     {
+        // Align with Neo.Network.P2P.Message.PayloadMaxSize plus header slack.
+        private const int MaxMessageBytes = 0x02000000 + 16 + 4;
+
         private readonly ClientWebSocket _client;
         private readonly Uri _remoteUri;
+        private readonly SemaphoreSlim _writeLock = new(1, 1);
+        private int _disconnected;
         private bool _disposed;
 
         /// <summary>
@@ -61,6 +67,8 @@ namespace Neo.Network.P2P.Transport
                         break;
 
                     ms.Write(buffer, 0, result.Count);
+                    if (ms.Length > MaxMessageBytes)
+                        break;
                     if (!result.EndOfMessage)
                         continue;
 
@@ -70,8 +78,8 @@ namespace Neo.Network.P2P.Transport
 
                     if (data.Length >= 4)
                     {
-                        var length = BitConverter.ToInt32(data, 0);
-                        if (length >= 0 && length <= data.Length - 4)
+                        var length = BinaryPrimitives.ReadInt32LittleEndian(data.AsSpan(0, 4));
+                        if (length == data.Length - 4)
                         {
                             var payload = new ReadOnlyMemory<byte>(data, 4, length);
                             if (OnMessageReceived != null)
@@ -88,9 +96,17 @@ namespace Neo.Network.P2P.Transport
             catch (OperationCanceledException)
             {
             }
+            catch (WebSocketException)
+            {
+                // Socket closed or aborted.
+            }
+            catch
+            {
+                // Ignore unexpected receive errors; caller will observe disconnect.
+            }
             finally
             {
-                OnDisconnected?.Invoke();
+                NotifyDisconnected();
                 ArrayPool<byte>.Shared.Return(buffer);
             }
         }
@@ -100,16 +116,27 @@ namespace Neo.Network.P2P.Transport
         /// </summary>
         public async Task SendAsync(ReadOnlyMemory<byte> data, CancellationToken cancellationToken = default)
         {
-            var buffer = ArrayPool<byte>.Shared.Rent(4 + data.Length);
+            if (data.Length + 4 > MaxMessageBytes)
+                throw new ArgumentOutOfRangeException(nameof(data), $"Message length {data.Length} exceeds max {MaxMessageBytes - 4} bytes.");
+
+            await _writeLock.WaitAsync(cancellationToken);
             try
             {
-                BitConverter.TryWriteBytes(buffer.AsSpan(0, 4), data.Length);
-                data.Span.CopyTo(buffer.AsSpan(4));
-                await _client.SendAsync(new ArraySegment<byte>(buffer, 0, 4 + data.Length), WebSocketMessageType.Binary, true, cancellationToken);
+                var buffer = ArrayPool<byte>.Shared.Rent(4 + data.Length);
+                try
+                {
+                    BinaryPrimitives.WriteInt32LittleEndian(buffer.AsSpan(0, 4), data.Length);
+                    data.Span.CopyTo(buffer.AsSpan(4));
+                    await _client.SendAsync(new ArraySegment<byte>(buffer, 0, 4 + data.Length), WebSocketMessageType.Binary, true, cancellationToken);
+                }
+                finally
+                {
+                    ArrayPool<byte>.Shared.Return(buffer);
+                }
             }
             finally
             {
-                ArrayPool<byte>.Shared.Return(buffer);
+                _writeLock.Release();
             }
         }
 
@@ -143,6 +170,15 @@ namespace Neo.Network.P2P.Transport
             }
             catch { }
             _client.Dispose();
+            _writeLock.Dispose();
+            NotifyDisconnected();
+        }
+
+        private void NotifyDisconnected()
+        {
+            if (Interlocked.Exchange(ref _disconnected, 1) != 0)
+                return;
+
             OnDisconnected?.Invoke();
         }
     }

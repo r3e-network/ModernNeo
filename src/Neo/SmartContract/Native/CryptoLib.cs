@@ -11,6 +11,7 @@
 
 using Neo.Cryptography;
 using Neo.Cryptography.ECC;
+using Neo.Protocol;
 using Org.BouncyCastle.Crypto.Parameters;
 using Org.BouncyCastle.Crypto.Signers;
 using System;

@@ -147,6 +147,9 @@ namespace Neo.RPC
         {
             var request = context.Request;
             var response = context.Response;
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            if (_options.RequestTimeout > TimeSpan.Zero)
+                timeoutCts.CancelAfter(_options.RequestTimeout);
 
             try
             {
@@ -172,17 +175,26 @@ namespace Neo.RPC
                     return;
                 }
 
-                // Read request body
-                using var reader = new StreamReader(request.InputStream, Encoding.UTF8);
-                var body = await reader.ReadToEndAsync(cancellationToken);
+                var bodyResult = await ReadRequestBodyAsync(request, timeoutCts.Token);
+                if (bodyResult.TooLarge)
+                {
+                    await SendErrorAsync(response, new RpcError { Code = -32600, Message = "Request payload too large" }, null);
+                    return;
+                }
+
+                var body = bodyResult.Body ?? string.Empty;
 
                 RequestReceived?.Invoke(this, new RpcRequestEventArgs(body, request.RemoteEndPoint));
 
                 // Process using RpcProcessor
-                var responseJson = await _processor.ProcessAsync(body);
+                var responseJson = await _processor.ProcessAsync(body).WaitAsync(timeoutCts.Token);
 
                 // Send response
                 await SendJsonResponseAsync(response, responseJson);
+            }
+            catch (OperationCanceledException)
+            {
+                await SendErrorAsync(response, new RpcError { Code = -32603, Message = "Request timed out" }, null);
             }
             catch (Exception ex)
             {
@@ -193,6 +205,44 @@ namespace Neo.RPC
             {
                 response.Close();
             }
+        }
+
+        private readonly struct RequestBodyResult
+        {
+            public RequestBodyResult(string? body, bool tooLarge)
+            {
+                Body = body;
+                TooLarge = tooLarge;
+            }
+
+            public string? Body { get; }
+            public bool TooLarge { get; }
+        }
+
+        private async Task<RequestBodyResult> ReadRequestBodyAsync(HttpListenerRequest request, CancellationToken cancellationToken)
+        {
+            if (request.ContentLength64 > 0 && request.ContentLength64 > _options.MaxRequestSize)
+                return new RequestBodyResult(null, tooLarge: true);
+
+            using var ms = new MemoryStream();
+            var buffer = new byte[8192];
+            long total = 0;
+
+            while (true)
+            {
+                var read = await request.InputStream.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken);
+                if (read == 0)
+                    break;
+
+                total += read;
+                if (total > _options.MaxRequestSize)
+                    return new RequestBodyResult(null, tooLarge: true);
+
+                ms.Write(buffer, 0, read);
+            }
+
+            var body = Encoding.UTF8.GetString(ms.GetBuffer(), 0, (int)total);
+            return new RequestBodyResult(body, tooLarge: false);
         }
 
         private static async Task SendJsonResponseAsync(HttpListenerResponse response, string json)

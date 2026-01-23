@@ -10,13 +10,14 @@
 // modifications are permitted.
 
 using Neo.Core.Interfaces;
+using Neo.Network.P2P.Payloads;
 using Neo.Orleans.States;
 
 namespace Neo.Orleans.Interfaces
 {
     /// <summary>
     /// Orleans Grain interface for blockchain state management.
-    /// Replaces Akka.NET Blockchain Actor with header cache and inventory handling.
+    /// Manages headers, blocks, and inventory state.
     /// </summary>
     public interface IBlockchainGrain : IGrainWithIntegerKey
     {
@@ -24,7 +25,7 @@ namespace Neo.Orleans.Interfaces
         /// Persists a block to the blockchain.
         /// Returns the verification result.
         /// </summary>
-        Task<BlockVerifyResult> PersistBlockAsync(IBlockData block, string? senderAddress = null);
+        Task<BlockVerifyResult> PersistBlockAsync(Block block, string? senderAddress = null);
 
         /// <summary>
         /// Gets the current blockchain height.
@@ -39,17 +40,22 @@ namespace Neo.Orleans.Interfaces
         /// <summary>
         /// Gets a block by its hash.
         /// </summary>
-        Task<IBlockData?> GetBlockByHashAsync(byte[] hash);
+        Task<Block?> GetBlockByHashAsync(byte[] hash);
 
         /// <summary>
         /// Gets a block by its index.
         /// </summary>
-        Task<IBlockData?> GetBlockByIndexAsync(uint index);
+        Task<Block?> GetBlockByIndexAsync(uint index);
+
+        /// <summary>
+        /// Gets a block hash by its index.
+        /// </summary>
+        Task<byte[]?> GetBlockHashByIndexAsync(uint index);
 
         /// <summary>
         /// Imports multiple blocks.
         /// </summary>
-        Task<int> ImportBlocksAsync(IEnumerable<IBlockData> blocks, bool verify = true);
+        Task<int> ImportBlocksAsync(IEnumerable<Block> blocks, bool verify = true);
 
         /// <summary>
         /// Gets the current block hash.
@@ -79,12 +85,22 @@ namespace Neo.Orleans.Interfaces
         /// <summary>
         /// Fills the memory pool with transactions (called by consensus).
         /// </summary>
+        Task FillMemoryPoolAsync(IEnumerable<ITransactionData> transactions);
+
+        /// <summary>
+        /// Fills the memory pool from transaction hashes (legacy/test-only).
+        /// </summary>
         Task FillMemoryPoolAsync(IEnumerable<byte[]> transactionHashes);
 
         /// <summary>
         /// Re-verifies inventories after a view change or recovery.
         /// </summary>
         Task ReverifyInventoriesAsync(IEnumerable<byte[]> inventoryHashes);
+
+        /// <summary>
+        /// Verifies and stores an extensible payload.
+        /// </summary>
+        Task<Neo.Ledger.VerifyResult> VerifyExtensiblePayloadAsync(ExtensiblePayload payload);
 
         /// <summary>
         /// Gets the blockchain state summary.

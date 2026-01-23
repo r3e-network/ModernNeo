@@ -16,6 +16,7 @@ public class PeerManagementIntegrationTests
     public async Task Setup()
     {
         var builder = new TestClusterBuilder();
+        builder.Options.InitialSilosCount = 1;
         builder.AddSiloBuilderConfigurator<IntegrationTestSiloConfigurator>();
         _cluster = builder.Build();
         await _cluster.DeployAsync();

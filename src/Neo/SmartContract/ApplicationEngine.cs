@@ -1,4 +1,4 @@
-// Copyright (C) 2015-2025 The Neo Project.
+// Copyright (C) 2015-2026 The Neo Project.
 //
 // ApplicationEngine.cs file belongs to the neo project and is free
 // software distributed under the MIT software license, see the
@@ -386,19 +386,10 @@ namespace Neo.SmartContract
             else
             {
                 var executingContract = IsHardforkEnabled(Hardfork.HF_Domovoi)
-                    ? state.Contract // use executing contract state to avoid possible contract update/destroy side-effects, ref. https://github.com/r3e-network/neo/pull/3290.
+                    ? state.Contract // use executing contract state to avoid possible contract update/destroy side-effects, ref. https://github.com/neo-project/neo/pull/3290.
                     : NativeContract.ContractManagement.GetContract(SnapshotCache, CurrentScriptHash!);
                 if (executingContract?.CanCall(contract, method.Name) == false)
                     throw new InvalidOperationException($"Cannot Call Method {method.Name} Of Contract {contract.Hash} From Contract {CurrentScriptHash}");
-            }
-
-            // Check whitelist
-
-            if (IsHardforkEnabled(Hardfork.HF_Faun) &&
-                NativeContract.Policy.IsWhitelistFeeContract(SnapshotCache, contract.Hash, method, out var fixedFee))
-            {
-                AddFee(fixedFee.Value * ApplicationEngine.FeeFactor);
-                state.WhiteListed = true;
             }
 
             if (invocationCounter.TryGetValue(contract.Hash, out var counter))
@@ -418,6 +409,13 @@ namespace Neo.SmartContract
             var contextNew = LoadContract(contract, method, flags & callingFlags);
             state = contextNew.GetState<ExecutionContextState>();
             state.CallingContext = currentContext;
+            // Check whitelist
+            if (IsHardforkEnabled(Hardfork.HF_Faun) &&
+                NativeContract.Policy.IsWhitelistFeeContract(SnapshotCache, contract.Hash, method, out var fixedFee))
+            {
+                AddFee(fixedFee.Value * FeeFactor);
+                state.WhiteListed = true;
+            }
 
             for (int i = args.Count - 1; i >= 0; i--)
                 contextNew.EvaluationStack.Push(args[i]);
@@ -691,16 +689,19 @@ namespace Neo.SmartContract
             }
         }
 
-        public override void Dispose()
+        protected override void Dispose(bool disposing)
         {
-            Diagnostic?.Disposed();
-            if (disposables != null)
+            if (disposing)
             {
-                foreach (var disposable in disposables)
-                    disposable.Dispose();
-                disposables = null;
+                Diagnostic?.Disposed();
+                if (disposables != null)
+                {
+                    foreach (var disposable in disposables)
+                        disposable.Dispose();
+                    disposables = null;
+                }
             }
-            base.Dispose();
+            base.Dispose(disposing);
         }
 
         /// <summary>
@@ -729,10 +730,7 @@ namespace Neo.SmartContract
                 parameters[i] = Convert(Pop(), descriptor.Parameters[i]);
 
             object? returnValue = descriptor.Handler.Invoke(this, parameters);
-            // Align syscall behavior with NativeContract.Invoke:
-            // - If the handler returns ContractTask, do NOT push it to the VM stack.
-            //   The async flow is cooperatively driven by ContractTask/ContextUnloaded.
-            if (descriptor.Handler.ReturnType != typeof(void) && descriptor.Handler.ReturnType != typeof(ContractTask))
+            if (descriptor.Handler.ReturnType != typeof(void))
                 Push(Convert(returnValue));
 
             // Record syscall metrics

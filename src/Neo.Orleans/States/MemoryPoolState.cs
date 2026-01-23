@@ -13,7 +13,7 @@ namespace Neo.Orleans.States
 {
     /// <summary>
     /// Persistent state for MemoryPoolGrain.
-    /// Mirrors Akka.NET MemoryPool with Verified/Unverified separation.
+    /// Tracks verified/unverified separation from legacy pool behavior.
     /// </summary>
     [GenerateSerializer]
     public class MemoryPoolState

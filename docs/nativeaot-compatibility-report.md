@@ -29,7 +29,7 @@
 | Neo.Extensions                | ✅ 完全兼容 | 无                   | -        |
 | Neo.Serialization.MessagePack | ⚠️ 部分兼容 | MessagePack 库 3.0.3 | 外部依赖 |
 | Neo.Orleans                   | ❌ 不兼容   | Orleans 框架限制     | 高       |
-| Neo (主模块)                  | ❌ 不兼容   | 反射、Akka、插件系统 | 高       |
+| Neo (主模块)                  | ❌ 不兼容   | 反射、插件系统       | 高       |
 
 ---
 
@@ -160,7 +160,7 @@ Orleans 8.x 使用大量反射和动态代码生成：
 ├─────────────────────────────────────┤
 │  Neo.SmartContract │ Neo.Wallets    │
 │  Neo.Network       │ Neo.Plugins    │
-│  Neo.Orleans       │ Akka.NET       │
+│  Neo.Orleans       │ Neo.Services   │
 └─────────────────────────────────────┘
 ```
 

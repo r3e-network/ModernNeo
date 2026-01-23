@@ -21,8 +21,8 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace Neo.Network.P2P.Transport
 {
     /// <summary>
-    /// Handles protocol negotiation between TCP and QUIC transports.
-    /// Supports automatic fallback from QUIC to TCP when QUIC is unavailable.
+    /// Handles protocol negotiation between TCP, QUIC, and WebSocket transports.
+    /// Supports automatic fallback from QUIC or WebSocket to TCP when unavailable.
     /// </summary>
     public class ProtocolNegotiator
     {
@@ -117,7 +117,7 @@ namespace Neo.Network.P2P.Transport
                 }
             }
 
-            // Fall back to TCP (handled by existing Akka.IO infrastructure)
+            // Fall back to TCP (handled by the standard transport stack)
             return new ConnectionResult
             {
                 Protocol = TransportProtocol.Tcp,
@@ -201,6 +201,9 @@ namespace Neo.Network.P2P.Transport
         /// QUIC transport with built-in TLS 1.3.
         /// </summary>
         Quic,
+        /// <summary>
+        /// WebSocket transport.
+        /// </summary>
         WebSocket
     }
 

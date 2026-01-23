@@ -48,26 +48,30 @@ References:
 ## Network (Dual Stack)
 
 - Legacy TCP stack: Present and compatible
-- QUIC transport: Implemented with platform guards; negotiator selects QUIC/WebSocket/TCP
-- WebSocket transport: Server shim in `Neo.Node`, client/server actors in `Neo.Network`
+- QUIC transport: Implemented with platform guards; optional QUIC listener wired into Neo.Orleans (inbound only)
+- TCP transport: Neo.Orleans host listener forwards inbound messages to Orleans grains
+- Outbound peer maintenance: LocalNodeGrain maintains MinDesiredConnections using the unconnected pool
+- Compression and max-known-hash limits are configured via `ApplicationConfiguration:P2P` and honored by Orleans grains
+- WebSocket transport: Inbound listener wired into `Neo.Orleans` (WS capability advertised); outbound remains TCP/QUIC
 
 ### P2P Abstractions (New)
 
 - New module `Neo.P2P.Abstractions` hosts transport-agnostic P2P messages and contracts:
-  - `AcceptBridge`: request LocalNode to attach a server-side bridge (WS/QUIC/etc.)
-  - `BridgeBind`: instruct a bridge to forward bytes to the protocol actor
+  - `AcceptBridge`: request the runtime to attach a server-side bridge (WS/QUIC/etc.)
+  - `BridgeBind`: instruct a bridge to forward bytes to a target
   - `IProtocolBridge` marker implemented by `WsServerConnection` and `QuicServerConnection`
-- `LocalNode` emits `BridgeBind` and retains reflection fallback to concrete `Bind` types for compatibility.
-- This split enables gradual migration of actor implementations without introducing project cycles.
+- Server bridge connections accept `BridgeBind` to attach an `IMessageTarget`.
+- Orleans grains (`LocalNodeGrain`, `RemoteNodeGrain`) handle P2P state and message processing.
+- This split enables gradual migration of transport wiring without introducing project cycles.
 
 References:
 - `src/Neo.Network/P2P/Transport/{QuicTransport,ProtocolNegotiator,Ws*}.cs`
-- `src/Neo.Node/Program.cs` (`/p2p` WebSocket endpoint)
+- `src/Neo.Node/Program.cs` (`/p2p` returns 501; P2P lives in `Neo.Orleans`)
 
 ## Storage
 
 - Abstractions: `IStore`, `IStoreSnapshot`, `IStoreProvider`
-- Providers: `MemoryStore`, `LevelDbStore`, `RocksDbStore`
+- Providers: `MemoryStore`, `LevelDBStore`, `RocksDBStore`
 - Caching: Multilayer cache and snapshot/clone semantics
 
 References:
@@ -81,8 +85,6 @@ References:
 
 ## Gaps and Next Actions
 
-- QUIC configuration surface in `config.json` (Phase 3):
-  - Add `ApplicationConfiguration:P2P:Quic` subsection (port/enable)
 - Incremental state sync and advanced discovery (Phase 3):
   - Implement DHT/Kademlia flows end‑to‑end; wire to TaskManager
 - State pruning and archive tier (Phase 3):
@@ -99,7 +101,7 @@ References:
 
 ## How to Run
 
-- Node host: `src/Neo.Node` (health/metrics/P2P WS)
+- Node host: `src/Neo.Node` (health/metrics; no P2P)
 - RPC server: `src/Neo.RPC` (host separately or integrate as hosted service)
 - GraphQL: `src/Neo.GraphQL`
 

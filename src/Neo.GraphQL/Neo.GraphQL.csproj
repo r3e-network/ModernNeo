@@ -14,11 +14,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Neo\Neo.csproj" />
-    <ProjectReference Include="..\Neo.Core\Neo.Core.csproj" />
-    <ProjectReference Include="..\Neo.Ledger\Neo.Ledger.csproj" />
-    <ProjectReference Include="..\Neo.Observability\Neo.Observability.csproj" />
-    <ProjectReference Include="..\Neo.Services\Neo.Services.csproj" />
+    <ProjectReference Include="../Neo/Neo.csproj" />
+    <ProjectReference Include="../Neo.Core/Neo.Core.csproj" />
+    <ProjectReference Include="../Neo.Ledger/Neo.Ledger.csproj" />
+    <ProjectReference Include="../Neo.Observability/Neo.Observability.csproj" />
+    <ProjectReference Include="../Neo.Services/Neo.Services.csproj" />
   </ItemGroup>
 
 </Project>

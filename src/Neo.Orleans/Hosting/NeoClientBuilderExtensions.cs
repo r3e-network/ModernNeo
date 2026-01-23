@@ -33,6 +33,12 @@ namespace Neo.Orleans.Hosting
             // via [RegisterConverter] attributes in Neo.Orleans.Serialization namespace.
             // No additional configuration needed - Orleans auto-discovers them.
 
+            clientBuilder.Configure<global::Orleans.Configuration.ClusterOptions>(opts =>
+            {
+                opts.ClusterId = config.ClusterId;
+                opts.ServiceId = config.ServiceId;
+            });
+
             return clientBuilder;
         }
     }

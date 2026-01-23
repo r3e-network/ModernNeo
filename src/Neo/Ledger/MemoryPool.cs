@@ -9,6 +9,7 @@
 // Redistribution and use in source and binary forms with or without
 // modifications are permitted.
 
+using Neo.Network.P2P;
 using Neo.Network.P2P.Payloads;
 using Neo.Persistence;
 using System;
@@ -28,6 +29,11 @@ namespace Neo.Ledger
     {
         public event EventHandler<Transaction>? TransactionAdded;
         public event EventHandler<TransactionRemovedEventArgs>? TransactionRemoved;
+        /// <summary>
+        /// Transaction policy validator event.
+        /// This function will be called to validate each transaction before adding it to the pool.
+        /// </summary>
+        public event EventHandler<NewTransactionEventArgs>? NewTransaction;
 
         // Allow a reverified transaction to be rebroadcast if it has been this many block times since last broadcast.
         private const int BlocksTillRebroadcast = 10;
@@ -117,13 +123,6 @@ namespace Neo.Ledger
         public int UnVerifiedCount => _unverifiedTransactions.Count;
 
         /// <summary>
-        /// Transaction policy validator function.
-        /// This function will be called to validate each transaction before adding it to the pool.
-        /// If the function returns false, the transaction will be rejected.
-        /// </summary>
-        public Func<Transaction, IReadOnlyStore, bool>? PolicyValidator { get; set; }
-
-        /// <summary>
         /// Initializes a new instance of the <see cref="MemoryPool"/> class.
         /// </summary>
         /// <param name="system">The <see cref="NeoSystem"/> object that contains the <see cref="MemoryPool"/>.</param>
@@ -155,6 +154,54 @@ namespace Neo.Ledger
             finally
             {
                 _txRwLock.ExitReadLock();
+            }
+        }
+
+        /// <summary>
+        /// Determines whether the specified hash conflicts with any verified transaction.
+        /// </summary>
+        public bool ContainsConflict(UInt256 hash)
+        {
+            _txRwLock.EnterReadLock();
+            try
+            {
+                return _conflicts.ContainsKey(hash);
+            }
+            finally
+            {
+                _txRwLock.ExitReadLock();
+            }
+        }
+
+        /// <summary>
+        /// Removes a transaction from the pool (verified or unverified).
+        /// </summary>
+        public bool RemoveTransaction(UInt256 hash)
+        {
+            _txRwLock.EnterWriteLock();
+            try
+            {
+                if (_unsortedTransactions.TryGetValue(hash, out var verifiedItem))
+                {
+                    _unsortedTransactions.Remove(hash);
+                    _sortedTransactions.Remove(verifiedItem);
+                    RemoveConflictsOfVerified(verifiedItem);
+                    VerificationContext.RemoveTransaction(verifiedItem.Tx);
+                    return true;
+                }
+
+                if (_unverifiedTransactions.TryGetValue(hash, out var unverifiedItem))
+                {
+                    _unverifiedTransactions.Remove(hash);
+                    _unverifiedSortedTransactions.Remove(unverifiedItem);
+                    return true;
+                }
+
+                return false;
+            }
+            finally
+            {
+                _txRwLock.ExitWriteLock();
             }
         }
 
@@ -311,11 +358,13 @@ namespace Neo.Ledger
             return item.CompareTo(tx) <= 0;
         }
 
-        internal VerifyResult TryAdd(Transaction tx, DataCache snapshot)
+        public VerifyResult TryAdd(Transaction tx, DataCache snapshot)
         {
-            if (PolicyValidator != null)
+            if (NewTransaction != null)
             {
-                if (!PolicyValidator(tx, snapshot)) return VerifyResult.PolicyFail;
+                var args = new NewTransactionEventArgs { Transaction = tx, Snapshot = snapshot };
+                NewTransaction(this, args);
+                if (args.Cancel) return VerifyResult.PolicyFail;
             }
 
             var poolItem = new PoolItem(tx);
@@ -465,6 +514,12 @@ namespace Neo.Ledger
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool TryRemoveUnverified(UInt256 hash)
+        {
+            return TryRemoveUnVerified(hash, out _);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal bool TryRemoveUnVerified(UInt256 hash, [MaybeNullWhen(false)] out PoolItem? item)
         {
             _txRwLock.EnterWriteLock();
@@ -484,7 +539,7 @@ namespace Neo.Ledger
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal void InvalidateVerifiedTransactions()
+        private void InvalidateVerifiedTransactions()
         {
             foreach (PoolItem item in _sortedTransactions)
             {
@@ -500,7 +555,7 @@ namespace Neo.Ledger
         }
 
         // Note: this must only be called from a single thread (the Blockchain actor)
-        internal void UpdatePoolForBlockPersisted(Block block, DataCache snapshot)
+        public void UpdatePoolForBlockPersisted(Block block, DataCache snapshot)
         {
             var conflictingItems = new List<Transaction>();
             _txRwLock.EnterWriteLock();
@@ -566,7 +621,7 @@ namespace Neo.Ledger
             ReverifyTransactions((int)_system.Settings.MaxTransactionsPerBlock, MaxMillisecondsToReverifyTx, snapshot);
         }
 
-        internal void InvalidateAllTransactions()
+        public void InvalidateAllTransactions()
         {
             _txRwLock.EnterWriteLock();
             try
@@ -635,8 +690,7 @@ namespace Neo.Ledger
                     {
                         if (item.LastBroadcastTimestamp < rebroadcastCutOffTime)
                         {
-                            // Relay transaction for rebroadcast
-                            _system.LocalNode.Tell(item.Tx);
+                            _system.LocalNode.Tell(new LocalNode.RelayDirectly(item.Tx));
                             item.LastBroadcastTimestamp = TimeProvider.Current.UtcNow;
                         }
                     }
@@ -677,7 +731,7 @@ namespace Neo.Ledger
         /// <param name="maxToVerify">Max transactions to reverify, the value passed can be >=1</param>
         /// <param name="snapshot">The snapshot to use for verifying.</param>
         /// <returns>true if more unsorted messages exist, otherwise false</returns>
-        internal bool ReVerifyTopUnverifiedTransactionsIfNeeded(int maxToVerify, DataCache snapshot)
+        public bool ReVerifyTopUnverifiedTransactionsIfNeeded(int maxToVerify, DataCache snapshot)
         {
             if (_system.HeaderCache.Count > 0)
                 return false;
@@ -693,7 +747,7 @@ namespace Neo.Ledger
 
         // This method is only for test purpose
         // Do not use this method outside of unit tests
-        internal void Clear()
+        public void Clear()
         {
             _txRwLock.EnterReadLock();
             try

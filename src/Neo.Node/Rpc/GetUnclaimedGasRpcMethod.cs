@@ -12,6 +12,7 @@
 using Neo;
 using Neo.Json;
 using Neo.RPC;
+using Neo.SmartContract;
 using Neo.SmartContract.Native;
 using Neo.Wallets;
 using System;
@@ -52,7 +53,8 @@ namespace Neo.Node.Rpc
             var snapshot = _node.System.StoreView;
             var currentIndex = NativeContract.Ledger.CurrentIndex(snapshot);
             var end = currentIndex == uint.MaxValue ? currentIndex : currentIndex + 1;
-            var unclaimed = NativeContract.NEO.UnclaimedGas(snapshot, account, end);
+            using var engine = ApplicationEngine.Create(TriggerType.Application, null, snapshot, settings: _node.System.Settings);
+            var unclaimed = NativeContract.NEO.UnclaimedGas(engine, account, end);
 
             return Task.FromResult<JToken?>(new JObject
             {

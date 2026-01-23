@@ -104,7 +104,7 @@ namespace Neo.Ledger
             _readerWriterLock.Dispose();
         }
 
-        internal bool Add(Header header)
+        public bool Add(Header header)
         {
             _readerWriterLock.EnterWriteLock();
             try
@@ -122,7 +122,7 @@ namespace Neo.Ledger
             return true;
         }
 
-        internal bool TryRemoveFirst([NotNullWhen(true)] out Header? header)
+        public bool TryRemoveFirst([NotNullWhen(true)] out Header? header)
         {
             _readerWriterLock.EnterWriteLock();
             try

@@ -12,16 +12,19 @@
 namespace Neo.Core.Interfaces
 {
     /// <summary>
-    /// Defines the data contract for a block header without any external dependencies.
-    /// This interface allows lower layers to work with header data without depending
-    /// on the full Header implementation in Neo.Network.P2P.Payloads.
+    /// Represents immutable block header data without concrete dependencies.
     /// </summary>
     public interface IHeaderData : IVerifiableBase
     {
         /// <summary>
-        /// The version of the block.
+        /// The index of the block.
         /// </summary>
-        uint Version { get; }
+        uint Index { get; }
+
+        /// <summary>
+        /// The timestamp of the block.
+        /// </summary>
+        ulong Timestamp { get; }
 
         /// <summary>
         /// The hash of the previous block.
@@ -34,21 +37,6 @@ namespace Neo.Core.Interfaces
         UInt256 MerkleRoot { get; }
 
         /// <summary>
-        /// The timestamp of the block.
-        /// </summary>
-        ulong Timestamp { get; }
-
-        /// <summary>
-        /// The random nonce of the block.
-        /// </summary>
-        ulong Nonce { get; }
-
-        /// <summary>
-        /// The index (height) of the block.
-        /// </summary>
-        uint Index { get; }
-
-        /// <summary>
         /// The primary index of the consensus node that generated this block.
         /// </summary>
         byte PrimaryIndex { get; }
@@ -57,5 +45,10 @@ namespace Neo.Core.Interfaces
         /// The multi-signature address of the consensus nodes that generates the next block.
         /// </summary>
         UInt160 NextConsensus { get; }
+
+        /// <summary>
+        /// The witness of the block.
+        /// </summary>
+        IWitness? Witness { get; }
     }
 }

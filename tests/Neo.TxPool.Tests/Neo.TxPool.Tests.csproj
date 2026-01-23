@@ -12,7 +12,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Neo.TxPool\Neo.TxPool.csproj" />
+    <ProjectReference Include="../../src/Neo.TxPool/Neo.TxPool.csproj" />
   </ItemGroup>
 
   <ItemGroup>

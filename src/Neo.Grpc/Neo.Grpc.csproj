@@ -20,9 +20,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Neo.Core\Neo.Core.csproj" />
-    <ProjectReference Include="..\Neo\Neo.csproj" />
-    <ProjectReference Include="..\Neo.Observability\Neo.Observability.csproj" />
+    <ProjectReference Include="../Neo.Core/Neo.Core.csproj" />
+    <ProjectReference Include="../Neo/Neo.csproj" />
+    <ProjectReference Include="../Neo.Observability/Neo.Observability.csproj" />
+    <ProjectReference Include="../Neo.Plugins/Neo.Plugins.csproj" />
+    <ProjectReference Include="../Neo.Services/Neo.Services.csproj" />
   </ItemGroup>
 
 </Project>

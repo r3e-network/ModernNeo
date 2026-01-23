@@ -11,6 +11,7 @@
 
 using System;
 using System.Buffers;
+using System.Buffers.Binary;
 using System.IO;
 using System.Net;
 using System.Net.Quic;
@@ -29,9 +30,15 @@ namespace Neo.Network.P2P.Transport
     [SupportedOSPlatform("osx")]
     public sealed class QuicPeerConnection : IQuicConnection
     {
+        // Align with Neo.Network.P2P.Message.PayloadMaxSize plus header slack.
+        private const int MaxMessageSize = 0x02000000 + 16;
+
         private readonly QuicConnection _connection;
         private readonly bool _isIncoming;
         private QuicStream? _controlStream;
+        private readonly SemaphoreSlim _streamGate = new(1, 1);
+        private readonly SemaphoreSlim _writeLock = new(1, 1);
+        private int _disconnected;
         private bool _disposed;
 
         /// <summary>
@@ -77,9 +84,8 @@ namespace Neo.Network.P2P.Transport
         {
             try
             {
-                // Accept the control stream (bidirectional)
-                _controlStream = await _connection.AcceptInboundStreamAsync(cancellationToken);
-                await ReceiveMessagesAsync(_controlStream, cancellationToken);
+                var stream = await GetControlStreamAsync(cancellationToken);
+                await ReceiveMessagesAsync(stream, cancellationToken);
             }
             catch (QuicException)
             {
@@ -89,9 +95,13 @@ namespace Neo.Network.P2P.Transport
             {
                 // Cancelled
             }
+            catch
+            {
+                // Ignore unexpected receive errors; caller will observe disconnect.
+            }
             finally
             {
-                OnDisconnected?.Invoke();
+                NotifyDisconnected();
             }
         }
 
@@ -108,18 +118,26 @@ namespace Neo.Network.P2P.Transport
         /// </summary>
         public async Task SendAsync(ReadOnlyMemory<byte> data, CancellationToken cancellationToken = default)
         {
-            if (_controlStream == null)
+            if (data.Length > MaxMessageSize)
+                throw new ArgumentOutOfRangeException(nameof(data), $"Message length {data.Length} exceeds max {MaxMessageSize} bytes.");
+
+            await _writeLock.WaitAsync(cancellationToken);
+            try
             {
-                _controlStream = await _connection.OpenOutboundStreamAsync(QuicStreamType.Bidirectional, cancellationToken);
+                var stream = await GetControlStreamAsync(cancellationToken);
+
+                // Write length-prefixed message
+                var lengthBuffer = new byte[4];
+                BinaryPrimitives.WriteInt32LittleEndian(lengthBuffer, data.Length);
+
+                await stream.WriteAsync(lengthBuffer, cancellationToken);
+                await stream.WriteAsync(data, cancellationToken);
+                await stream.FlushAsync(cancellationToken);
             }
-
-            // Write length-prefixed message
-            var lengthBuffer = new byte[4];
-            BitConverter.TryWriteBytes(lengthBuffer, data.Length);
-
-            await _controlStream.WriteAsync(lengthBuffer, cancellationToken);
-            await _controlStream.WriteAsync(data, cancellationToken);
-            await _controlStream.FlushAsync(cancellationToken);
+            finally
+            {
+                _writeLock.Release();
+            }
         }
 
         /// <summary>
@@ -127,17 +145,15 @@ namespace Neo.Network.P2P.Transport
         /// </summary>
         public async Task SendMessageAsync(byte command, ReadOnlyMemory<byte> payload, CancellationToken cancellationToken = default)
         {
-            // Neo message format: [length:4][command:1][payload:n]
             var messageLength = 1 + payload.Length;
-            var buffer = ArrayPool<byte>.Shared.Rent(4 + messageLength);
+            var buffer = ArrayPool<byte>.Shared.Rent(messageLength);
 
             try
             {
-                BitConverter.TryWriteBytes(buffer.AsSpan(0, 4), messageLength);
-                buffer[4] = command;
-                payload.Span.CopyTo(buffer.AsSpan(5));
+                buffer[0] = command;
+                payload.Span.CopyTo(buffer.AsSpan(1));
 
-                await SendAsync(buffer.AsMemory(0, 4 + messageLength), cancellationToken);
+                await SendAsync(buffer.AsMemory(0, messageLength), cancellationToken);
             }
             finally
             {
@@ -173,7 +189,9 @@ namespace Neo.Network.P2P.Transport
             }
 
             await _connection.DisposeAsync();
-            OnDisconnected?.Invoke();
+            _streamGate.Dispose();
+            _writeLock.Dispose();
+            NotifyDisconnected();
         }
 
         private async Task ReceiveMessagesAsync(QuicStream stream, CancellationToken cancellationToken)
@@ -186,8 +204,8 @@ namespace Neo.Network.P2P.Transport
                 var bytesRead = await ReadExactAsync(stream, lengthBuffer, cancellationToken);
                 if (bytesRead < 4) break;
 
-                var messageLength = BitConverter.ToInt32(lengthBuffer);
-                if (messageLength <= 0 || messageLength > 10 * 1024 * 1024) // Max 10MB
+                var messageLength = BinaryPrimitives.ReadInt32LittleEndian(lengthBuffer);
+                if (messageLength <= 0 || messageLength > MaxMessageSize)
                 {
                     throw new InvalidDataException($"Invalid message length: {messageLength}");
                 }
@@ -222,6 +240,37 @@ namespace Neo.Network.P2P.Transport
                 totalRead += read;
             }
             return totalRead;
+        }
+
+        private async Task<QuicStream> GetControlStreamAsync(CancellationToken cancellationToken)
+        {
+            if (_controlStream != null)
+                return _controlStream;
+
+            await _streamGate.WaitAsync(cancellationToken);
+            try
+            {
+                if (_controlStream != null)
+                    return _controlStream;
+
+                _controlStream = _isIncoming
+                    ? await _connection.AcceptInboundStreamAsync(cancellationToken)
+                    : await _connection.OpenOutboundStreamAsync(QuicStreamType.Bidirectional, cancellationToken);
+
+                return _controlStream;
+            }
+            finally
+            {
+                _streamGate.Release();
+            }
+        }
+
+        private void NotifyDisconnected()
+        {
+            if (Interlocked.Exchange(ref _disconnected, 1) != 0)
+                return;
+
+            OnDisconnected?.Invoke();
         }
     }
 }

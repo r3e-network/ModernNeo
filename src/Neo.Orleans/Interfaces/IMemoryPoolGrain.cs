@@ -16,7 +16,7 @@ namespace Neo.Orleans.Interfaces
 {
     /// <summary>
     /// Orleans Grain interface for transaction memory pool management.
-    /// Replaces Akka.NET MemoryPool component with Verified/Unverified separation.
+    /// Maintains verified/unverified separation.
     /// </summary>
     public interface IMemoryPoolGrain : IGrainWithIntegerKey
     {
@@ -69,6 +69,11 @@ namespace Neo.Orleans.Interfaces
         /// Checks if a hash conflicts with any transaction in the pool.
         /// </summary>
         Task<bool> ContainsConflictAsync(byte[] hash);
+
+        /// <summary>
+        /// Gets a transaction from the pool by hash.
+        /// </summary>
+        Task<ITransactionData?> GetTransactionAsync(byte[] hash);
 
         /// <summary>
         /// Clears all transactions from the pool.

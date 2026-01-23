@@ -18,7 +18,7 @@ namespace Neo.Core.Interfaces
 {
     /// <summary>
     /// Abstraction layer for NeoSystem runtime operations.
-    /// Enables runtime switching between Akka.NET and Orleans implementations.
+    /// Enables runtime abstraction for Orleans-backed implementations.
     /// </summary>
     public interface INeoSystemRuntime : IAsyncDisposable
     {
@@ -48,7 +48,7 @@ namespace Neo.Core.Interfaces
         IConsensusRuntime? Consensus { get; }
 
         /// <summary>
-        /// Gets whether the runtime is using Orleans (true) or Akka (false).
+        /// Gets whether the runtime is Orleans-backed.
         /// </summary>
         bool IsOrleans { get; }
 

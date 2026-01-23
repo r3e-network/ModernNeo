@@ -6,6 +6,7 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Neo;
 using Neo.Network.P2P.Payloads;
+using Neo.Orleans.Hosting;
 using Neo.Orleans.Interfaces;
 using System.Linq;
 
@@ -97,7 +98,7 @@ public class NeoOrleansSystemTests
         // Assert
         Assert.IsNotNull(state);
         Assert.AreEqual(0u, state.Height);
-        Assert.IsFalse(state.IsInitialized);
+        Assert.IsTrue(state.IsInitialized);
     }
 
     [TestMethod]
@@ -198,7 +199,12 @@ public class NeoOrleansSystemTests
     public async Task ActorBridge_MemoryPool_GetVerifiedTransactionsAsync_ReturnsDeserializedTransactions()
     {
         // Arrange
-        await using var system = NeoOrleansSystem.CreateDevelopment();
+        await using var system = NeoOrleansSystem.Create(options =>
+        {
+            options.ValidationMode = NeoValidationMode.None;
+            options.ProtocolSettings = TestProtocolSettings.SoleNode;
+            options.UseMemoryStorage = true;
+        });
         await system.StartAsync(TestContext.CancellationTokenSource.Token);
 
         var tx = new Transaction

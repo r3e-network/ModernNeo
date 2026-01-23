@@ -10,7 +10,6 @@
 // modifications are permitted.
 
 using Neo.Core.Interfaces;
-using Neo.Network.P2P.Payloads;
 using Neo.Persistence;
 using Neo.SmartContract.Native;
 using System.Collections.Generic;

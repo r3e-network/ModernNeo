@@ -12,10 +12,12 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Neo.Core.Interfaces;
+using Neo.Extensions.Factories;
 using Neo.IO;
 using Neo.Network.P2P.Payloads;
 using Neo.Orleans.Hosting;
 using Neo.Orleans.Interfaces;
+using Neo.Orleans.Services;
 
 namespace Neo.Orleans.Bridge
 {
@@ -30,6 +32,7 @@ namespace Neo.Orleans.Bridge
         private readonly OrleansBlockchainBridge _blockchain;
         private readonly OrleansMemoryPoolBridge _memoryPool;
         private readonly OrleansLocalNodeBridge _localNode;
+        private readonly IP2PListener? _listener;
         private bool _isStarted;
 
         public IBlockchainBridge Blockchain => _blockchain;
@@ -44,9 +47,11 @@ namespace Neo.Orleans.Bridge
         {
             _host = host;
             _grainFactory = host.Services.GetRequiredService<IGrainFactory>();
+            var options = host.Services.GetService<NeoOrleansOptions>() ?? new NeoOrleansOptions();
+            _listener = host.Services.GetService<IP2PListener>();
             _blockchain = new OrleansBlockchainBridge(_grainFactory);
             _memoryPool = new OrleansMemoryPoolBridge(_grainFactory);
-            _localNode = new OrleansLocalNodeBridge(_grainFactory);
+            _localNode = new OrleansLocalNodeBridge(_grainFactory, options, _listener);
         }
 
         /// <summary>
@@ -64,6 +69,7 @@ namespace Neo.Orleans.Bridge
         public static OrleansActorBridge Create(Action<NeoOrleansOptions> configure)
         {
             var host = new NeoOrleansHostBuilder()
+                .UseDevelopment()
                 .Configure(configure)
                 .Build();
             return new OrleansActorBridge(host);
@@ -86,6 +92,9 @@ namespace Neo.Orleans.Bridge
         public async Task StopAsync(CancellationToken cancellationToken = default)
         {
             if (!_isStarted) return;
+
+            if (_listener != null)
+                await _listener.StopAsync(cancellationToken);
 
             await _host.StopAsync(cancellationToken);
             _isStarted = false;
@@ -116,16 +125,16 @@ namespace Neo.Orleans.Bridge
 
         public Task<uint> GetHeaderHeightAsync() => GetGrain().GetHeaderHeightAsync();
 
-        public async Task<bool> PersistBlockAsync(IBlockData block)
+        public async Task<bool> PersistBlockAsync(Block block)
         {
             var result = await GetGrain().PersistBlockAsync(block);
             return result == BlockVerifyResult.Succeed;
         }
 
-        public Task<IBlockData?> GetBlockByHashAsync(byte[] hash) =>
+        public Task<Block?> GetBlockByHashAsync(byte[] hash) =>
             GetGrain().GetBlockByHashAsync(hash);
 
-        public Task<IBlockData?> GetBlockByIndexAsync(uint index) =>
+        public Task<Block?> GetBlockByIndexAsync(uint index) =>
             GetGrain().GetBlockByIndexAsync(index);
 
         public Task<bool> ContainsTransactionAsync(byte[] hash) =>
@@ -191,30 +200,68 @@ namespace Neo.Orleans.Bridge
     internal class OrleansLocalNodeBridge : ILocalNodeBridge
     {
         private readonly IGrainFactory _grainFactory;
+        private readonly NeoOrleansOptions _options;
+        private readonly IP2PListener? _listener;
 
-        public OrleansLocalNodeBridge(IGrainFactory grainFactory)
+        public OrleansLocalNodeBridge(IGrainFactory grainFactory, NeoOrleansOptions options, IP2PListener? listener)
         {
             _grainFactory = grainFactory;
+            _options = options ?? throw new ArgumentNullException(nameof(options));
+            _listener = listener;
         }
 
         private ILocalNodeGrain GetGrain() => _grainFactory.GetGrain<ILocalNodeGrain>(0);
 
         public async Task StartAsync(LocalNodeStartConfig config)
         {
+            var tcpPort = config.TcpPort > 0 ? config.TcpPort : _options.TcpPort;
+            if (tcpPort > 0)
+                _options.TcpPort = tcpPort;
+            var wsPort = config.WsPort > 0 ? config.WsPort : _options.WsPort;
+            if (wsPort > 0)
+            {
+                _options.WsPort = wsPort;
+                _options.WsEnabled = true;
+            }
+            if (config.MinDesiredConnections > 0)
+                _options.MinDesiredConnections = config.MinDesiredConnections;
+
+            if (_listener != null)
+                await _listener.StartAsync(tcpPort, _options.TcpBindAddress);
+
+            var maxConnections = config.MaxConnections > 0 ? config.MaxConnections : _options.MaxConnections;
+            var maxConnectionsPerAddress = config.MaxConnectionsPerAddress > 0
+                ? config.MaxConnectionsPerAddress
+                : _options.MaxConnectionsPerAddress;
+            var minDesiredConnections = config.MinDesiredConnections > 0
+                ? config.MinDesiredConnections
+                : _options.MinDesiredConnections;
+            minDesiredConnections = Math.Min(minDesiredConnections, maxConnections);
             var grainConfig = new LocalNodeConfig(
-                Nonce: (uint)Random.Shared.Next(),
-                UserAgent: "/Neo:4.0.0/",
-                SeedList: Array.Empty<string>(),
-                MaxConnections: config.MaxConnections,
-                ListenerPort: config.TcpPort,
-                NetworkMagic: 0x4F454E, // NEO magic
-                ProtocolVersion: 0);
+                Nonce: RandomNumberFactory.NextUInt32(),
+                UserAgent: _options.UserAgent,
+                SeedList: _options.SeedList,
+                MaxConnections: maxConnections,
+                ListenerPort: tcpPort,
+                NetworkMagic: _options.NetworkMagic,
+                ProtocolVersion: _options.ProtocolVersion)
+            {
+                MaxConnectionsPerAddress = maxConnectionsPerAddress,
+                MinDesiredConnections = minDesiredConnections,
+                EnableCompression = _options.EnableCompression
+            };
 
             await GetGrain().InitializeAsync(grainConfig);
             await GetGrain().StartAsync();
         }
 
-        public Task StopAsync() => GetGrain().StopAsync();
+        public async Task StopAsync()
+        {
+            if (_listener != null)
+                await _listener.StopAsync();
+
+            await GetGrain().StopAsync();
+        }
 
         public Task<int> GetConnectedPeerCountAsync() => GetGrain().GetConnectedPeerCountAsync();
 

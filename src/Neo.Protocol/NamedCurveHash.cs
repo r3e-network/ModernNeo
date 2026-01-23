@@ -9,7 +9,7 @@
 // Redistribution and use in source and binary forms with or without
 // modifications are permitted.
 
-namespace Neo.SmartContract.Native
+namespace Neo.Protocol
 {
     /// <summary>
     /// Represents a pair of the named curve used in ECDSA and a hash algorithm used to hash message.

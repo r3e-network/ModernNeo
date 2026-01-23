@@ -7,6 +7,8 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <WarningLevel>4</WarningLevel>
     <AnalysisLevel>latest</AnalysisLevel>
+    <!-- Workaround: parallel project reference builds intermittently fail on .NET 10 -->
+    <BuildInParallel>false</BuildInParallel>
   </PropertyGroup>
   
 </Project>

@@ -14,7 +14,7 @@ using System;
 namespace Neo.IO
 {
     /// <summary>
-    /// A simple immutable byte sequence wrapper for P2P messaging (replaces Akka.IO.ByteString).
+    /// A simple immutable byte sequence wrapper for P2P messaging.
     /// </summary>
     public readonly struct MessageBuffer
     {

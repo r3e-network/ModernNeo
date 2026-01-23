@@ -8,9 +8,14 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Moq;
+using Neo;
 using Neo.Core.Interfaces;
+using Neo.Network.P2P.Payloads;
 using Neo.Orleans.Bridge;
+using Neo.Orleans.Hosting;
 using Neo.Orleans.Interfaces;
+using Neo.Orleans.Services;
+using Neo.Orleans.Tests;
 using Orleans.TestingHost;
 
 namespace Neo.Orleans.Tests.Bridge;
@@ -481,7 +486,7 @@ public class OrleansLocalNodeRuntimeTests
         var runtime = new OrleansSystemRuntime(_testHost!);
 
         // Act & Assert - should not throw
-        await runtime.LocalNode.RelayAsync(new byte[32], 0x2c);
+        await runtime.LocalNode.RelayAsync(new byte[32], (byte)InventoryType.Block);
     }
 }
 
@@ -752,5 +757,19 @@ public class BridgeTestSiloConfigurator : ISiloConfigurator
         siloBuilder.AddMemoryGrainStorage("ConsensusStore");
         siloBuilder.AddMemoryGrainStorage("RemoteNodeStore");
         siloBuilder.AddMemoryGrainStorage("TaskManagerStore");
+        siloBuilder.AddMemoryGrainStorage("TxRouterStore");
+        siloBuilder.Services.AddSingleton<IBlockStorageService, InMemoryBlockStorageService>();
+        siloBuilder.Services.AddSingleton(new NeoOrleansOptions
+        {
+            ValidationMode = NeoValidationMode.None,
+            ProtocolSettings = TestProtocolSettings.SoleNode,
+            NetworkMagic = TestProtocolSettings.SoleNode.Network,
+            UseMemoryStorage = true
+        });
+        siloBuilder.Services.AddSingleton(sp =>
+        {
+            var options = sp.GetRequiredService<NeoOrleansOptions>();
+            return new NeoSystem(options.ProtocolSettings);
+        });
     }
 }

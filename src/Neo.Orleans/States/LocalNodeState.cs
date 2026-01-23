@@ -13,7 +13,7 @@ namespace Neo.Orleans.States
 {
     /// <summary>
     /// Persistent state for LocalNodeGrain.
-    /// Mirrors Akka.NET LocalNode Actor with seed nodes and unconnected peer pool.
+    /// Tracks seed nodes and unconnected peer pool state.
     /// </summary>
     [GenerateSerializer]
     public class LocalNodeState
@@ -27,7 +27,7 @@ namespace Neo.Orleans.States
         /// <summary>
         /// Maximum allowed peer connections.
         /// </summary>
-        [Id(1)] public int MaxConnections { get; set; } = 10;
+        [Id(1)] public int MaxConnections { get; set; } = Neo.Network.P2P.ChannelsConfig.DefaultMaxConnections;
 
         /// <summary>
         /// Recently relayed inventory hashes to prevent duplicate relay.
@@ -83,6 +83,21 @@ namespace Neo.Orleans.States
         /// Protocol version.
         /// </summary>
         [Id(12)] public uint ProtocolVersion { get; set; }
+
+        /// <summary>
+        /// Maximum allowed connections per address.
+        /// </summary>
+        [Id(13)] public int MaxConnectionsPerAddress { get; set; } = Neo.Network.P2P.ChannelsConfig.DefaultMaxConnectionsPerAddress;
+
+        /// <summary>
+        /// Minimum desired connections to maintain.
+        /// </summary>
+        [Id(14)] public int MinDesiredConnections { get; set; } = Neo.Network.P2P.ChannelsConfig.DefaultMinDesiredConnections;
+
+        /// <summary>
+        /// Whether payload compression is enabled for outbound messages.
+        /// </summary>
+        [Id(15)] public bool EnableCompression { get; set; } = Neo.Network.P2P.ChannelsConfig.DefaultEnableCompression;
     }
 
     /// <summary>

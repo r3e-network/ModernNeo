@@ -10,6 +10,7 @@
 // modifications are permitted.
 
 using Neo.Core.Interfaces;
+using Neo.Network.P2P.Payloads;
 
 namespace Neo.Orleans.Services
 {
@@ -22,17 +23,17 @@ namespace Neo.Orleans.Services
         /// <summary>
         /// Stores a block in the storage.
         /// </summary>
-        Task<bool> StoreBlockAsync(IBlockData block);
+        Task<bool> StoreBlockAsync(Block block);
 
         /// <summary>
         /// Retrieves a block by its hash.
         /// </summary>
-        Task<IBlockData?> GetBlockByHashAsync(byte[] hash);
+        Task<Block?> GetBlockByHashAsync(byte[] hash);
 
         /// <summary>
         /// Retrieves a block by its index.
         /// </summary>
-        Task<IBlockData?> GetBlockByIndexAsync(uint index);
+        Task<Block?> GetBlockByIndexAsync(uint index);
 
         /// <summary>
         /// Checks if a block exists by hash.
@@ -43,6 +44,11 @@ namespace Neo.Orleans.Services
         /// Checks if a transaction exists by hash.
         /// </summary>
         Task<bool> ContainsTransactionAsync(byte[] hash);
+
+        /// <summary>
+        /// Retrieves a transaction by its hash.
+        /// </summary>
+        Task<ITransactionData?> GetTransactionAsync(byte[] hash);
 
         /// <summary>
         /// Gets the current blockchain height.

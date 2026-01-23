@@ -1,3 +1,4 @@
+using Neo.Network.P2P.Payloads;
 using Neo.Orleans.Interfaces;
 using Orleans.TestingHost;
 
@@ -16,6 +17,7 @@ public class LocalNodeRelayIntegrationTests
     public async Task Setup()
     {
         var builder = new TestClusterBuilder();
+        builder.Options.InitialSilosCount = 1;
         builder.AddSiloBuilderConfigurator<IntegrationTestSiloConfigurator>();
         _cluster = builder.Build();
         await _cluster.DeployAsync();
@@ -52,7 +54,7 @@ public class LocalNodeRelayIntegrationTests
         // Act - Relay an inventory hash
         var inventoryHash = new byte[32];
         new Random(42).NextBytes(inventoryHash);
-        byte inventoryType = 0x01; // Transaction type
+        byte inventoryType = (byte)InventoryType.TX;
 
         // RelayAsync should send to all connected peers
         await localNode.RelayAsync(inventoryHash, inventoryType);
@@ -76,7 +78,7 @@ public class LocalNodeRelayIntegrationTests
 
         var inventoryHash = new byte[32];
         new Random(123).NextBytes(inventoryHash);
-        byte inventoryType = 0x02; // Block type
+        byte inventoryType = (byte)InventoryType.Block;
 
         // Act - Relay same hash twice
         await localNode.RelayAsync(inventoryHash, inventoryType);
@@ -127,7 +129,7 @@ public class LocalNodeRelayIntegrationTests
         new Random(456).NextBytes(inventoryHash);
 
         // Act - Relay with no peers
-        await localNode.RelayAsync(inventoryHash, 0x01);
+        await localNode.RelayAsync(inventoryHash, (byte)InventoryType.TX);
 
         // Assert - Should complete without error
         Assert.IsTrue(true, "Relay with no peers completed successfully");
@@ -170,11 +172,12 @@ public class LocalNodeRelayIntegrationTests
 
         // Act - Relay multiple different hashes
         var tasks = new List<Task>();
+        var inventoryTypes = new[] { InventoryType.TX, InventoryType.Block, InventoryType.Extensible };
         for (int i = 0; i < 10; i++)
         {
             var hash = new byte[32];
             new Random(i * 100).NextBytes(hash);
-            tasks.Add(localNode.RelayAsync(hash, (byte)(i % 3)));
+            tasks.Add(localNode.RelayAsync(hash, (byte)inventoryTypes[i % inventoryTypes.Length]));
         }
 
         await Task.WhenAll(tasks);

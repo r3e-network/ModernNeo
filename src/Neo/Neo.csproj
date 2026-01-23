@@ -12,27 +12,28 @@
     <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.0" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.0" />
     <PackageReference Include="Microsoft.IdentityModel.Tokens" Version="8.14.0" />
-    <PackageReference Include="Neo.Cryptography.BLS12_381" Version="3.9.0-CI00010" />
-    <PackageReference Include="Neo.VM" Version="3.9.0-CI00344" />
+    <PackageReference Include="Neo.Cryptography.BLS12_381" Version="3.9.0" />
+    <PackageReference Include="Neo.VM" Version="3.9.0" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Neo.Core\Neo.Core.csproj" />
-    <ProjectReference Include="..\Neo.P2P.Abstractions\Neo.P2P.Abstractions.csproj" />
-    <ProjectReference Include="..\Neo.Cryptography\Neo.Cryptography.csproj" />
-    <ProjectReference Include="..\Neo.Extensions\Neo.Extensions.csproj" />
-    <ProjectReference Include="..\Neo.IO\Neo.IO.csproj" />
-    <ProjectReference Include="..\Neo.Json\Neo.Json.csproj" />
-    <ProjectReference Include="..\Neo.Protocol\Neo.Protocol.csproj" />
-    <ProjectReference Include="..\Neo.Protocol.Payloads\Neo.Protocol.Payloads.csproj" />
-    <ProjectReference Include="..\Neo.Storage\Neo.Storage.csproj" />
-    <ProjectReference Include="..\Neo.Observability\Neo.Observability.csproj" />
+    <ProjectReference Include="../Neo.Core/Neo.Core.csproj" />
+    <ProjectReference Include="../Neo.P2P.Abstractions/Neo.P2P.Abstractions.csproj" />
+    <ProjectReference Include="../Neo.Cryptography/Neo.Cryptography.csproj" />
+    <ProjectReference Include="../Neo.Extensions/Neo.Extensions.csproj" />
+    <ProjectReference Include="../Neo.IO/Neo.IO.csproj" />
+    <ProjectReference Include="../Neo.Json/Neo.Json.csproj" />
+    <ProjectReference Include="../Neo.Protocol/Neo.Protocol.csproj" />
+    <ProjectReference Include="../Neo.Protocol.Payloads/Neo.Protocol.Payloads.csproj" />
+    <ProjectReference Include="../Neo.Storage/Neo.Storage.csproj" />
+    <ProjectReference Include="../Neo.Observability/Neo.Observability.csproj" />
   </ItemGroup>
 
 
   <ItemGroup>
     <InternalsVisibleTo Include="Neo.UnitTests" />
     <!-- Neo.Node.Core removed - empty shell project -->
+    <InternalsVisibleTo Include="Neo.Orleans" />
     <InternalsVisibleTo Include="Neo.SmartContract.Testing" />
     <InternalsVisibleTo Include="Neo.SmartContract.TestEngine" />
     <InternalsVisibleTo Include="Neo.Plugins.RpcServer.Tests" />

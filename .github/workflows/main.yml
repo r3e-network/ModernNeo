@@ -13,7 +13,6 @@ jobs:
     name: Scan for Vulnerable Dependencies
     timeout-minutes: 15
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - name: Checkout
         uses: actions/checkout@v5

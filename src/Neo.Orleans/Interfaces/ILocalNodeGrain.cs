@@ -13,7 +13,7 @@ namespace Neo.Orleans.Interfaces
 {
     /// <summary>
     /// Orleans Grain interface for local P2P node management.
-    /// Replaces Akka.NET LocalNode Actor with seed nodes and connection management.
+    /// Handles seed nodes and connection management.
     /// </summary>
     public interface ILocalNodeGrain : IGrainWithIntegerKey
     {
@@ -130,7 +130,12 @@ namespace Neo.Orleans.Interfaces
         [property: Id(3)] int MaxConnections,
         [property: Id(4)] int ListenerPort,
         [property: Id(5)] uint NetworkMagic,
-        [property: Id(6)] uint ProtocolVersion);
+        [property: Id(6)] uint ProtocolVersion)
+    {
+        [Id(7)] public int MaxConnectionsPerAddress { get; init; } = Neo.Network.P2P.ChannelsConfig.DefaultMaxConnectionsPerAddress;
+        [Id(8)] public int MinDesiredConnections { get; init; } = Neo.Network.P2P.ChannelsConfig.DefaultMinDesiredConnections;
+        [Id(9)] public bool EnableCompression { get; init; } = Neo.Network.P2P.ChannelsConfig.DefaultEnableCompression;
+    }
 
     /// <summary>
     /// Information about a connected peer.
@@ -142,7 +147,8 @@ namespace Neo.Orleans.Interfaces
         [property: Id(2)] uint Height,
         [property: Id(3)] uint Nonce,
         [property: Id(4)] string UserAgent,
-        [property: Id(5)] bool IsFullNode);
+        [property: Id(5)] bool IsFullNode,
+        [property: Id(6)] int ListenerPort = 0);
 
     /// <summary>
     /// Full connection info for registering a peer.

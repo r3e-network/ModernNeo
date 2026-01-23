@@ -10,6 +10,7 @@
 // modifications are permitted.
 
 using Neo.Core.Interfaces;
+using Neo.Network.P2P.Payloads;
 
 namespace Neo.Ledger
 {
@@ -44,28 +45,28 @@ namespace Neo.Ledger
         /// </summary>
         /// <param name="hash">The block hash (32 bytes).</param>
         /// <returns>The block header data, or null if not found.</returns>
-        Task<IHeaderData?> GetHeaderAsync(byte[] hash);
+        Task<Header?> GetHeaderAsync(byte[] hash);
 
         /// <summary>
         /// Gets the block header by index.
         /// </summary>
         /// <param name="index">The block index.</param>
         /// <returns>The block header data, or null if not found.</returns>
-        Task<IHeaderData?> GetHeaderByIndexAsync(uint index);
+        Task<Header?> GetHeaderByIndexAsync(uint index);
 
         /// <summary>
         /// Gets the block by hash.
         /// </summary>
         /// <param name="hash">The block hash (32 bytes).</param>
         /// <returns>The block data, or null if not found.</returns>
-        Task<IBlockData?> GetBlockAsync(byte[] hash);
+        Task<Block?> GetBlockAsync(byte[] hash);
 
         /// <summary>
         /// Gets the block by index.
         /// </summary>
         /// <param name="index">The block index.</param>
         /// <returns>The block data, or null if not found.</returns>
-        Task<IBlockData?> GetBlockByIndexAsync(uint index);
+        Task<Block?> GetBlockByIndexAsync(uint index);
 
         /// <summary>
         /// Checks if a block exists.

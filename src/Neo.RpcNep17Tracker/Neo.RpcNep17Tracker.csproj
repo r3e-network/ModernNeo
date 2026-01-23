@@ -10,9 +10,9 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.0" />
     <!-- Neo.Node.Core removed - direct reference to Neo -->
-    <ProjectReference Include="..\Neo\Neo.csproj" />
-    <ProjectReference Include="..\Neo.Plugins\Neo.Plugins.csproj" />
-    <ProjectReference Include="..\Neo.Json\Neo.Json.csproj" />
+    <ProjectReference Include="../Neo/Neo.csproj" />
+    <ProjectReference Include="../Neo.Plugins/Neo.Plugins.csproj" />
+    <ProjectReference Include="../Neo.Json/Neo.Json.csproj" />
   </ItemGroup>
 
   <ItemGroup>

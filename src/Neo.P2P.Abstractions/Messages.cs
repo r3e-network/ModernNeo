@@ -14,8 +14,8 @@ using System.Net;
 namespace Neo.P2P.Abstractions
 {
     /// <summary>
-    /// Transport-agnostic message target abstraction replacing Akka IActorRef.
-    /// Implementations can wrap Orleans grain references, actors, or other messaging targets.
+    /// Transport-agnostic message target abstraction for the P2P stack.
+    /// Implementations can wrap Orleans grain references or other messaging targets.
     /// </summary>
     public interface IMessageTarget
     {
@@ -27,14 +27,14 @@ namespace Neo.P2P.Abstractions
     }
 
     /// <summary>
-    /// Minimal abstraction for a P2P bridge that can be bound to a protocol actor.
+    /// Minimal abstraction for a P2P bridge that can be bound to a protocol handler.
     /// Implementations should also accept concrete Bind messages for backward compatibility.
     /// </summary>
     public interface IProtocolBridge { }
 
     /// <summary>
     /// Minimal protocol connection operations for interface-first transport.
-    /// Implementations may be actors; these methods should forward to the underlying transport.
+    /// Implementations may be grains or other handlers; these methods should forward to the underlying transport.
     /// </summary>
     public interface IProtocolConnection
     {
@@ -44,13 +44,13 @@ namespace Neo.P2P.Abstractions
 
     /// <summary>
     /// Transport-agnostic bridge accept used to attach a server-side connection bridge (WS/QUIC/etc.)
-    /// to a protocol actor that speaks Neo P2P.
+    /// to a protocol handler that speaks Neo P2P.
     /// </summary>
     public readonly record struct AcceptBridge(IMessageTarget Bridge, IPEndPoint Remote, IPEndPoint Local);
 
     /// <summary>
-    /// Transport-agnostic bind message that instructs a bridge actor to forward
-    /// subsequent bytes to the provided protocol actor target.
+    /// Transport-agnostic bind message that instructs a bridge implementation to forward
+    /// subsequent bytes to the provided protocol target.
     /// </summary>
     public readonly record struct BridgeBind(IMessageTarget Target);
 
@@ -70,7 +70,7 @@ namespace Neo.P2P.Abstractions
     public readonly record struct CloseConnection(bool Abort);
 
     /// <summary>
-    /// Wrapper to pass a bridge to Connection constructor, distinguishing it from native TCP actors.
+    /// Wrapper to pass a bridge to Connection constructor, distinguishing it from legacy TCP connections.
     /// </summary>
     public readonly record struct BridgeConnection(IMessageTarget Bridge);
 }

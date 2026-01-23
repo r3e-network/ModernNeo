@@ -65,8 +65,6 @@ using System.Runtime.CompilerServices;
 [assembly: TypeForwardedTo(typeof(Neo.SmartContract.CallFlags))]
 [assembly: TypeForwardedTo(typeof(Neo.SmartContract.ContractParameterType))]
 [assembly: TypeForwardedTo(typeof(Neo.SmartContract.FindOptions))]
-[assembly: TypeForwardedTo(typeof(Neo.SmartContract.Native.NamedCurveHash))]
-[assembly: TypeForwardedTo(typeof(Neo.SmartContract.Native.Role))]
 [assembly: TypeForwardedTo(typeof(Neo.Plugins.UnhandledExceptionPolicy))]
 [assembly: TypeForwardedTo(typeof(Neo.Plugins.IPluginSettings))]
 [assembly: TypeForwardedTo(typeof(Neo.SmartContract.TriggerType))]

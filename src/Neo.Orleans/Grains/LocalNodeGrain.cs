@@ -9,21 +9,29 @@
 // Redistribution and use in source and binary forms with or without
 // modifications are permitted.
 
+using Neo;
 using Neo.Orleans.Interfaces;
 using Neo.Orleans.States;
+using Neo.Network.P2P;
+using Neo.Network.P2P.Payloads;
 using Orleans.Runtime;
+using System.Net;
 
 namespace Neo.Orleans.Grains
 {
     /// <summary>
     /// Orleans Grain implementation for local P2P node management.
-    /// Replaces Akka.NET LocalNode Actor with seed nodes and connection management.
+    /// Handles seed nodes and connection management.
     /// </summary>
     public class LocalNodeGrain : Grain, ILocalNodeGrain
     {
         private readonly IPersistentState<LocalNodeState> _state;
         private readonly IGrainFactory _grainFactory;
+        private readonly Dictionary<string, long> _pendingConnections = new(StringComparer.OrdinalIgnoreCase);
+        private IGrainTimer? _connectionMaintainer;
         private const int MaxCountFromSeedList = 5;
+        private static readonly TimeSpan ConnectionMaintenanceInterval = TimeSpan.FromSeconds(5);
+        private static readonly TimeSpan PendingConnectionTimeout = TimeSpan.FromSeconds(30);
 
         public LocalNodeGrain(
             [PersistentState("localnode", "LocalNodeStore")]
@@ -34,15 +42,116 @@ namespace Neo.Orleans.Grains
             _grainFactory = grainFactory;
         }
 
+        public override async Task OnActivateAsync(CancellationToken cancellationToken)
+        {
+            _connectionMaintainer ??= this.RegisterGrainTimer(
+                _ => MaintainConnectionsAsync(),
+                new GrainTimerCreationOptions
+                {
+                    DueTime = ConnectionMaintenanceInterval,
+                    Period = ConnectionMaintenanceInterval,
+                    Interleave = true
+                });
+
+            var normalizedConnected = new Dictionary<string, ConnectedPeerState>(StringComparer.OrdinalIgnoreCase);
+            var normalizedUnconnected = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var changed = false;
+
+            foreach (var kvp in _state.State.ConnectedPeers)
+            {
+                var peer = kvp.Value;
+                if (peer == null || string.IsNullOrWhiteSpace(peer.Address) || peer.Port <= 0)
+                {
+                    changed = true;
+                    continue;
+                }
+
+                var normalizedAddress = NormalizeAddress(peer.Address);
+                if (string.IsNullOrEmpty(normalizedAddress))
+                {
+                    changed = true;
+                    continue;
+                }
+
+                if (!string.Equals(peer.Address, normalizedAddress, StringComparison.Ordinal))
+                {
+                    peer.Address = normalizedAddress;
+                    changed = true;
+                }
+
+                var normalizedKey = FormatPeerKey(peer.Address, peer.Port);
+                if (string.IsNullOrEmpty(normalizedKey))
+                {
+                    changed = true;
+                    continue;
+                }
+
+                if (!StringComparer.OrdinalIgnoreCase.Equals(kvp.Key, normalizedKey))
+                    changed = true;
+
+                if (normalizedConnected.TryGetValue(normalizedKey, out var existing))
+                {
+                    if (peer.LastSeen > existing.LastSeen)
+                        normalizedConnected[normalizedKey] = peer;
+                    changed = true;
+                    continue;
+                }
+
+                normalizedConnected[normalizedKey] = peer;
+            }
+
+            foreach (var entry in _state.State.UnconnectedPeers)
+            {
+                var normalized = NormalizePeerAddress(entry);
+                if (string.IsNullOrEmpty(normalized))
+                {
+                    changed = true;
+                    continue;
+                }
+
+                if (!normalizedUnconnected.Add(normalized))
+                    changed = true;
+            }
+
+            if (normalizedConnected.Count > 0)
+            {
+                foreach (var key in normalizedConnected.Keys)
+                {
+                    if (normalizedUnconnected.Remove(key))
+                        changed = true;
+                }
+            }
+
+            if (changed)
+            {
+                _state.State.ConnectedPeers = normalizedConnected;
+                _state.State.UnconnectedPeers = normalizedUnconnected;
+                await _state.WriteStateAsync();
+            }
+
+            await base.OnActivateAsync(cancellationToken);
+        }
+
+        public override Task OnDeactivateAsync(DeactivationReason reason, CancellationToken cancellationToken)
+        {
+            _connectionMaintainer?.Dispose();
+            _connectionMaintainer = null;
+            _pendingConnections.Clear();
+            return base.OnDeactivateAsync(reason, cancellationToken);
+        }
+
         public async Task InitializeAsync(LocalNodeConfig config)
         {
             _state.State.Nonce = config.Nonce;
             _state.State.UserAgent = config.UserAgent;
             _state.State.SeedList = config.SeedList.ToList();
             _state.State.MaxConnections = config.MaxConnections;
+            _state.State.MaxConnectionsPerAddress = config.MaxConnectionsPerAddress;
+            _state.State.MinDesiredConnections = config.MinDesiredConnections;
             _state.State.ListenerPort = config.ListenerPort;
             _state.State.NetworkMagic = config.NetworkMagic;
             _state.State.ProtocolVersion = config.ProtocolVersion;
+            _state.State.EnableCompression = config.EnableCompression;
 
             await _state.WriteStateAsync();
         }
@@ -57,11 +166,16 @@ namespace Neo.Orleans.Grains
             // Add seed nodes to unconnected pool
             foreach (var seed in _state.State.SeedList)
             {
-                if (!string.IsNullOrEmpty(seed))
-                    _state.State.UnconnectedPeers.Add(seed);
+                if (string.IsNullOrWhiteSpace(seed))
+                    continue;
+
+                var normalized = NormalizePeerAddress(seed);
+                if (!string.IsNullOrEmpty(normalized))
+                    _state.State.UnconnectedPeers.Add(normalized);
             }
 
             await _state.WriteStateAsync();
+            await MaintainConnectionsAsync();
         }
 
         public async Task StopAsync()
@@ -76,12 +190,22 @@ namespace Neo.Orleans.Grains
             }
 
             _state.State.ConnectedPeers.Clear();
+            _pendingConnections.Clear();
             await _state.WriteStateAsync();
         }
 
         public async Task RegisterPeerAsync(string address, int port, uint height)
         {
-            var key = $"{address}:{port}";
+            if (string.IsNullOrWhiteSpace(address) || port <= 0 || port > ushort.MaxValue)
+                return;
+
+            var normalizedAddress = NormalizeAddress(address);
+            if (string.IsNullOrEmpty(normalizedAddress))
+                return;
+
+            var key = FormatPeerKey(normalizedAddress, port);
+            if (string.IsNullOrEmpty(key))
+                return;
             var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
             if (_state.State.ConnectedPeers.Count >= _state.State.MaxConnections &&
@@ -90,24 +214,45 @@ namespace Neo.Orleans.Grains
                 return; // At capacity, reject new connection
             }
 
+            if (_state.State.MaxConnectionsPerAddress > 0 &&
+                CountConnectionsForAddress(normalizedAddress) >= _state.State.MaxConnectionsPerAddress &&
+                !_state.State.ConnectedPeers.ContainsKey(key))
+            {
+                return;
+            }
+
             _state.State.ConnectedPeers[key] = new ConnectedPeerState
             {
-                Address = address,
+                Address = normalizedAddress,
                 Port = port,
                 Height = height,
                 ConnectedAt = now,
-                LastSeen = now
+                LastSeen = now,
+                ListenerPort = port
             };
 
+            ClearPending(key);
             // Remove from unconnected pool
             _state.State.UnconnectedPeers.Remove(key);
+            var normalizedKey = NormalizePeerAddress(key);
+            if (!string.IsNullOrEmpty(normalizedKey))
+                _state.State.UnconnectedPeers.Remove(normalizedKey);
 
             await _state.WriteStateAsync();
         }
 
         public async Task RegisterPeerAsync(PeerConnectionInfo info)
         {
-            var key = $"{info.Address}:{info.Port}";
+            if (string.IsNullOrWhiteSpace(info.Address) || info.Port <= 0 || info.Port > ushort.MaxValue)
+                return;
+
+            var normalizedAddress = NormalizeAddress(info.Address);
+            if (string.IsNullOrEmpty(normalizedAddress))
+                return;
+
+            var key = FormatPeerKey(normalizedAddress, info.Port);
+            if (string.IsNullOrEmpty(key))
+                return;
             var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
             if (_state.State.ConnectedPeers.Count >= _state.State.MaxConnections &&
@@ -116,9 +261,16 @@ namespace Neo.Orleans.Grains
                 return;
             }
 
+            if (_state.State.MaxConnectionsPerAddress > 0 &&
+                CountConnectionsForAddress(normalizedAddress) >= _state.State.MaxConnectionsPerAddress &&
+                !_state.State.ConnectedPeers.ContainsKey(key))
+            {
+                return;
+            }
+
             _state.State.ConnectedPeers[key] = new ConnectedPeerState
             {
-                Address = info.Address,
+                Address = normalizedAddress,
                 Port = info.Port,
                 Height = info.Height,
                 ConnectedAt = now,
@@ -129,24 +281,54 @@ namespace Neo.Orleans.Grains
                 ListenerPort = info.ListenerPort
             };
 
+            ClearPending(key);
             _state.State.UnconnectedPeers.Remove(key);
+            var normalizedKey = NormalizePeerAddress(key);
+            if (!string.IsNullOrEmpty(normalizedKey))
+                _state.State.UnconnectedPeers.Remove(normalizedKey);
 
             await _state.WriteStateAsync();
         }
 
         public async Task UnregisterPeerAsync(string address, int port)
         {
-            var key = $"{address}:{port}";
-            if (_state.State.ConnectedPeers.Remove(key))
+            if (string.IsNullOrWhiteSpace(address) || port <= 0 || port > ushort.MaxValue)
+                return;
+
+            var key = FormatPeerKey(address, port);
+            if (string.IsNullOrEmpty(key))
+                return;
+            var removed = _state.State.ConnectedPeers.Remove(key);
+            if (!removed)
             {
+                var normalizedKey = NormalizePeerAddress(key);
+                if (!string.IsNullOrEmpty(normalizedKey))
+                    removed = _state.State.ConnectedPeers.Remove(normalizedKey);
+            }
+
+            if (removed)
+            {
+                ClearPending(key);
                 await _state.WriteStateAsync();
             }
         }
 
         public async Task UpdatePeerHeightAsync(string address, int port, uint height)
         {
-            var key = $"{address}:{port}";
-            if (_state.State.ConnectedPeers.TryGetValue(key, out var peer))
+            if (string.IsNullOrWhiteSpace(address) || port <= 0 || port > ushort.MaxValue)
+                return;
+
+            var key = FormatPeerKey(address, port);
+            if (string.IsNullOrEmpty(key))
+                return;
+            if (!_state.State.ConnectedPeers.TryGetValue(key, out var peer))
+            {
+                var normalizedKey = NormalizePeerAddress(key);
+                if (!string.IsNullOrEmpty(normalizedKey))
+                    _state.State.ConnectedPeers.TryGetValue(normalizedKey, out peer);
+            }
+
+            if (peer != null)
             {
                 peer.Height = height;
                 peer.LastSeen = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
@@ -156,9 +338,21 @@ namespace Neo.Orleans.Grains
 
         public Task<bool> AllowNewConnectionAsync(uint nonce, uint networkMagic, string address)
         {
+            if (!_state.State.IsStarted)
+                return Task.FromResult(false);
+
             // Check network magic
             if (networkMagic != _state.State.NetworkMagic)
                 return Task.FromResult(false);
+
+            if (_state.State.ConnectedPeers.Count >= _state.State.MaxConnections)
+                return Task.FromResult(false);
+
+            if (_state.State.MaxConnectionsPerAddress > 0 &&
+                CountConnectionsForAddress(address) >= _state.State.MaxConnectionsPerAddress)
+            {
+                return Task.FromResult(false);
+            }
 
             // Check if connecting to self
             if (nonce == _state.State.Nonce)
@@ -182,6 +376,10 @@ namespace Neo.Orleans.Grains
             if (_state.State.RecentRelays.Contains(hashKey))
                 return;
 
+            var message = CreateInvMessage(inventoryHash, inventoryType, _state.State.EnableCompression);
+            if (message.Length == 0)
+                return;
+
             // Add to recent relays
             _state.State.RecentRelays.Add(hashKey);
 
@@ -201,9 +399,6 @@ namespace Neo.Orleans.Grains
                 .Select(key =>
                 {
                     var remoteGrain = _grainFactory.GetGrain<IRemoteNodeGrain>(key);
-                    var message = new byte[1 + inventoryHash.Length];
-                    message[0] = inventoryType;
-                    Array.Copy(inventoryHash, 0, message, 1, inventoryHash.Length);
                     return remoteGrain.SendAsync(message);
                 });
 
@@ -217,7 +412,20 @@ namespace Neo.Orleans.Grains
             if (_state.State.RecentRelays.Contains(hashKey))
                 return;
 
+            var message = CreateInvMessage(blockHash, (byte)InventoryType.Block, _state.State.EnableCompression);
+            if (message.Length == 0)
+                return;
+
             _state.State.RecentRelays.Add(hashKey);
+
+            if (_state.State.RecentRelays.Count > _state.State.MaxRecentRelays)
+            {
+                var toKeep = _state.State.RecentRelays
+                    .Skip(_state.State.RecentRelays.Count - _state.State.MaxRecentRelays / 2)
+                    .ToHashSet();
+                _state.State.RecentRelays = toKeep;
+            }
+
             await _state.WriteStateAsync();
 
             // Only relay to peers that are behind
@@ -226,9 +434,6 @@ namespace Neo.Orleans.Grains
                 .Select(kvp =>
                 {
                     var remoteGrain = _grainFactory.GetGrain<IRemoteNodeGrain>(kvp.Key);
-                    var message = new byte[1 + blockHash.Length];
-                    message[0] = 0x02; // Block inventory type
-                    Array.Copy(blockHash, 0, message, 1, blockHash.Length);
                     return remoteGrain.SendAsync(message);
                 });
 
@@ -244,7 +449,7 @@ namespace Neo.Orleans.Grains
         public Task<IEnumerable<PeerInfo>> GetConnectedPeersAsync()
         {
             var peers = _state.State.ConnectedPeers.Values
-                .Select(p => new PeerInfo(p.Address, p.Port, p.Height, p.Nonce, p.UserAgent, p.IsFullNode))
+                .Select(p => new PeerInfo(p.Address, p.Port, p.Height, p.Nonce, p.UserAgent, p.IsFullNode, p.ListenerPort))
                 .ToList();
             return Task.FromResult<IEnumerable<PeerInfo>>(peers);
         }
@@ -262,15 +467,20 @@ namespace Neo.Orleans.Grains
                 if (string.IsNullOrEmpty(address))
                     continue;
 
+                var normalized = NormalizePeerAddress(address);
+
                 // Don't add if already connected
-                if (_state.State.ConnectedPeers.ContainsKey(address))
+                if (string.IsNullOrEmpty(normalized))
+                    continue;
+
+                if (_state.State.ConnectedPeers.ContainsKey(normalized))
                     continue;
 
                 // Don't exceed max unconnected
                 if (_state.State.UnconnectedPeers.Count >= _state.State.MaxUnconnectedPeers)
                     break;
 
-                if (_state.State.UnconnectedPeers.Add(address))
+                if (_state.State.UnconnectedPeers.Add(normalized))
                     added = true;
             }
 
@@ -297,7 +507,7 @@ namespace Neo.Orleans.Grains
             if (_state.State.ConnectedPeers.Count > 0)
             {
                 // Request addresses from connected peers (GetAddr message)
-                var getAddrMessage = new byte[] { 0x10 }; // GetAddr command placeholder
+                var getAddrMessage = Message.Create(MessageCommand.GetAddr).ToArray(_state.State.EnableCompression);
                 await BroadcastAsync(getAddrMessage);
             }
             else
@@ -327,6 +537,219 @@ namespace Neo.Orleans.Grains
                 _state.State.UserAgent,
                 _state.State.ListenerPort,
                 _state.State.IsStarted));
+        }
+
+        private async Task MaintainConnectionsAsync()
+        {
+            if (!_state.State.IsStarted)
+                return;
+
+            var maxConnections = _state.State.MaxConnections;
+            if (maxConnections <= 0)
+                return;
+
+            var desiredConnections = _state.State.MinDesiredConnections > 0
+                ? _state.State.MinDesiredConnections
+                : maxConnections;
+            desiredConnections = Math.Min(desiredConnections, maxConnections);
+
+            if (_state.State.ConnectedPeers.Count >= desiredConnections)
+                return;
+
+            var needed = desiredConnections - _state.State.ConnectedPeers.Count;
+            if (needed <= 0)
+                return;
+
+            if (_state.State.UnconnectedPeers.Count == 0)
+            {
+                await RequestMorePeersAsync(needed);
+                return;
+            }
+
+            var blockchain = _grainFactory.GetGrain<IBlockchainGrain>(0);
+            var localHeight = await blockchain.GetHeightAsync();
+            var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            var candidates = _state.State.UnconnectedPeers
+                .OrderBy(_ => Random.Shared.Next())
+                .ToList();
+            var stateChanged = false;
+
+            foreach (var candidate in candidates)
+            {
+                if (needed <= 0)
+                    break;
+
+                if (!TryParsePeerEndpoint(candidate, out var address, out var port))
+                {
+                    _state.State.UnconnectedPeers.Remove(candidate);
+                    stateChanged = true;
+                    continue;
+                }
+
+                var key = FormatPeerKey(address, port);
+                if (string.IsNullOrEmpty(key))
+                {
+                    _state.State.UnconnectedPeers.Remove(candidate);
+                    stateChanged = true;
+                    continue;
+                }
+                if (_state.State.ConnectedPeers.ContainsKey(key))
+                {
+                    _state.State.UnconnectedPeers.Remove(candidate);
+                    stateChanged = true;
+                    continue;
+                }
+
+                if (IsPendingConnection(key, now))
+                    continue;
+
+                if (_state.State.MaxConnectionsPerAddress > 0 &&
+                    CountConnectionsForAddress(address) >= _state.State.MaxConnectionsPerAddress)
+                {
+                    continue;
+                }
+
+                _pendingConnections[key] = now;
+                needed--;
+
+                var remoteGrain = _grainFactory.GetGrain<IRemoteNodeGrain>(key);
+                _ = remoteGrain.StartHandshakeAsync(localHeight, _state.State.Nonce, _state.State.UserAgent);
+            }
+
+            if (stateChanged)
+                await _state.WriteStateAsync();
+        }
+
+        private static byte[] CreateInvMessage(byte[] inventoryHash, byte inventoryType, bool enableCompression)
+        {
+            if (inventoryHash.Length != UInt256.Length)
+                return Array.Empty<byte>();
+
+            var typedInventory = (InventoryType)inventoryType;
+            if (!Enum.IsDefined(typeof(InventoryType), typedInventory))
+                return Array.Empty<byte>();
+
+            var payload = InvPayload.Create(typedInventory, new UInt256(inventoryHash));
+            return Message.Create(MessageCommand.Inv, payload).ToArray(enableCompression);
+        }
+
+        private static string FormatPeerKey(string address, int port)
+        {
+            if (port <= 0 || port > ushort.MaxValue)
+                return string.Empty;
+
+            address = NormalizeAddress(address);
+            if (string.IsNullOrEmpty(address))
+                return string.Empty;
+
+            if (IPAddress.TryParse(address, out var ip))
+            {
+                return new IPEndPoint(ip, port).ToString();
+            }
+
+            return $"{address}:{port}";
+        }
+
+        private int CountConnectionsForAddress(string address)
+        {
+            var normalized = NormalizeAddress(address);
+            var count = 0;
+            foreach (var peer in _state.State.ConnectedPeers.Values)
+            {
+                if (NormalizeAddress(peer.Address) == normalized)
+                    count++;
+            }
+
+            return count;
+        }
+
+        private static string NormalizeAddress(string address)
+        {
+            if (string.IsNullOrWhiteSpace(address))
+                return string.Empty;
+
+            address = address.Trim();
+            if (address.Length > 1 && address[0] == '[' && address[^1] == ']')
+            {
+                var inner = address.Substring(1, address.Length - 2);
+                if (IPAddress.TryParse(inner, out var bracketed))
+                    return bracketed.ToString();
+            }
+
+            if (IPAddress.TryParse(address, out var ip))
+                return ip.ToString();
+
+            return address.ToLowerInvariant();
+        }
+
+        private static string NormalizePeerAddress(string address)
+        {
+            if (string.IsNullOrWhiteSpace(address))
+                return string.Empty;
+
+            address = address.Trim();
+            if (TryParsePeerEndpoint(address, out var parsedAddress, out var port))
+                return FormatPeerKey(parsedAddress, port);
+
+            return string.Empty;
+        }
+
+        private static bool TryParsePeerEndpoint(string value, out string address, out int port)
+        {
+            address = string.Empty;
+            port = 0;
+
+            if (string.IsNullOrWhiteSpace(value))
+                return false;
+
+            value = value.Trim();
+
+            if (IPEndPoint.TryParse(value, out var endPoint))
+            {
+                address = endPoint.Address.ToString();
+                port = endPoint.Port;
+                return port > 0;
+            }
+
+            if (Uri.TryCreate(value, UriKind.Absolute, out var uri) && uri.Port > 0)
+            {
+                address = uri.Host;
+                port = uri.Port;
+                return port > 0;
+            }
+
+            if (Uri.TryCreate($"tcp://{value}", UriKind.Absolute, out var tcpUri) && tcpUri.Port > 0)
+            {
+                address = tcpUri.Host;
+                port = tcpUri.Port;
+                return port > 0;
+            }
+
+            return false;
+        }
+
+        private bool IsPendingConnection(string key, long now)
+        {
+            if (_pendingConnections.TryGetValue(key, out var startedAt))
+            {
+                if (now - startedAt <= PendingConnectionTimeout.TotalMilliseconds)
+                    return true;
+
+                _pendingConnections.Remove(key);
+            }
+
+            return false;
+        }
+
+        private void ClearPending(string key)
+        {
+            if (string.IsNullOrEmpty(key))
+                return;
+
+            _pendingConnections.Remove(key);
+            var normalizedKey = NormalizePeerAddress(key);
+            if (!string.IsNullOrEmpty(normalizedKey))
+                _pendingConnections.Remove(normalizedKey);
         }
     }
 }

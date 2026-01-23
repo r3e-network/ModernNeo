@@ -68,7 +68,7 @@ namespace Neo.Execution
         public IReadOnlyList<IBlockExecutionResult> Execute(
             IReadOnlyList<object> transactions,
             object snapshot,
-            IBlockData block,
+            Block block,
             object settings,
             Action<object>? onExecuted = null)
         {
@@ -79,8 +79,6 @@ namespace Neo.Execution
             var txStates = transactions.Cast<TransactionState>().ToList();
             var storeCache = snapshot as StoreCache
                 ?? throw new ArgumentException("Snapshot must be StoreCache", nameof(snapshot));
-            var neoBlock = block as Block
-                ?? throw new ArgumentException("Block must be Neo.Network.P2P.Payloads.Block", nameof(block));
             var protocolSettings = settings as ProtocolSettings
                 ?? throw new ArgumentException("Settings must be ProtocolSettings", nameof(settings));
 
@@ -89,11 +87,11 @@ namespace Neo.Execution
 
             if (useParallel)
             {
-                return ExecuteParallel(txStates, storeCache, neoBlock, protocolSettings, onExecuted);
+                return ExecuteParallel(txStates, storeCache, block, protocolSettings, onExecuted);
             }
             else
             {
-                return ExecuteSequential(txStates, storeCache, neoBlock, protocolSettings, onExecuted);
+                return ExecuteSequential(txStates, storeCache, block, protocolSettings, onExecuted);
             }
         }
 

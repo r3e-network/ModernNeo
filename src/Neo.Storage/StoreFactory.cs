@@ -10,13 +10,15 @@
 // modifications are permitted.
 
 using Neo.Persistence.Providers;
+using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Neo.Persistence
 {
     public static class StoreFactory
     {
-        private static readonly Dictionary<string, IStoreProvider> s_providers = [];
+        private static readonly Dictionary<string, IStoreProvider> s_providers = new(StringComparer.OrdinalIgnoreCase);
 
         static StoreFactory()
         {
@@ -31,6 +33,9 @@ namespace Neo.Persistence
 
             // Default cases
             s_providers.Add("", memProvider);
+            s_providers.TryAdd("Memory", memProvider);
+            s_providers.TryAdd("LevelDB", levelDbProvider);
+            s_providers.TryAdd("RocksDB", rocksDbProvider);
         }
 
         public static void RegisterProvider(IStoreProvider provider)
@@ -51,6 +56,14 @@ namespace Neo.Persistence
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// Gets the registered provider names (excluding the default empty key).
+        /// </summary>
+        public static IReadOnlyCollection<string> GetProviderNames()
+        {
+            return s_providers.Keys.Where(name => !string.IsNullOrWhiteSpace(name)).ToArray();
         }
 
         /// <summary>

@@ -8,7 +8,6 @@
     <Description>Abstractions for Neo P2P (transport-agnostic messages and contracts)</Description>
   </PropertyGroup>
 
-  <!-- Akka removed - Orleans is now the distributed runtime -->
+  <!-- Legacy actor system removed - Orleans is now the distributed runtime -->
 
 </Project>
-

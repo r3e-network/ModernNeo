@@ -12,9 +12,9 @@
 #nullable enable
 
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Moq;
-using Neo.Core.Interfaces;
+using Neo;
 using Neo.Ledger;
+using Neo.Network.P2P.Payloads;
 
 namespace Neo.UnitTests.Ledger
 {
@@ -39,7 +39,7 @@ namespace Neo.UnitTests.Ledger
         [TestMethod]
         public void TestInitialize()
         {
-            var genesisBlock = CreateMockBlock(0);
+            var genesisBlock = CreateBlock(0);
             _state.Initialize(genesisBlock);
 
             Assert.AreEqual(0u, _state.Height);
@@ -54,8 +54,8 @@ namespace Neo.UnitTests.Ledger
         [TestMethod]
         public void TestOnBlockPersisted()
         {
-            var genesis = CreateMockBlock(0);
-            var block1 = CreateMockBlock(1);
+            var genesis = CreateBlock(0);
+            var block1 = CreateBlock(1);
 
             _state.Initialize(genesis);
             _state.OnBlockPersisted(block1);
@@ -113,7 +113,7 @@ namespace Neo.UnitTests.Ledger
         [TestMethod]
         public void TestGetStatistics()
         {
-            var genesis = CreateMockBlock(0);
+            var genesis = CreateBlock(0);
             _state.Initialize(genesis);
             _state.SetSynchronized(true);
 
@@ -123,25 +123,30 @@ namespace Neo.UnitTests.Ledger
             Assert.IsTrue(stats.IsSynchronized);
         }
 
-        private static IBlockData CreateMockBlock(uint index)
+        private static Block CreateBlock(uint index)
         {
-            // Create a real UInt256 for Hash (32 bytes)
-            var hashBytes = new byte[32];
-            hashBytes[0] = (byte)index;
-            hashBytes[1] = (byte)(index >> 8);
-            var hash = new UInt256(hashBytes);
+            var prevHashBytes = new byte[UInt256.Length];
+            prevHashBytes[0] = (byte)index;
+            var prevHash = new UInt256(prevHashBytes);
 
-            // Create a real UInt256 for MerkleRoot (32 bytes)
-            var merkleBytes = new byte[32];
-            merkleBytes[0] = (byte)(index + 100);
-            merkleBytes[1] = (byte)((index + 100) >> 8);
-            var merkleRoot = new UInt256(merkleBytes);
+            var header = new Header
+            {
+                Version = 0,
+                PrevHash = prevHash,
+                MerkleRoot = UInt256.Zero,
+                Timestamp = index,
+                Nonce = 0,
+                Index = index,
+                PrimaryIndex = 0,
+                NextConsensus = UInt160.Zero,
+                Witness = Witness.Empty
+            };
 
-            var mockBlock = new Mock<IBlockData>();
-            mockBlock.Setup(b => b.Index).Returns(index);
-            mockBlock.Setup(b => b.Hash).Returns(hash);
-            mockBlock.Setup(b => b.MerkleRoot).Returns(merkleRoot);
-            return mockBlock.Object;
+            return new Block
+            {
+                Header = header,
+                Transactions = Array.Empty<Transaction>()
+            };
         }
     }
 
@@ -159,12 +164,12 @@ namespace Neo.UnitTests.Ledger
         public void TestExecute_EmptyTransactions()
         {
             var executor = new SequentialBlockExecutor();
-            var mockBlock = new Mock<IBlockData>();
+            var mockBlock = CreateBlock(0);
 
             var results = executor.Execute(
                 new List<object>(),
                 new object(),
-                mockBlock.Object,
+                mockBlock,
                 new object());
 
             Assert.AreEqual(0, results.Count);
@@ -174,13 +179,13 @@ namespace Neo.UnitTests.Ledger
         public void TestExecute_WithTransactions()
         {
             var executor = new SequentialBlockExecutor();
-            var mockBlock = new Mock<IBlockData>();
+            var mockBlock = CreateBlock(0);
             var transactions = new List<object> { new object(), new object() };
 
             var results = executor.Execute(
                 transactions,
                 new object(),
-                mockBlock.Object,
+                mockBlock,
                 new object());
 
             Assert.AreEqual(2, results.Count);
@@ -190,14 +195,14 @@ namespace Neo.UnitTests.Ledger
         public void TestExecute_CallsOnExecuted()
         {
             var executor = new SequentialBlockExecutor();
-            var mockBlock = new Mock<IBlockData>();
+            var mockBlock = CreateBlock(0);
             var transactions = new List<object> { new object() };
             var callCount = 0;
 
             executor.Execute(
                 transactions,
                 new object(),
-                mockBlock.Object,
+                mockBlock,
                 new object(),
                 _ => callCount++);
 
@@ -208,16 +213,42 @@ namespace Neo.UnitTests.Ledger
         public void TestLastStatistics()
         {
             var executor = new SequentialBlockExecutor();
-            var mockBlock = new Mock<IBlockData>();
+            var mockBlock = CreateBlock(0);
             var transactions = new List<object> { new object(), new object(), new object() };
 
-            executor.Execute(transactions, new object(), mockBlock.Object, new object());
+            executor.Execute(transactions, new object(), mockBlock, new object());
 
             var stats = executor.LastStatistics;
             Assert.IsNotNull(stats);
             Assert.AreEqual(3, stats.TotalTransactions);
             Assert.AreEqual(1, stats.BatchCount);
             Assert.AreEqual(1, stats.PeakParallelism);
+        }
+
+        private static Block CreateBlock(uint index)
+        {
+            var prevHashBytes = new byte[UInt256.Length];
+            prevHashBytes[0] = (byte)index;
+            var prevHash = new UInt256(prevHashBytes);
+
+            var header = new Header
+            {
+                Version = 0,
+                PrevHash = prevHash,
+                MerkleRoot = UInt256.Zero,
+                Timestamp = index,
+                Nonce = 0,
+                Index = index,
+                PrimaryIndex = 0,
+                NextConsensus = UInt160.Zero,
+                Witness = Witness.Empty
+            };
+
+            return new Block
+            {
+                Header = header,
+                Transactions = Array.Empty<Transaction>()
+            };
         }
     }
 

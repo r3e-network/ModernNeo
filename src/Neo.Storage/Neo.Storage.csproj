@@ -12,7 +12,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Neo.Extensions\Neo.Extensions.csproj" />
+    <ProjectReference Include="../Neo.Extensions/Neo.Extensions.csproj" />
   </ItemGroup>
 
   <ItemGroup>

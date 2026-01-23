@@ -13,7 +13,7 @@ namespace Neo.Orleans.States
 {
     /// <summary>
     /// Persistent state for BlockchainGrain.
-    /// Mirrors Akka.NET Blockchain Actor state with header cache and unverified blocks.
+    /// Tracks header cache and unverified blocks for sync.
     /// </summary>
     [GenerateSerializer]
     public class BlockchainState

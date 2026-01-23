@@ -13,6 +13,7 @@ using Neo.Extensions;
 using Neo.IO;
 using Neo.Json;
 using Neo.Persistence;
+using Neo.Protocol;
 using Neo.SmartContract;
 using Neo.SmartContract.Native;
 using Neo.VM;

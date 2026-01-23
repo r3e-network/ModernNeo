@@ -15,7 +15,7 @@ namespace Neo.Orleans.Interfaces
 {
     /// <summary>
     /// Orleans Grain interface for transaction pre-verification routing.
-    /// Replaces Akka.NET TransactionRouter Actor with parallel verification.
+    /// Supports parallel pre-verification workflows.
     /// </summary>
     public interface ITxRouterGrain : IGrainWithIntegerKey
     {

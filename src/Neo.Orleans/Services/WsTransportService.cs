@@ -9,8 +9,12 @@
 // Redistribution and use in source and binary forms with or without
 // modifications are permitted.
 
+using Neo.Network.P2P;
 using System;
+using System.Buffers;
+using System.Buffers.Binary;
 using System.Collections.Concurrent;
+using System.Linq;
 using System.Net;
 using System.Net.WebSockets;
 using System.Threading;
@@ -20,11 +24,76 @@ namespace Neo.Orleans.Services
 {
     /// <summary>
     /// WebSocket-based implementation of ITransportService for Orleans grains.
-    /// Provides connection pooling and automatic reconnection.
+    /// Uses a 4-byte length prefix for message framing to match WsPeerConnection.
     /// </summary>
     public sealed class WsTransportService : ITransportService, IAsyncDisposable
     {
-        private readonly ConcurrentDictionary<string, ClientWebSocket> _connections = new();
+        private static readonly int MaxMessageBytes = Message.PayloadMaxSize + 16;
+
+        private sealed class WsConnection : IAsyncDisposable
+        {
+            private readonly WebSocket _socket;
+            private readonly SemaphoreSlim _writeLock = new(1, 1);
+            private bool _disposed;
+
+            public WsConnection(WebSocket socket)
+            {
+                _socket = socket;
+            }
+
+            internal WebSocket Socket => _socket;
+
+            public bool IsConnected => _socket.State == WebSocketState.Open;
+
+            public async Task SendAsync(byte[] message, CancellationToken cancellationToken)
+            {
+                await _writeLock.WaitAsync(cancellationToken);
+                try
+                {
+                    var buffer = ArrayPool<byte>.Shared.Rent(4 + message.Length);
+                    try
+                    {
+                        BinaryPrimitives.WriteInt32LittleEndian(buffer.AsSpan(0, 4), message.Length);
+                        message.CopyTo(buffer.AsSpan(4));
+                        await _socket.SendAsync(
+                            new ArraySegment<byte>(buffer, 0, 4 + message.Length),
+                            WebSocketMessageType.Binary,
+                            endOfMessage: true,
+                            cancellationToken);
+                    }
+                    finally
+                    {
+                        ArrayPool<byte>.Shared.Return(buffer);
+                    }
+                }
+                finally
+                {
+                    _writeLock.Release();
+                }
+            }
+
+            public async ValueTask DisposeAsync()
+            {
+                if (_disposed)
+                    return;
+
+                _disposed = true;
+                _writeLock.Dispose();
+
+                try
+                {
+                    if (_socket.State == WebSocketState.Open || _socket.State == WebSocketState.CloseReceived)
+                        await _socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Disconnecting", CancellationToken.None);
+                }
+                catch
+                {
+                    // Ignore close errors
+                }
+                _socket.Dispose();
+            }
+        }
+
+        private readonly ConcurrentDictionary<string, WsConnection> _connections = new(StringComparer.OrdinalIgnoreCase);
         private readonly TimeSpan _connectTimeout;
         private readonly TimeSpan _sendTimeout;
         private bool _disposed;
@@ -37,48 +106,49 @@ namespace Neo.Orleans.Services
 
         public async Task<bool> SendAsync(string address, int port, byte[] message, CancellationToken cancellationToken = default)
         {
-            if (_disposed)
+            if (_disposed || message.Length == 0)
+                return false;
+            if (message.Length > MaxMessageBytes)
                 return false;
 
-            var key = GetConnectionKey(address, port);
+            var key = TcpTransportService.FormatConnectionKey(address, port);
 
+            WsConnection? connection = null;
             try
             {
-                // Get or create connection
-                if (!_connections.TryGetValue(key, out var ws) || ws.State != WebSocketState.Open)
+                if (!_connections.TryGetValue(key, out connection) || !connection.IsConnected)
                 {
                     if (!await ConnectAsync(address, port, cancellationToken))
                         return false;
 
-                    _connections.TryGetValue(key, out ws);
+                    _connections.TryGetValue(key, out connection);
                 }
 
-                if (ws == null || ws.State != WebSocketState.Open)
+                if (connection == null || !connection.IsConnected)
                     return false;
 
                 using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                 cts.CancelAfter(_sendTimeout);
 
-                await ws.SendAsync(
-                    new ArraySegment<byte>(message),
-                    WebSocketMessageType.Binary,
-                    endOfMessage: true,
-                    cts.Token);
-
+                await connection.SendAsync(message, cts.Token);
                 return true;
             }
             catch (OperationCanceledException)
             {
+                if (connection != null && !cancellationToken.IsCancellationRequested)
+                    RemoveConnection(key, dispose: true, expectedSocket: connection.Socket);
                 return false;
             }
             catch (WebSocketException)
             {
-                // Connection failed, remove from pool
-                RemoveConnection(key);
+                if (connection != null)
+                    RemoveConnection(key, dispose: true, expectedSocket: connection.Socket);
                 return false;
             }
             catch
             {
+                if (connection != null)
+                    RemoveConnection(key, dispose: true, expectedSocket: connection.Socket);
                 return false;
             }
         }
@@ -88,19 +158,21 @@ namespace Neo.Orleans.Services
             if (_disposed)
                 return false;
 
-            var key = GetConnectionKey(address, port);
+            var key = TcpTransportService.FormatConnectionKey(address, port);
 
-            // Check if already connected
-            if (_connections.TryGetValue(key, out var existing) && existing.State == WebSocketState.Open)
+            if (_connections.TryGetValue(key, out var existing) && existing.IsConnected)
                 return true;
 
-            // Remove stale connection
-            RemoveConnection(key);
+            RemoveConnection(key, dispose: true);
 
+            ClientWebSocket? ws = null;
             try
             {
-                var ws = new ClientWebSocket();
-                var uri = new Uri($"ws://{address}:{port}");
+                ws = new ClientWebSocket();
+                var host = address;
+                if (IPAddress.TryParse(address, out var ip) && ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6)
+                    host = $"[{ip}]";
+                var uri = new Uri($"ws://{host}:{port}/");
 
                 using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                 cts.CancelAfter(_connectTimeout);
@@ -109,11 +181,11 @@ namespace Neo.Orleans.Services
 
                 if (ws.State == WebSocketState.Open)
                 {
-                    _connections[key] = ws;
+                    _connections[key] = new WsConnection(ws);
+                    ws = null;
                     return true;
                 }
 
-                ws.Dispose();
                 return false;
             }
             catch (OperationCanceledException)
@@ -128,39 +200,25 @@ namespace Neo.Orleans.Services
             {
                 return false;
             }
+            finally
+            {
+                ws?.Dispose();
+            }
         }
 
         public async Task DisconnectAsync(string address, int port, CancellationToken cancellationToken = default)
         {
-            var key = GetConnectionKey(address, port);
-
-            if (_connections.TryRemove(key, out var ws))
+            var key = TcpTransportService.FormatConnectionKey(address, port);
+            if (_connections.TryRemove(key, out var connection))
             {
-                try
-                {
-                    if (ws.State == WebSocketState.Open)
-                    {
-                        using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                        cts.CancelAfter(TimeSpan.FromSeconds(2));
-
-                        await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Disconnecting", cts.Token);
-                    }
-                }
-                catch
-                {
-                    // Ignore close errors
-                }
-                finally
-                {
-                    ws.Dispose();
-                }
+                await connection.DisposeAsync();
             }
         }
 
         public bool IsConnected(string address, int port)
         {
-            var key = GetConnectionKey(address, port);
-            return _connections.TryGetValue(key, out var ws) && ws.State == WebSocketState.Open;
+            var key = TcpTransportService.FormatConnectionKey(address, port);
+            return _connections.TryGetValue(key, out var connection) && connection.IsConnected;
         }
 
         public async ValueTask DisposeAsync()
@@ -170,38 +228,63 @@ namespace Neo.Orleans.Services
 
             _disposed = true;
 
-            foreach (var kvp in _connections)
+            foreach (var connection in _connections.Values)
             {
-                try
-                {
-                    if (kvp.Value.State == WebSocketState.Open)
-                    {
-                        await kvp.Value.CloseAsync(
-                            WebSocketCloseStatus.NormalClosure,
-                            "Service disposing",
-                            CancellationToken.None);
-                    }
-                }
-                catch
-                {
-                    // Ignore
-                }
-                finally
-                {
-                    kvp.Value.Dispose();
-                }
+                await connection.DisposeAsync();
             }
 
             _connections.Clear();
         }
 
-        private static string GetConnectionKey(string address, int port) => $"{address}:{port}";
-
-        private void RemoveConnection(string key)
+        internal string RegisterInboundConnection(IPEndPoint remoteEndPoint, WebSocket socket)
         {
-            if (_connections.TryRemove(key, out var ws))
+            if (_disposed)
             {
-                ws.Dispose();
+                socket.Dispose();
+                throw new ObjectDisposedException(nameof(WsTransportService));
+            }
+
+            var key = TcpTransportService.FormatConnectionKey(remoteEndPoint.Address.ToString(), remoteEndPoint.Port);
+            RemoveConnection(key, dispose: true);
+            _connections[key] = new WsConnection(socket);
+            return key;
+        }
+
+        internal void UnregisterConnection(string key, WebSocket? expectedSocket = null) =>
+            RemoveConnection(key, dispose: true, expectedSocket: expectedSocket);
+
+        internal bool IsSuperseded(string key, WebSocket? expectedSocket)
+        {
+            if (expectedSocket == null)
+                return false;
+
+            if (_connections.TryGetValue(key, out var current))
+                return !ReferenceEquals(current.Socket, expectedSocket);
+
+            return false;
+        }
+
+        internal async Task DisconnectAllAsync()
+        {
+            foreach (var key in _connections.Keys.ToArray())
+            {
+                if (_connections.TryRemove(key, out var connection))
+                    await connection.DisposeAsync();
+            }
+        }
+
+        private void RemoveConnection(string key, bool dispose, WebSocket? expectedSocket = null)
+        {
+            if (_connections.TryGetValue(key, out var current) &&
+                expectedSocket != null &&
+                !ReferenceEquals(current.Socket, expectedSocket))
+            {
+                return;
+            }
+
+            if (_connections.TryRemove(key, out var connection) && dispose)
+            {
+                _ = connection.DisposeAsync();
             }
         }
     }

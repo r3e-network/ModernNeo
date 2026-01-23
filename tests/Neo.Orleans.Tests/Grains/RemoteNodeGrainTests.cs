@@ -1,3 +1,6 @@
+using Neo.Network.P2P;
+using Neo.Network.P2P.Capabilities;
+using Neo.Network.P2P.Payloads;
 using Neo.Orleans.Interfaces;
 using Orleans.TestingHost;
 
@@ -156,13 +159,29 @@ public class RemoteNodeGrainTests
     {
         // Arrange
         var grain = _cluster!.GrainFactory.GetGrain<IRemoteNodeGrain>("192.168.1.7:10333");
+        var localNode = _cluster.GrainFactory.GetGrain<ILocalNodeGrain>(0);
+        await localNode.InitializeAsync(new LocalNodeConfig(
+            Nonce: 1,
+            UserAgent: "/NeoTest:1.0.0/",
+            SeedList: TestProtocolSettings.SoleNode.SeedList,
+            MaxConnections: 10,
+            ListenerPort: 0,
+            NetworkMagic: TestProtocolSettings.SoleNode.Network,
+            ProtocolVersion: 0));
+        await localNode.StartAsync();
         await grain.StartHandshakeAsync(500, 12345, "/NeoAN:1.0.0/");
 
-        // Create VERSION_ACK message (command 0x01)
-        var message = new byte[] { 0x01 };
+        var version = VersionPayload.Create(
+            TestProtocolSettings.SoleNode.Network,
+            67890,
+            "/Neo:3.6.0/",
+            new FullNodeCapability(600));
+        var versionMessage = Message.Create(MessageCommand.Version, version).ToArray(true);
+        var verackMessage = Message.Create(MessageCommand.Verack).ToArray(true);
 
         // Act
-        await grain.HandleMessageAsync(message);
+        await grain.HandleMessageAsync(versionMessage);
+        await grain.HandleMessageAsync(verackMessage);
         var state = await grain.GetStateAsync();
 
         // Assert
@@ -176,10 +195,9 @@ public class RemoteNodeGrainTests
         var grain = _cluster!.GrainFactory.GetGrain<IRemoteNodeGrain>("192.168.1.8:10333");
         await grain.CompleteHandshakeAsync(1000, 10333, true, "/Neo:3.6.0/");
 
-        // Create HEIGHT_UPDATE message (command 0x02 + uint32 height)
-        var message = new byte[5];
-        message[0] = 0x02;
-        BitConverter.GetBytes(2000u).CopyTo(message, 1);
+        // Create PING message with height payload
+        var payload = PingPayload.Create(2000u, 123u);
+        var message = Message.Create(MessageCommand.Ping, payload).ToArray(true);
 
         // Act
         await grain.HandleMessageAsync(message);

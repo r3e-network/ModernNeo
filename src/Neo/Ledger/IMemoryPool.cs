@@ -33,6 +33,11 @@ namespace Neo.Ledger
         event EventHandler<TransactionRemovedEventArgs>? TransactionRemoved;
 
         /// <summary>
+        /// Raised before a transaction is added to the pool, allowing policy validation.
+        /// </summary>
+        event EventHandler<NewTransactionEventArgs>? NewTransaction;
+
+        /// <summary>
         /// Gets the maximum number of transactions that can be stored in the pool.
         /// </summary>
         int Capacity { get; }

@@ -60,7 +60,7 @@ namespace Neo.Network.Discovery
                 cts.CancelAfter(_timeout);
 
                 var endpoint = peer.Addresses[0];
-                var connection = await _transport.ConnectAsync(endpoint, cts.Token);
+                await using var connection = await _transport.ConnectAsync(endpoint, cts.Token, trackConnection: false);
 
                 // Build FIND_NODE message: [type:1][sender_id:32][target_id:32]
                 var message = new byte[1 + 32 + 32];
@@ -98,7 +98,7 @@ namespace Neo.Network.Discovery
                 cts.CancelAfter(_timeout);
 
                 var endpoint = peer.Addresses[0];
-                var connection = await _transport.ConnectAsync(endpoint, cts.Token);
+                await using var connection = await _transport.ConnectAsync(endpoint, cts.Token, trackConnection: false);
 
                 // Build GET_PROVIDERS message: [type:1][sender_id:32][key:32]
                 var message = new byte[1 + 32 + 32];
@@ -135,7 +135,7 @@ namespace Neo.Network.Discovery
                 cts.CancelAfter(_timeout);
 
                 var endpoint = peer.Addresses[0];
-                var connection = await _transport.ConnectAsync(endpoint, cts.Token);
+                await using var connection = await _transport.ConnectAsync(endpoint, cts.Token, trackConnection: false);
 
                 // Build ADD_PROVIDER message: [type:1][sender_id:32][key:32][provider_data]
                 var providerData = SerializePeerInfo(provider);
@@ -164,7 +164,7 @@ namespace Neo.Network.Discovery
                 cts.CancelAfter(_timeout);
 
                 var endpoint = peer.Addresses[0];
-                var connection = await _transport.ConnectAsync(endpoint, cts.Token);
+                await using var connection = await _transport.ConnectAsync(endpoint, cts.Token, trackConnection: false);
 
                 // Build PING message: [type:1][sender_id:32]
                 var message = new byte[1 + 32];
@@ -189,13 +189,13 @@ namespace Neo.Network.Discovery
 
         private async Task<byte[]?> ReceiveResponseAsync(QuicPeerConnection connection, byte expectedType, CancellationToken cancellationToken)
         {
-            var tcs = new TaskCompletionSource<byte[]?>();
+            var tcs = new TaskCompletionSource<byte[]?>(TaskCreationOptions.RunContinuationsAsynchronously);
 
             connection.OnMessageReceived += OnMessage;
 
             try
             {
-                await connection.StartReceivingAsync(cancellationToken);
+                _ = connection.StartReceivingAsync(cancellationToken);
                 return await tcs.Task.WaitAsync(cancellationToken);
             }
             finally

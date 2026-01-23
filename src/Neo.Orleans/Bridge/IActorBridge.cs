@@ -10,12 +10,13 @@
 // modifications are permitted.
 
 using Neo.Core.Interfaces;
+using Neo.Network.P2P.Payloads;
 
 namespace Neo.Orleans.Bridge
 {
     /// <summary>
     /// Bridge interface for abstracting actor system operations.
-    /// Allows NeoSystem to work with either Akka.NET or Orleans.
+    /// Allows NeoSystem to work with an Orleans-backed runtime.
     /// </summary>
     public interface IActorBridge : IAsyncDisposable
     {
@@ -50,7 +51,7 @@ namespace Neo.Orleans.Bridge
         Task StopAsync(CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Gets whether the bridge is using Orleans (true) or Akka (false).
+        /// Gets whether the bridge is Orleans-backed.
         /// </summary>
         bool IsOrleans { get; }
     }
@@ -73,17 +74,17 @@ namespace Neo.Orleans.Bridge
         /// <summary>
         /// Persists a block to the blockchain.
         /// </summary>
-        Task<bool> PersistBlockAsync(IBlockData block);
+        Task<bool> PersistBlockAsync(Block block);
 
         /// <summary>
         /// Gets a block by hash.
         /// </summary>
-        Task<IBlockData?> GetBlockByHashAsync(byte[] hash);
+        Task<Block?> GetBlockByHashAsync(byte[] hash);
 
         /// <summary>
         /// Gets a block by index.
         /// </summary>
-        Task<IBlockData?> GetBlockByIndexAsync(uint index);
+        Task<Block?> GetBlockByIndexAsync(uint index);
 
         /// <summary>
         /// Checks if a transaction exists.

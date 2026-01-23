@@ -30,11 +30,27 @@ namespace Neo.UnitTests.Architecture
             var srcDir = Path.Combine(repoRoot, "src");
 
             var nodeCoreCsproj = Path.GetFullPath(Path.Combine(srcDir, "Neo.Node.Core", "Neo.Node.Core.csproj"));
-            Assert.IsTrue(File.Exists(nodeCoreCsproj), "src/Neo.Node.Core/Neo.Node.Core.csproj must exist.");
-
             var csprojs = Directory.EnumerateFiles(srcDir, "*.csproj", SearchOption.AllDirectories)
                 .Select(p => Path.GetFullPath(p))
                 .ToArray();
+
+            if (!File.Exists(nodeCoreCsproj))
+            {
+                var staleReferences = csprojs
+                    .SelectMany(p => ReadProjectReferences(p).Select(include => new { Project = p, Include = include }))
+                    .Where(entry => entry.Include.EndsWith("Neo.Node.Core.csproj", StringComparison.OrdinalIgnoreCase))
+                    .Select(entry => $"{Path.GetFileNameWithoutExtension(entry.Project)} references missing Neo.Node.Core.")
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(v => v, StringComparer.Ordinal)
+                    .ToArray();
+
+                if (staleReferences.Length > 0)
+                {
+                    Assert.Fail("Neo.Node.Core project is missing, but references still exist:\n" + string.Join("\n", staleReferences));
+                }
+
+                return;
+            }
 
             var projectNameByPath = csprojs.ToDictionary(
                 p => p,

@@ -10,6 +10,7 @@
 // modifications are permitted.
 
 using Neo.Core.Interfaces;
+using Neo.Network.P2P.Payloads;
 
 namespace Neo.Ledger
 {
@@ -24,7 +25,7 @@ namespace Neo.Ledger
         /// </summary>
         /// <param name="block">The block to persist.</param>
         /// <returns>True if the block was persisted; false if rejected.</returns>
-        Task<bool> PersistBlockAsync(IBlockData block);
+        Task<bool> PersistBlockAsync(Block block);
 
         /// <summary>
         /// Imports multiple blocks.
@@ -32,14 +33,14 @@ namespace Neo.Ledger
         /// <param name="blocks">The blocks to import.</param>
         /// <param name="verify">Whether to verify blocks during import.</param>
         /// <returns>The number of blocks successfully imported.</returns>
-        Task<int> ImportBlocksAsync(IEnumerable<IBlockData> blocks, bool verify = true);
+        Task<int> ImportBlocksAsync(IEnumerable<Block> blocks, bool verify = true);
 
         /// <summary>
         /// Verifies a block without persisting it.
         /// </summary>
         /// <param name="block">The block to verify.</param>
         /// <returns>The verification result.</returns>
-        Task<VerifyResult> VerifyBlockAsync(IBlockData block);
+        Task<VerifyResult> VerifyBlockAsync(Block block);
 
         /// <summary>
         /// Verifies a transaction.
@@ -73,7 +74,7 @@ namespace Neo.Ledger
         /// <summary>
         /// Gets the persisted block.
         /// </summary>
-        public IBlockData Block { get; }
+        public Block Block { get; }
 
         /// <summary>
         /// Gets the block index.
@@ -83,7 +84,7 @@ namespace Neo.Ledger
         /// <summary>
         /// Initializes a new instance of the <see cref="BlockPersistedEventArgs"/> class.
         /// </summary>
-        public BlockPersistedEventArgs(IBlockData block, uint index)
+        public BlockPersistedEventArgs(Block block, uint index)
         {
             Block = block;
             Index = index;

@@ -13,7 +13,7 @@ namespace Neo.Orleans.Interfaces
 {
     /// <summary>
     /// Orleans Grain interface for dBFT consensus management.
-    /// Replaces Akka.NET ConsensusService Actor.
+    /// Coordinates consensus state and messages.
     /// </summary>
     public interface IConsensusGrain : IGrainWithIntegerKey
     {
@@ -36,6 +36,16 @@ namespace Neo.Orleans.Interfaces
         /// Handles a consensus message from a peer.
         /// </summary>
         Task OnConsensusMessageAsync(byte[] message, string senderAddress);
+
+        /// <summary>
+        /// Handles a transaction message for consensus context.
+        /// </summary>
+        Task OnTransactionAsync(Neo.Network.P2P.Payloads.Transaction transaction);
+
+        /// <summary>
+        /// Notifies consensus that a block was persisted.
+        /// </summary>
+        Task OnPersistCompletedAsync(Neo.Network.P2P.Payloads.Block block);
 
         /// <summary>
         /// Gets the current consensus state.

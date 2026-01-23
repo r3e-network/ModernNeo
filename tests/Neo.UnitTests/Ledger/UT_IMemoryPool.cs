@@ -91,6 +91,9 @@ namespace Neo.UnitTests.Ledger
 
             var removedEvent = interfaceType.GetEvent("TransactionRemoved");
             Assert.IsNotNull(removedEvent);
+
+            var newTxEvent = interfaceType.GetEvent("NewTransaction");
+            Assert.IsNotNull(newTxEvent);
         }
 
         [TestMethod]

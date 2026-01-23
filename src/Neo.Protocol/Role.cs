@@ -9,7 +9,7 @@
 // Redistribution and use in source and binary forms with or without
 // modifications are permitted.
 
-namespace Neo.SmartContract.Native
+namespace Neo.Protocol
 {
     /// <summary>
     /// Represents the roles in the NEO system.

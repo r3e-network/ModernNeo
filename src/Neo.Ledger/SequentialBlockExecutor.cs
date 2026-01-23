@@ -10,6 +10,7 @@
 // modifications are permitted.
 
 using Neo.Core.Interfaces;
+using Neo.Network.P2P.Payloads;
 using System.Diagnostics;
 
 namespace Neo.Ledger
@@ -42,7 +43,7 @@ namespace Neo.Ledger
         public IReadOnlyList<IBlockExecutionResult> Execute(
             IReadOnlyList<object> transactions,
             object snapshot,
-            IBlockData block,
+            Block block,
             object settings,
             Action<object>? onExecuted = null)
         {
@@ -72,7 +73,7 @@ namespace Neo.Ledger
         private IBlockExecutionResult ExecuteTransaction(
             object transaction,
             object snapshot,
-            IBlockData block,
+            Block block,
             object settings)
         {
             if (_transactionExecutor != null && transaction is ITransactionData txData)
@@ -106,7 +107,7 @@ namespace Neo.Ledger
         IBlockExecutionResult Execute(
             ITransactionData transaction,
             object snapshot,
-            IBlockData block,
+            Block block,
             object settings);
     }
 

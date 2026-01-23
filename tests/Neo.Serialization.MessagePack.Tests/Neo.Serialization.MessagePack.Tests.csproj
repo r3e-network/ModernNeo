@@ -11,9 +11,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Neo.Serialization.MessagePack\Neo.Serialization.MessagePack.csproj" />
+    <ProjectReference Include="../../src/Neo.Serialization.MessagePack/Neo.Serialization.MessagePack.csproj" />
     <!-- Neo.Node.Core removed - direct reference to Neo -->
-    <ProjectReference Include="..\..\src\Neo\Neo.csproj" />
+    <ProjectReference Include="../../src/Neo/Neo.csproj" />
   </ItemGroup>
 
   <ItemGroup>

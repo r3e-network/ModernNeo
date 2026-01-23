@@ -41,15 +41,15 @@
 
   <ItemGroup>
     <!-- Core modules that should be AOT-compatible -->
-    <ProjectReference Include="..\Neo.Core\Neo.Core.csproj" />
-    <ProjectReference Include="..\Neo.Cryptography\Neo.Cryptography.csproj" />
-    <ProjectReference Include="..\Neo.IO\Neo.IO.csproj" />
-    <ProjectReference Include="..\Neo.Json\Neo.Json.csproj" />
-    <ProjectReference Include="..\Neo.Protocol\Neo.Protocol.csproj" />
-    <ProjectReference Include="..\Neo.Storage\Neo.Storage.csproj" />
+    <ProjectReference Include="../Neo.Core/Neo.Core.csproj" />
+    <ProjectReference Include="../Neo.Cryptography/Neo.Cryptography.csproj" />
+    <ProjectReference Include="../Neo.IO/Neo.IO.csproj" />
+    <ProjectReference Include="../Neo.Json/Neo.Json.csproj" />
+    <ProjectReference Include="../Neo.Protocol/Neo.Protocol.csproj" />
+    <ProjectReference Include="../Neo.Storage/Neo.Storage.csproj" />
     <!-- MessagePack excluded - MessagePack library itself (3.0.3) is not AOT compatible -->
     <!-- Our NeoResolver is AOT-ready (MakeGenericType removed), but the upstream library uses dynamic code -->
-    <!-- <ProjectReference Include="..\Neo.Serialization.MessagePack\Neo.Serialization.MessagePack.csproj" /> -->
+    <!-- <ProjectReference Include="../Neo.Serialization.MessagePack/Neo.Serialization.MessagePack.csproj" /> -->
   </ItemGroup>
 
 </Project>

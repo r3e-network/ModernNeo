@@ -8,9 +8,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Neo\Neo.csproj" />
-    <ProjectReference Include="..\..\src\Neo.Protocol\Neo.Protocol.csproj" />
-    <ProjectReference Include="..\..\src\Neo.Serialization.MessagePack\Neo.Serialization.MessagePack.csproj" />
+    <ProjectReference Include="../../src/Neo/Neo.csproj" />
+    <ProjectReference Include="../../src/Neo.Protocol/Neo.Protocol.csproj" />
+    <ProjectReference Include="../../src/Neo.Serialization.MessagePack/Neo.Serialization.MessagePack.csproj" />
     <PackageReference Include="BenchmarkDotNet" Version="0.15.5" />
   </ItemGroup>
 

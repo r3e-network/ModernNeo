@@ -11,6 +11,7 @@
 
 using Neo.Json;
 using Neo.RPC;
+using Neo.SmartContract;
 using Neo.SmartContract.Native;
 using System;
 using System.Numerics;
@@ -40,13 +41,14 @@ namespace Neo.Node.Rpc
             var snapshot = _node.System.StoreView;
             var currentIndex = NativeContract.Ledger.CurrentIndex(snapshot);
             var end = currentIndex == uint.MaxValue ? currentIndex : currentIndex + 1;
+            using var engine = ApplicationEngine.Create(TriggerType.Application, null, snapshot, settings: _node.System.Settings);
 
             BigInteger total = BigInteger.Zero;
             foreach (var account in wallet.GetAccounts())
             {
                 if (account.WatchOnly)
                     continue;
-                total += NativeContract.NEO.UnclaimedGas(snapshot, account.ScriptHash, end);
+                total += NativeContract.NEO.UnclaimedGas(engine, account.ScriptHash, end);
             }
 
             return Task.FromResult<JToken?>(new JString(total.ToString()));

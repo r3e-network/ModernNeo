@@ -1,4 +1,4 @@
-// Copyright (C) 2015-2025 The Neo Project.
+// Copyright (C) 2015-2026 The Neo Project.
 //
 // ApplicationEngine.Contract.cs file belongs to the neo project and is free
 // software distributed under the MIT software license, see the
@@ -149,7 +149,7 @@ namespace Neo.SmartContract
         /// The implementation of System.Contract.NativeOnPersist.
         /// Calls to the <see cref="NativeContract.OnPersistAsync"/> of all native contracts.
         /// </summary>
-        internal async ContractTask NativeOnPersistAsync()
+        protected internal async void NativeOnPersistAsync()
         {
             try
             {
@@ -171,7 +171,7 @@ namespace Neo.SmartContract
         /// The implementation of System.Contract.NativePostPersist.
         /// Calls to the <see cref="NativeContract.PostPersistAsync"/> of all native contracts.
         /// </summary>
-        internal async ContractTask NativePostPersistAsync()
+        protected internal async void NativePostPersistAsync()
         {
             try
             {

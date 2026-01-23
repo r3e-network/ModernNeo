@@ -1,4 +1,4 @@
-// Copyright (C) 2015-2025 The Neo Project.
+// Copyright (C) 2015-2026 The Neo Project.
 //
 // Header.cs file belongs to the neo project and is free
 // software distributed under the MIT software license, see the
@@ -112,6 +112,8 @@ namespace Neo.Network.P2P.Payloads
                 Witness = value[0];
             }
         }
+
+        Core.Interfaces.IWitness? Core.Interfaces.IHeaderData.Witness => Witness;
 
         public void Deserialize(ref MemoryReader reader)
         {

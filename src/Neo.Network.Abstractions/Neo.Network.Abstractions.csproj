@@ -13,7 +13,7 @@
 
   <ItemGroup>
     <!-- Only depends on Neo.Core.Abstractions - maintains layered architecture -->
-    <ProjectReference Include="..\Neo.Core.Abstractions\Neo.Core.Abstractions.csproj" />
+    <ProjectReference Include="../Neo.Core.Abstractions/Neo.Core.Abstractions.csproj" />
   </ItemGroup>
 
 </Project>

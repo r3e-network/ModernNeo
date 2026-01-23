@@ -1,11 +1,17 @@
+using Microsoft.Extensions.DependencyInjection;
 using Neo;
 using Neo.Core.Interfaces;
-using Neo.IO;
+using Neo.Cryptography;
+using Neo.Network.P2P.Payloads;
 using Neo.Orleans.Grains;
+using Neo.Orleans.Hosting;
 using Neo.Orleans.Interfaces;
+using Neo.Orleans.Services;
 using Neo.Orleans.States;
+using Neo.Orleans.Tests;
 using Orleans.Runtime;
 using Orleans.TestingHost;
+using System.Linq;
 
 namespace Neo.Orleans.Tests.Grains;
 
@@ -54,7 +60,7 @@ public class BlockchainGrainTests
     {
         // Arrange
         var grain = _cluster!.GrainFactory.GetGrain<IBlockchainGrain>(0);
-        var block = new MockBlockData(index: 1, timestamp: 1000);
+        var block = CreateBlock(index: 1, timestamp: 1000);
 
         // Act
         var result = await grain.PersistBlockAsync(block);
@@ -69,9 +75,9 @@ public class BlockchainGrainTests
     {
         // Arrange
         var grain = _cluster!.GrainFactory.GetGrain<IBlockchainGrain>(0);
-        var block1 = new MockBlockData(index: 1, timestamp: 1000);
-        var block2 = new MockBlockData(index: 2, timestamp: 2000);
-        var block3 = new MockBlockData(index: 3, timestamp: 3000);
+        var block1 = CreateBlock(index: 1, timestamp: 1000);
+        var block2 = CreateBlock(index: 2, timestamp: 2000);
+        var block3 = CreateBlock(index: 3, timestamp: 3000);
 
         // Act
         var result1 = await grain.PersistBlockAsync(block1);
@@ -90,8 +96,8 @@ public class BlockchainGrainTests
     {
         // Arrange
         var grain = _cluster!.GrainFactory.GetGrain<IBlockchainGrain>(0);
-        var block1 = new MockBlockData(index: 1, timestamp: 1000);
-        var block3 = new MockBlockData(index: 3, timestamp: 3000); // Skip block 2
+        var block1 = CreateBlock(index: 1, timestamp: 1000);
+        var block3 = CreateBlock(index: 3, timestamp: 3000); // Skip block 2
 
         // Act
         await grain.PersistBlockAsync(block1);
@@ -107,8 +113,8 @@ public class BlockchainGrainTests
     {
         // Arrange
         var grain = _cluster!.GrainFactory.GetGrain<IBlockchainGrain>(0);
-        var block1 = new MockBlockData(index: 1, timestamp: 1000);
-        var block1Dup = new MockBlockData(index: 1, timestamp: 1001);
+        var block1 = CreateBlock(index: 1, timestamp: 1000);
+        var block1Dup = CreateBlock(index: 1, timestamp: 1001);
 
         // Act
         await grain.PersistBlockAsync(block1);
@@ -125,9 +131,9 @@ public class BlockchainGrainTests
         var grain = _cluster!.GrainFactory.GetGrain<IBlockchainGrain>(0);
         var blocks = new[]
         {
-            new MockBlockData(index: 1, timestamp: 1000),
-            new MockBlockData(index: 2, timestamp: 2000),
-            new MockBlockData(index: 3, timestamp: 3000)
+            CreateBlock(index: 1, timestamp: 1000),
+            CreateBlock(index: 2, timestamp: 2000),
+            CreateBlock(index: 3, timestamp: 3000)
         };
 
         // Act
@@ -145,9 +151,9 @@ public class BlockchainGrainTests
         var grain = _cluster!.GrainFactory.GetGrain<IBlockchainGrain>(0);
         var blocks = new[]
         {
-            new MockBlockData(index: 3, timestamp: 3000),
-            new MockBlockData(index: 1, timestamp: 1000),
-            new MockBlockData(index: 2, timestamp: 2000)
+            CreateBlock(index: 3, timestamp: 3000),
+            CreateBlock(index: 1, timestamp: 1000),
+            CreateBlock(index: 2, timestamp: 2000)
         };
 
         // Act
@@ -165,9 +171,9 @@ public class BlockchainGrainTests
         var grain = _cluster!.GrainFactory.GetGrain<IBlockchainGrain>(0);
         var blocks = new[]
         {
-            new MockBlockData(index: 1, timestamp: 1000),
-            new MockBlockData(index: 2, timestamp: 2000),
-            new MockBlockData(index: 5, timestamp: 5000) // Gap - should fail
+            CreateBlock(index: 1, timestamp: 1000),
+            CreateBlock(index: 2, timestamp: 2000),
+            CreateBlock(index: 5, timestamp: 5000) // Gap - should fail
         };
 
         // Act
@@ -183,7 +189,7 @@ public class BlockchainGrainTests
     {
         // Arrange
         var grain = _cluster!.GrainFactory.GetGrain<IBlockchainGrain>(0);
-        var block = new MockBlockData(index: 1, timestamp: 1000);
+        var block = CreateBlock(index: 1, timestamp: 1000);
 
         // Act
         await grain.PersistBlockAsync(block);
@@ -196,29 +202,150 @@ public class BlockchainGrainTests
     }
 
     [TestMethod]
-    public async Task GetBlockByHashAsync_NotImplemented_ReturnsNull()
+    public async Task GetBlockByHashAsync_ExistingBlock_ReturnsBlock()
     {
         // Arrange
         var grain = _cluster!.GrainFactory.GetGrain<IBlockchainGrain>(0);
+        var block = CreateBlock(index: 1, timestamp: 1000);
+        await grain.PersistBlockAsync(block);
 
         // Act
-        var block = await grain.GetBlockByHashAsync(new byte[32]);
+        var retrieved = await grain.GetBlockByHashAsync(block.Hash.GetSpan().ToArray());
 
         // Assert
-        Assert.IsNull(block);
+        Assert.IsNotNull(retrieved);
+        Assert.AreEqual(block.Index, retrieved!.Index);
     }
 
     [TestMethod]
-    public async Task GetBlockByIndexAsync_NotImplemented_ReturnsNull()
+    public async Task GetBlockByIndexAsync_ExistingBlock_ReturnsBlock()
     {
         // Arrange
         var grain = _cluster!.GrainFactory.GetGrain<IBlockchainGrain>(0);
+        var block = CreateBlock(index: 1, timestamp: 1000);
+        await grain.PersistBlockAsync(block);
 
         // Act
-        var block = await grain.GetBlockByIndexAsync(1);
+        var retrieved = await grain.GetBlockByIndexAsync(1);
 
         // Assert
-        Assert.IsNull(block);
+        Assert.IsNotNull(retrieved);
+        Assert.AreEqual(block.Hash, retrieved!.Hash);
+    }
+
+    [TestMethod]
+    public async Task FillMemoryPoolAsync_WithTransactions_AddsToMemoryPool()
+    {
+        // Arrange
+        var blockchain = _cluster!.GrainFactory.GetGrain<IBlockchainGrain>(0);
+        var memPool = _cluster.GrainFactory.GetGrain<IMemoryPoolGrain>(0);
+        await memPool.ClearAsync();
+
+        var transactions = new ITransactionData[]
+        {
+            new MockTransactionData(nonce: 1, feePerByte: 1000),
+            new MockTransactionData(nonce: 2, feePerByte: 2000)
+        };
+
+        // Act
+        await blockchain.FillMemoryPoolAsync(transactions);
+        var count = await memPool.GetCountAsync();
+
+        // Assert
+        Assert.AreEqual(2, count);
+    }
+
+    [TestMethod]
+    public async Task FillMemoryPoolAsync_WithTransactionHashes_AddsToMemoryPool()
+    {
+        // Arrange
+        var blockchain = _cluster!.GrainFactory.GetGrain<IBlockchainGrain>(0);
+        var memPool = _cluster.GrainFactory.GetGrain<IMemoryPoolGrain>(0);
+        await memPool.ClearAsync();
+
+        var tx1 = CreateTestTransaction(1);
+        var tx2 = CreateTestTransaction(2);
+        var block = CreateTestBlock(1, tx1, tx2);
+
+        await blockchain.PersistBlockAsync(block);
+
+        // Act
+        await blockchain.FillMemoryPoolAsync(new[]
+        {
+            tx1.Hash.GetSpan().ToArray(),
+            tx2.Hash.GetSpan().ToArray()
+        });
+        var count = await memPool.GetCountAsync();
+
+        // Assert
+        Assert.AreEqual(2, count);
+    }
+
+    private static Block CreateTestBlock(uint index, params Transaction[] transactions)
+    {
+        var hashes = transactions.Select(tx => tx.Hash).ToArray();
+        var merkleRoot = hashes.Length == 0 ? UInt256.Zero : MerkleTree.ComputeRoot(hashes);
+
+        var header = new Header
+        {
+            Version = 0,
+            PrevHash = UInt256.Zero,
+            MerkleRoot = merkleRoot,
+            Timestamp = (ulong)DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            Nonce = 0,
+            Index = index,
+            PrimaryIndex = 0,
+            NextConsensus = UInt160.Zero,
+            Witness = new Witness
+            {
+                InvocationScript = Array.Empty<byte>(),
+                VerificationScript = Array.Empty<byte>()
+            }
+        };
+
+        return new Block
+        {
+            Header = header,
+            Transactions = transactions
+        };
+    }
+
+    private static Block CreateBlock(uint index, ulong timestamp)
+    {
+        var header = new Header
+        {
+            Version = 0,
+            PrevHash = UInt256.Zero,
+            MerkleRoot = UInt256.Zero,
+            Timestamp = timestamp,
+            Nonce = 0,
+            Index = index,
+            PrimaryIndex = 0,
+            NextConsensus = UInt160.Zero,
+            Witness = Witness.Empty
+        };
+
+        return new Block
+        {
+            Header = header,
+            Transactions = Array.Empty<Transaction>()
+        };
+    }
+
+    private static Transaction CreateTestTransaction(uint nonce)
+    {
+        return new Transaction
+        {
+            Version = 0,
+            Nonce = nonce,
+            SystemFee = 0,
+            NetworkFee = 0,
+            ValidUntilBlock = 1_000_000,
+            Signers = [new Signer { Account = UInt160.Zero, Scopes = WitnessScope.None }],
+            Attributes = Array.Empty<TransactionAttribute>(),
+            Script = new byte[] { 0x01 },
+            Witnesses = [new Witness { InvocationScript = Array.Empty<byte>(), VerificationScript = Array.Empty<byte>() }]
+        };
     }
 }
 
@@ -234,47 +361,20 @@ public class TestSiloConfigurator : ISiloConfigurator
         siloBuilder.AddMemoryGrainStorage("LocalNodeStore");
         siloBuilder.AddMemoryGrainStorage("ConsensusStore");
         siloBuilder.AddMemoryGrainStorage("RemoteNodeStore");
+        siloBuilder.AddMemoryGrainStorage("TaskManagerStore");
+        siloBuilder.AddMemoryGrainStorage("TxRouterStore");
+        siloBuilder.Services.AddSingleton<IBlockStorageService, InMemoryBlockStorageService>();
+        siloBuilder.Services.AddSingleton(new NeoOrleansOptions
+        {
+            ValidationMode = NeoValidationMode.None,
+            ProtocolSettings = TestProtocolSettings.SoleNode,
+            NetworkMagic = TestProtocolSettings.SoleNode.Network,
+            UseMemoryStorage = true
+        });
+        siloBuilder.Services.AddSingleton(sp =>
+        {
+            var options = sp.GetRequiredService<NeoOrleansOptions>();
+            return new NeoSystem(options.ProtocolSettings);
+        });
     }
-}
-
-/// <summary>
-/// Mock implementation of IBlockData for testing.
-/// </summary>
-[GenerateSerializer]
-[Alias("Neo.Orleans.Tests.MockBlockData")]
-internal class MockBlockData : IBlockData
-{
-    [Id(0)] private readonly byte[] _hashBytes;
-
-    public MockBlockData() : this(0, 0) { }
-
-    public MockBlockData(uint index, ulong timestamp)
-    {
-        Index = index;
-        Timestamp = timestamp;
-        _hashBytes = new byte[32];
-        BitConverter.GetBytes(index).CopyTo(_hashBytes, 0);
-        BitConverter.GetBytes(timestamp).CopyTo(_hashBytes, 4);
-        Hash = new UInt256(_hashBytes);
-        PrevHash = UInt256.Zero;
-        MerkleRoot = UInt256.Zero;
-        NextConsensus = UInt160.Zero;
-    }
-
-    [Id(1)] public UInt256 Hash { get; private set; }
-    public uint Version => 0;
-    [Id(2)] public UInt256 PrevHash { get; private set; }
-    [Id(3)] public UInt256 MerkleRoot { get; private set; }
-    [Id(4)] public ulong Timestamp { get; private set; }
-    public ulong Nonce => 0;
-    [Id(5)] public uint Index { get; private set; }
-    public byte PrimaryIndex => 0;
-    [Id(6)] public UInt160 NextConsensus { get; private set; }
-    public int TransactionsCount => 0;
-    public int Size => 0;
-
-    public void Deserialize(ref MemoryReader reader) { }
-    public void DeserializeUnsigned(ref MemoryReader reader) { }
-    public void Serialize(System.IO.BinaryWriter writer) { }
-    public void SerializeUnsigned(System.IO.BinaryWriter writer) { }
 }

@@ -7,12 +7,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Neo.Extensions\Neo.Extensions.csproj" />
-    <ProjectReference Include="..\Neo.Ledger\Neo.Ledger.csproj" />
-    <ProjectReference Include="..\Neo.Protocol\Neo.Protocol.csproj" />
-    <ProjectReference Include="..\Neo.Protocol.Payloads\Neo.Protocol.Payloads.csproj" />
-    <ProjectReference Include="..\Neo.SmartContract\Neo.SmartContract.csproj" />
-    <ProjectReference Include="..\Neo.Wallets\Neo.Wallets.csproj" />
+    <ProjectReference Include="../Neo.Extensions/Neo.Extensions.csproj" />
+    <ProjectReference Include="../Neo.Ledger/Neo.Ledger.csproj" />
+    <ProjectReference Include="../Neo.Protocol/Neo.Protocol.csproj" />
+    <ProjectReference Include="../Neo.Protocol.Payloads/Neo.Protocol.Payloads.csproj" />
+    <ProjectReference Include="../Neo.SmartContract/Neo.SmartContract.csproj" />
+    <ProjectReference Include="../Neo.Wallets/Neo.Wallets.csproj" />
   </ItemGroup>
 
   <ItemGroup>

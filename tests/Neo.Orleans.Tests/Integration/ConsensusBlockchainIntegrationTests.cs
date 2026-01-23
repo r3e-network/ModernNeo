@@ -1,6 +1,5 @@
 using Neo;
-using Neo.Core.Interfaces;
-using Neo.IO;
+using Neo.Network.P2P.Payloads;
 using Neo.Orleans.Interfaces;
 using Orleans.TestingHost;
 
@@ -19,6 +18,7 @@ public class ConsensusBlockchainIntegrationTests
     public async Task Setup()
     {
         var builder = new TestClusterBuilder();
+        builder.Options.InitialSilosCount = 1;
         builder.AddSiloBuilderConfigurator<IntegrationTestSiloConfigurator>();
         _cluster = builder.Build();
         await _cluster.DeployAsync();
@@ -48,7 +48,7 @@ public class ConsensusBlockchainIntegrationTests
         // Persist blocks to reach height 5
         for (uint i = 1; i <= 5; i++)
         {
-            var block = new MockBlockData(index: i, timestamp: i * 1000);
+            var block = CreateBlock(index: i, timestamp: i * 1000);
             await blockchain.PersistBlockAsync(block);
         }
 
@@ -106,7 +106,7 @@ public class ConsensusBlockchainIntegrationTests
         Assert.AreEqual(1u, state1.BlockIndex);
 
         // Simulate block 1 being persisted
-        await blockchain.PersistBlockAsync(new MockBlockData(1, 1000));
+        await blockchain.PersistBlockAsync(CreateBlock(1, 1000));
 
         // Round 2: Restart consensus (simulating new round)
         await consensus.StopAsync();
@@ -115,8 +115,8 @@ public class ConsensusBlockchainIntegrationTests
         Assert.AreEqual(2u, state2.BlockIndex, "After block 1, consensus should target block 2");
 
         // Persist more blocks
-        await blockchain.PersistBlockAsync(new MockBlockData(2, 2000));
-        await blockchain.PersistBlockAsync(new MockBlockData(3, 3000));
+        await blockchain.PersistBlockAsync(CreateBlock(2, 2000));
+        await blockchain.PersistBlockAsync(CreateBlock(3, 3000));
 
         // Round 3
         await consensus.StopAsync();
@@ -137,7 +137,7 @@ public class ConsensusBlockchainIntegrationTests
         // Persist blocks to height 3
         for (uint i = 1; i <= 3; i++)
         {
-            await blockchain.PersistBlockAsync(new MockBlockData(i, i * 1000));
+            await blockchain.PersistBlockAsync(CreateBlock(i, i * 1000));
         }
 
         // Create consensus grain for validator at index 4
@@ -150,46 +150,26 @@ public class ConsensusBlockchainIntegrationTests
         var isPrimary = await consensus.IsPrimaryAsync();
         Assert.IsTrue(isPrimary, "Validator 4 should be primary for block index 4 with view 0");
     }
-}
 
-/// <summary>
-/// Mock implementation of IBlockData for integration testing.
-/// </summary>
-[GenerateSerializer]
-[Alias("Neo.Orleans.Tests.Integration.MockBlockData")]
-internal class MockBlockData : IBlockData
-{
-    [Id(0)] private readonly byte[] _hashBytes;
-
-    public MockBlockData() : this(0, 0) { }
-
-    public MockBlockData(uint index, ulong timestamp)
+    private static Block CreateBlock(uint index, ulong timestamp)
     {
-        Index = index;
-        Timestamp = timestamp;
-        _hashBytes = new byte[32];
-        BitConverter.GetBytes(index).CopyTo(_hashBytes, 0);
-        BitConverter.GetBytes(timestamp).CopyTo(_hashBytes, 4);
-        Hash = new UInt256(_hashBytes);
-        PrevHash = UInt256.Zero;
-        MerkleRoot = UInt256.Zero;
-        NextConsensus = UInt160.Zero;
+        var header = new Header
+        {
+            Version = 0,
+            PrevHash = UInt256.Zero,
+            MerkleRoot = UInt256.Zero,
+            Timestamp = timestamp,
+            Nonce = 0,
+            Index = index,
+            PrimaryIndex = 0,
+            NextConsensus = UInt160.Zero,
+            Witness = Witness.Empty
+        };
+
+        return new Block
+        {
+            Header = header,
+            Transactions = Array.Empty<Transaction>()
+        };
     }
-
-    [Id(1)] public UInt256 Hash { get; private set; }
-    public uint Version => 0;
-    [Id(2)] public UInt256 PrevHash { get; private set; }
-    [Id(3)] public UInt256 MerkleRoot { get; private set; }
-    [Id(4)] public ulong Timestamp { get; private set; }
-    public ulong Nonce => 0;
-    [Id(5)] public uint Index { get; private set; }
-    public byte PrimaryIndex => 0;
-    [Id(6)] public UInt160 NextConsensus { get; private set; }
-    public int TransactionsCount => 0;
-    public int Size => 0;
-
-    public void Deserialize(ref MemoryReader reader) { }
-    public void DeserializeUnsigned(ref MemoryReader reader) { }
-    public void Serialize(System.IO.BinaryWriter writer) { }
-    public void SerializeUnsigned(System.IO.BinaryWriter writer) { }
 }

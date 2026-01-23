@@ -6,7 +6,7 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <Copyright>2015-2025 The Neo Project</Copyright>
+    <Copyright>2015-2026 The Neo Project</Copyright>
     <LangVersion>latest</LangVersion>
     <Authors>The Neo Project</Authors>
     <RootNamespace>$(PackageId)</RootNamespace>
@@ -22,15 +22,17 @@
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <Company>The ModernNeo Project</Company>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <VersionPrefix>3.9.0</VersionPrefix>
+    <VersionPrefix>3.9.2</VersionPrefix>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <WarningLevel>4</WarningLevel>
     <AnalysisLevel>latest</AnalysisLevel>
+    <!-- Workaround: parallel project reference builds intermittently fail on .NET 10 -->
+    <BuildInParallel>false</BuildInParallel>
   </PropertyGroup>
 
   <ItemGroup>
-    <None Include="../../neo.png" Pack="true" Visible="false" PackagePath=""/>
-    <None Include="../../README.md" Pack="true" Visible="false" PackagePath=""/>
+    <None Include="../neo.png" Pack="true" Visible="false" PackagePath=""/>
+    <None Include="../README.md" Pack="true" Visible="false" PackagePath=""/>
   </ItemGroup>
 
 </Project>

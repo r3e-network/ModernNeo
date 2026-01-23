@@ -66,7 +66,7 @@ namespace Neo.GraphQL.Types
 
             Field<NonNullGraphType<IntGraphType>>("transactionCount")
                 .Description("Number of transactions in block")
-                .Resolve(ctx => ctx.Source.TransactionsCount);
+                .Resolve(ctx => ctx.Source.Transactions.Length);
 
             Field<NonNullGraphType<ListGraphType<NonNullGraphType<TransactionType>>>>("transactions")
                 .Description("Transactions in this block")

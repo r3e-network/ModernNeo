@@ -19,6 +19,11 @@ namespace Neo.Orleans.States
     public class RemoteNodeState
     {
         /// <summary>
+        /// Default maximum number of queued outbound messages per peer.
+        /// </summary>
+        public const int DefaultMaxOutboundQueue = 1024;
+
+        /// <summary>
         /// Remote peer's IP address.
         /// </summary>
         [Id(0)]
@@ -94,7 +99,7 @@ namespace Neo.Orleans.States
         /// Maximum known hashes to track.
         /// </summary>
         [Id(12)]
-        public int MaxKnownHashes { get; set; } = 10000;
+        public int MaxKnownHashes { get; set; } = Neo.Network.P2P.ChannelsConfig.DefaultMaxKnownHashes;
 
         /// <summary>
         /// Pending outbound messages (serialized).
@@ -107,5 +112,47 @@ namespace Neo.Orleans.States
         /// </summary>
         [Id(14)]
         public bool AwaitingAck { get; set; }
+
+        /// <summary>
+        /// Whether a version message has been sent to this peer.
+        /// </summary>
+        [Id(15)]
+        public bool VersionSent { get; set; }
+
+        /// <summary>
+        /// Maximum number of queued outbound messages.
+        /// </summary>
+        [Id(16)]
+        public int MaxOutboundQueue { get; set; } = DefaultMaxOutboundQueue;
+
+        /// <summary>
+        /// Whether payload compression is enabled for this connection.
+        /// </summary>
+        [Id(17)]
+        public bool EnableCompression { get; set; } = Neo.Network.P2P.ChannelsConfig.DefaultEnableCompression;
+
+        /// <summary>
+        /// Whether a mempool request has been sent for this session.
+        /// </summary>
+        [Id(18)]
+        public bool MempoolSent { get; set; }
+
+        /// <summary>
+        /// Whether a version message has been received from this peer.
+        /// </summary>
+        [Id(19)]
+        public bool VersionReceived { get; set; }
+
+        /// <summary>
+        /// Accumulated misbehavior score for this peer.
+        /// </summary>
+        [Id(20)]
+        public int MisbehaviorScore { get; set; }
+
+        /// <summary>
+        /// Whether a GetAddr request has been sent to this peer.
+        /// </summary>
+        [Id(21)]
+        public bool GetAddrSent { get; set; }
     }
 }

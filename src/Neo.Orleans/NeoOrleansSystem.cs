@@ -12,21 +12,25 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Neo.Core.Interfaces;
+using Neo.Network.P2P.Payloads;
 using Neo.Orleans.Bridge;
 using Neo.Orleans.Hosting;
 using Neo.Orleans.Interfaces;
+using Neo.Orleans.Services;
 
 namespace Neo.Orleans
 {
     /// <summary>
     /// Orleans-based implementation of the Neo system.
-    /// Replaces Akka.NET actors with Orleans Grains for improved cloud-native support.
+    /// Uses Orleans grains for improved cloud-native support.
     /// </summary>
     public class NeoOrleansSystem : IAsyncDisposable
     {
         private readonly IHost _host;
         private readonly IGrainFactory _grainFactory;
         private readonly OrleansActorBridge _bridge;
+        private readonly IP2PListener? _listener;
+        private readonly NeoOrleansOptions _options;
         private bool _isStarted;
         private bool _isDisposed;
 
@@ -78,6 +82,8 @@ namespace Neo.Orleans
             _host = host;
             _grainFactory = host.Services.GetRequiredService<IGrainFactory>();
             _bridge = new OrleansActorBridge(host);
+            _listener = host.Services.GetService<IP2PListener>();
+            _options = host.Services.GetService<NeoOrleansOptions>() ?? new NeoOrleansOptions();
         }
 
         /// <summary>
@@ -134,6 +140,16 @@ namespace Neo.Orleans
             if (!_isStarted)
                 await StartAsync(cancellationToken);
 
+            var tcpPort = config.ListenerPort > 0 ? config.ListenerPort : _options.TcpPort;
+            if (tcpPort > 0)
+                _options.TcpPort = tcpPort;
+
+            if (_listener != null)
+                await _listener.StartAsync(tcpPort, _options.TcpBindAddress, cancellationToken);
+
+            if (tcpPort != config.ListenerPort)
+                config = config with { ListenerPort = tcpPort };
+
             await LocalNode.InitializeAsync(config);
             await LocalNode.StartAsync();
         }
@@ -145,6 +161,9 @@ namespace Neo.Orleans
         {
             if (_isStarted)
             {
+                if (_listener != null)
+                    await _listener.StopAsync();
+
                 await LocalNode.StopAsync();
             }
         }
@@ -172,17 +191,17 @@ namespace Neo.Orleans
         /// <summary>
         /// Gets a block by its index.
         /// </summary>
-        public Task<IBlockData?> GetBlockAsync(uint index) => Blockchain.GetBlockByIndexAsync(index);
+        public Task<Block?> GetBlockAsync(uint index) => Blockchain.GetBlockByIndexAsync(index);
 
         /// <summary>
         /// Gets a block by its hash.
         /// </summary>
-        public Task<IBlockData?> GetBlockAsync(byte[] hash) => Blockchain.GetBlockByHashAsync(hash);
+        public Task<Block?> GetBlockAsync(byte[] hash) => Blockchain.GetBlockByHashAsync(hash);
 
         /// <summary>
         /// Persists a block to the blockchain.
         /// </summary>
-        public Task<BlockVerifyResult> PersistBlockAsync(IBlockData block) =>
+        public Task<BlockVerifyResult> PersistBlockAsync(Block block) =>
             Blockchain.PersistBlockAsync(block);
 
         /// <summary>

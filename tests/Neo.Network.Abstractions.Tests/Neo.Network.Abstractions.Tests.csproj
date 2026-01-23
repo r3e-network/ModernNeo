@@ -17,7 +17,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Neo.Network.Abstractions\Neo.Network.Abstractions.csproj" />
+    <ProjectReference Include="../../src/Neo.Network.Abstractions/Neo.Network.Abstractions.csproj" />
   </ItemGroup>
 
 </Project>

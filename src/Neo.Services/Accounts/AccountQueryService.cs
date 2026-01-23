@@ -9,6 +9,7 @@
 // Redistribution and use in source and binary forms with or without
 // modifications are permitted.
 
+using Neo.SmartContract;
 using Neo.SmartContract.Native;
 using Neo.Wallets;
 using System;
@@ -51,7 +52,8 @@ namespace Neo.Services.Accounts
 
             var snapshot = _system.StoreView;
             var height = NativeContract.Ledger.CurrentIndex(snapshot) + 1;
-            return NativeContract.NEO.UnclaimedGas(snapshot, account, height);
+            using var engine = ApplicationEngine.Create(TriggerType.Application, null, snapshot, settings: _system.Settings);
+            return NativeContract.NEO.UnclaimedGas(engine, account, height);
         }
 
         public bool IsValidAddress(string addressOrHash)

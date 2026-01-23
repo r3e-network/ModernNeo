@@ -12,6 +12,7 @@
 using Neo.Cryptography.ECC;
 using Neo.Extensions;
 using Neo.Persistence;
+using Neo.Protocol;
 using Neo.VM;
 using Neo.VM.Types;
 using System;

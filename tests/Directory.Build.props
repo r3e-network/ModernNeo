@@ -13,6 +13,8 @@
     <AnalysisLevel>latest</AnalysisLevel>
     <MSTestVersion>3.10.0</MSTestVersion>
     <MSTestAnalysisMode>Recommended</MSTestAnalysisMode>
+    <!-- Workaround: parallel project reference builds intermittently fail on .NET 10 -->
+    <BuildInParallel>false</BuildInParallel>
   </PropertyGroup>
 
   <ItemGroup>

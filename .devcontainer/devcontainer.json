@@ -1,17 +1,20 @@
-// For format details, see https://aka.ms/devcontainer.json. For config options, see the
-// README at: https://github.com/devcontainers/templates/tree/main/src/dotnet
 {
-	"name": "C# (.NET)",
-	"build": {
-		// Path is relative to the devcontainer.json file.
-		"dockerfile": "devcontainer.dockerfile"
-	},
-	"postCreateCommand": "dotnet build",
-	"customizations": {
-		"vscode": {
-			"extensions": [
-				"ms-dotnettools.csdevkit"
-			]
-		}
-	}
+  "name": "Neo Node",
+  "build": {
+    "dockerfile": "devcontainer.dockerfile",
+    "context": ".."
+  },
+  "workspaceFolder": "/workspace",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
+  "features": {},
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-dotnettools.csharp",
+        "ms-dotnettools.csdevkit"
+      ]
+    }
+  },
+  "remoteUser": "root",
+  "postCreateCommand": "dotnet restore"
 }

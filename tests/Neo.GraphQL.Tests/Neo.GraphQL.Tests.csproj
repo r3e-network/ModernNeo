@@ -12,7 +12,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Neo.GraphQL\Neo.GraphQL.csproj" />
+    <ProjectReference Include="../../src/Neo.GraphQL/Neo.GraphQL.csproj" />
   </ItemGroup>
 
   <ItemGroup>

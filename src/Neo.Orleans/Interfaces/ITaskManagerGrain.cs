@@ -13,7 +13,7 @@ namespace Neo.Orleans.Interfaces
 {
     /// <summary>
     /// Orleans Grain interface for managing synchronization tasks.
-    /// Replaces Akka.NET TaskManager Actor with inventory task tracking.
+    /// Tracks inventory task scheduling and completion.
     /// </summary>
     public interface ITaskManagerGrain : IGrainWithIntegerKey
     {
@@ -38,6 +38,11 @@ namespace Neo.Orleans.Interfaces
         Task<int> AddTasksAsync(IEnumerable<byte[]> hashes, byte inventoryType);
 
         /// <summary>
+        /// Adds new inventory tasks announced by a specific peer.
+        /// </summary>
+        Task NewTasksAsync(string peerId, byte inventoryType, IEnumerable<byte[]> hashes);
+
+        /// <summary>
         /// Marks a hash as known (already received).
         /// </summary>
         Task MarkKnownAsync(byte[] hash);
@@ -58,6 +63,11 @@ namespace Neo.Orleans.Interfaces
         Task CompleteTaskAsync(string peerId, byte[] hash);
 
         /// <summary>
+        /// Marks a block task as completed and tracks the block index.
+        /// </summary>
+        Task CompleteBlockAsync(string peerId, byte[] hash, uint blockIndex);
+
+        /// <summary>
         /// Restarts failed or timed out tasks.
         /// </summary>
         Task<int> RestartTasksAsync(IEnumerable<byte[]> hashes, byte inventoryType);
@@ -71,6 +81,21 @@ namespace Neo.Orleans.Interfaces
         /// Gets the task manager state summary.
         /// </summary>
         Task<TaskManagerStateSummary> GetStateSummaryAsync();
+
+        /// <summary>
+        /// Notifies the task manager that headers were received from a peer.
+        /// </summary>
+        Task NotifyHeadersAsync(string peerId);
+
+        /// <summary>
+        /// Notifies the task manager that a block was persisted.
+        /// </summary>
+        Task NotifyPersistCompletedAsync(byte[] hash, uint blockIndex);
+
+        /// <summary>
+        /// Notifies the task manager that a block was invalid.
+        /// </summary>
+        Task NotifyInvalidBlockAsync(byte[] hash, uint blockIndex);
 
         /// <summary>
         /// Clears all tasks and sessions.

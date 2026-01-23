@@ -1,3 +1,4 @@
+using Neo.Network.P2P.Payloads;
 using Neo.Orleans.Grains;
 using Neo.Orleans.Interfaces;
 using Orleans.TestingHost;
@@ -163,7 +164,7 @@ public class LocalNodeGrainTests
         var hash = new byte[32];
 
         // Act & Assert - should not throw
-        await grain.RelayAsync(hash, 0x2b); // 0x2b = Transaction inventory type
+        await grain.RelayAsync(hash, (byte)InventoryType.TX);
     }
 
     [TestMethod]
@@ -186,8 +187,8 @@ public class LocalNodeGrainTests
         hash[0] = 0x42;
 
         // Act - relay same hash twice
-        await grain.RelayAsync(hash, 0x2b);
-        await grain.RelayAsync(hash, 0x2b);
+        await grain.RelayAsync(hash, (byte)InventoryType.TX);
+        await grain.RelayAsync(hash, (byte)InventoryType.TX);
 
         // Assert - no exception, internal relay cache prevents duplicate
         var count = await grain.GetConnectedPeerCountAsync();

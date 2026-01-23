@@ -10,6 +10,9 @@
 // modifications are permitted.
 
 using Neo.Core.Interfaces;
+using Neo.Extensions;
+using Neo.IO;
+using Neo.Network.P2P.Payloads;
 using Neo.Persistence;
 
 namespace Neo.Orleans.Services
@@ -27,16 +30,17 @@ namespace Neo.Orleans.Services
         private static readonly byte[] BlockByHashPrefix = [0x01];
         private static readonly byte[] BlockByIndexPrefix = [0x02];
         private static readonly byte[] HeightKey = [0x03, 0x00];
+        private static readonly byte[] TransactionByHashPrefix = [0x04];
 
         /// <summary>
         /// Block serializer/deserializer delegate.
         /// </summary>
-        public Func<IBlockData, byte[]>? BlockSerializer { get; set; }
+        public Func<Block, byte[]>? BlockSerializer { get; set; }
 
         /// <summary>
         /// Block deserializer delegate.
         /// </summary>
-        public Func<byte[], IBlockData>? BlockDeserializer { get; set; }
+        public Func<byte[], Block>? BlockDeserializer { get; set; }
 
         /// <summary>
         /// Creates a new StoreBasedBlockStorageService with the specified store.
@@ -50,7 +54,7 @@ namespace Neo.Orleans.Services
         }
 
         /// <inheritdoc/>
-        public Task<bool> StoreBlockAsync(IBlockData block)
+        public Task<bool> StoreBlockAsync(Block block)
         {
             ArgumentNullException.ThrowIfNull(block);
 
@@ -78,28 +82,37 @@ namespace Neo.Orleans.Services
                 _store.Put(HeightKey, BitConverter.GetBytes(block.Index));
             }
 
+            foreach (var tx in block.Transactions)
+            {
+                var txKey = CreateKey(TransactionByHashPrefix, tx.Hash.GetSpan().ToArray());
+                if (_store.Contains(txKey))
+                    continue;
+
+                _store.Put(txKey, tx.ToArray());
+            }
+
             return Task.FromResult(true);
         }
 
         /// <inheritdoc/>
-        public Task<IBlockData?> GetBlockByHashAsync(byte[] hash)
+        public Task<Block?> GetBlockByHashAsync(byte[] hash)
         {
             ArgumentNullException.ThrowIfNull(hash);
 
             var key = CreateKey(BlockByHashPrefix, hash);
             if (!_store.TryGet(key, out var data))
-                return Task.FromResult<IBlockData?>(null);
+                return Task.FromResult<Block?>(null);
 
             var block = DeserializeBlock(data);
-            return Task.FromResult<IBlockData?>(block);
+            return Task.FromResult<Block?>(block);
         }
 
         /// <inheritdoc/>
-        public Task<IBlockData?> GetBlockByIndexAsync(uint index)
+        public Task<Block?> GetBlockByIndexAsync(uint index)
         {
             var indexKey = CreateKey(BlockByIndexPrefix, BitConverter.GetBytes(index));
             if (!_store.TryGet(indexKey, out var hashBytes))
-                return Task.FromResult<IBlockData?>(null);
+                return Task.FromResult<Block?>(null);
 
             return GetBlockByHashAsync(hashBytes);
         }
@@ -118,10 +131,21 @@ namespace Neo.Orleans.Services
         {
             ArgumentNullException.ThrowIfNull(hash);
 
-            // Transaction storage would need a separate prefix
-            // For now, return false as transactions are not tracked separately
-            // This would be enhanced when transaction storage is implemented
-            return Task.FromResult(false);
+            var key = CreateKey(TransactionByHashPrefix, hash);
+            return Task.FromResult(_store.Contains(key));
+        }
+
+        public Task<ITransactionData?> GetTransactionAsync(byte[] hash)
+        {
+            ArgumentNullException.ThrowIfNull(hash);
+
+            var key = CreateKey(TransactionByHashPrefix, hash);
+            if (!_store.TryGet(key, out var data))
+                return Task.FromResult<ITransactionData?>(null);
+
+            var reader = new MemoryReader(data);
+            var transaction = reader.ReadSerializable<Transaction>();
+            return Task.FromResult<ITransactionData?>(transaction);
         }
 
         /// <inheritdoc/>
@@ -146,52 +170,45 @@ namespace Neo.Orleans.Services
             return result;
         }
 
-        private byte[] SerializeBlock(IBlockData block)
+        private byte[] SerializeBlock(Block block)
         {
             if (BlockSerializer != null)
                 return BlockSerializer(block);
 
-            // Default serialization: store essential fields
-            // Format: [Index:4][Timestamp:8][Hash:32][PrevHash:32][MerkleRoot:32][Version:4][Nonce:8][PrimaryIndex:1][NextConsensus:20]
-            using var ms = new MemoryStream();
-            using var writer = new BinaryWriter(ms);
-
-            writer.Write(block.Index);
-            writer.Write(block.Timestamp);
-            writer.Write(block.Hash.GetSpan());
-            writer.Write(block.PrevHash.GetSpan());
-            writer.Write(block.MerkleRoot.GetSpan());
-            writer.Write(block.Version);
-            writer.Write(block.Nonce);
-            writer.Write(block.PrimaryIndex);
-            writer.Write(block.NextConsensus.GetSpan());
-            writer.Write(block.TransactionsCount);
-
-            return ms.ToArray();
+            return block.ToArray();
         }
 
-        private IBlockData DeserializeBlock(byte[] data)
+        private Block DeserializeBlock(byte[] data)
         {
             if (BlockDeserializer != null)
                 return BlockDeserializer(data);
 
-            // Default deserialization
-            using var ms = new MemoryStream(data);
-            using var reader = new BinaryReader(ms);
+            if (TryDeserializeFullBlock(data, out var fullBlock))
+                return fullBlock;
 
-            return new StoredBlockData
+            throw new FormatException("Stored block data is not a full block payload.");
+        }
+
+        private static bool TryDeserializeFullBlock(byte[] data, out Block block)
+        {
+            block = null!;
+            if (data.Length == 0)
+                return false;
+
+            try
             {
-                Index = reader.ReadUInt32(),
-                Timestamp = reader.ReadUInt64(),
-                Hash = new UInt256(reader.ReadBytes(32)),
-                PrevHash = new UInt256(reader.ReadBytes(32)),
-                MerkleRoot = new UInt256(reader.ReadBytes(32)),
-                Version = reader.ReadUInt32(),
-                Nonce = reader.ReadUInt64(),
-                PrimaryIndex = reader.ReadByte(),
-                NextConsensus = new UInt160(reader.ReadBytes(20)),
-                TransactionsCount = reader.ReadInt32()
-            };
+                var reader = new MemoryReader(data);
+                block = reader.ReadSerializable<Block>();
+                return true;
+            }
+            catch (FormatException)
+            {
+                return false;
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         /// <inheritdoc/>
@@ -202,28 +219,5 @@ namespace Neo.Orleans.Services
                 _store.Dispose();
             }
         }
-    }
-
-    /// <summary>
-    /// Internal block data representation for deserialization.
-    /// </summary>
-    internal class StoredBlockData : IBlockData
-    {
-        public required UInt256 Hash { get; init; }
-        public required uint Version { get; init; }
-        public required UInt256 PrevHash { get; init; }
-        public required UInt256 MerkleRoot { get; init; }
-        public required ulong Timestamp { get; init; }
-        public required ulong Nonce { get; init; }
-        public required uint Index { get; init; }
-        public required byte PrimaryIndex { get; init; }
-        public required UInt160 NextConsensus { get; init; }
-        public required int TransactionsCount { get; init; }
-        public int Size => 141; // Fixed size for header data
-
-        public void Deserialize(ref Neo.IO.MemoryReader reader) { }
-        public void DeserializeUnsigned(ref Neo.IO.MemoryReader reader) { }
-        public void Serialize(BinaryWriter writer) { }
-        public void SerializeUnsigned(BinaryWriter writer) { }
     }
 }

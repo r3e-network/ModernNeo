@@ -116,8 +116,8 @@ namespace Neo.Node
                     ["mempool_verified"] = system.MemPool.VerifiedCount,
                     ["mempool_unverified"] = system.MemPool.UnVerifiedCount,
                     ["block_height"] = NativeContract.Ledger.CurrentIndex(system.StoreView),
-                    // Note: Peer counts not available without Akka LocalNode
-                    // Use Orleans grains for peer management in production
+                    // Note: Peer counts not available in Neo.Node
+                    // Use Neo.Orleans for peer management in production
                     ["peers_connected"] = 0,
                     ["peers_unconnected"] = 0
                 };
@@ -147,7 +147,7 @@ namespace Neo.Node
             node.Start();
             logger.LogInformation("Neo.Node started on P2P port {Port}", node.ChannelsConfig.Tcp?.Port ?? 0);
             logger.LogInformation("Management endpoints available at http://localhost:{Port}", managementPort);
-            logger.LogWarning("P2P networking disabled - Akka removed. Use Neo.Orleans for full P2P support.");
+            logger.LogWarning("P2P networking disabled in Neo.Node. Use Neo.Orleans for full P2P support.");
 
             // Optionally start JSON-RPC server
             var rpcEnabled = builder.Configuration.GetValue("ApplicationConfiguration:Rpc:Enabled", false);
@@ -312,14 +312,21 @@ namespace Neo.Node
             var protocolSettings = ProtocolSettings.Load(configuration.GetSection("ProtocolConfiguration"));
 
             var engine = configuration.GetValue<string>("ApplicationConfiguration:Storage:Engine");
-            if (string.IsNullOrWhiteSpace(engine) || StoreFactory.GetStoreProvider(engine) is null)
+            if (string.IsNullOrWhiteSpace(engine))
                 engine = nameof(MemoryStore);
+
+            var provider = StoreFactory.GetStoreProvider(engine);
+            if (provider is null)
+            {
+                var providers = string.Join(", ", StoreFactory.GetProviderNames());
+                throw new InvalidOperationException($"Unknown storage engine '{engine}'. Available: {providers}");
+            }
 
             var storagePathTemplate = configuration.GetValue<string>("ApplicationConfiguration:Storage:Path");
             var storagePath = ExpandStoragePath(storagePathTemplate, protocolSettings.Network);
 
             var channelsConfig = ChannelsConfigFactory.Create(configuration);
-            var system = new NeoSystem(protocolSettings, engine, storagePath);
+            var system = new NeoSystem(protocolSettings, provider, storagePath);
 
             return new NeoSystemNode(system, channelsConfig);
         }

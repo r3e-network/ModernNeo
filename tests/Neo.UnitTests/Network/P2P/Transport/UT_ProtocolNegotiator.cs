@@ -36,6 +36,14 @@ namespace Neo.UnitTests.Network.P2P.Transport
         }
 
         [TestMethod]
+        public void TestRecommendProtocol_WebSocket_ReturnsWebSocket()
+        {
+            var negotiator = new ProtocolNegotiator(quicTransport: null);
+            var result = negotiator.RecommendProtocol(PeerCapabilities.Tcp | PeerCapabilities.WebSocket);
+            Assert.AreEqual(TransportProtocol.WebSocket, result);
+        }
+
+        [TestMethod]
         public void TestRecommendProtocol_TcpOnly_ReturnsTcp()
         {
             var negotiator = new ProtocolNegotiator(quicTransport: null);
@@ -73,11 +81,12 @@ namespace Neo.UnitTests.Network.P2P.Transport
         [TestMethod]
         public void TestPeerCapabilities_Flags()
         {
-            var caps = PeerCapabilities.Tcp | PeerCapabilities.Quic | PeerCapabilities.FullNode;
+            var caps = PeerCapabilities.Tcp | PeerCapabilities.Quic | PeerCapabilities.FullNode | PeerCapabilities.WebSocket;
 
             Assert.IsTrue(caps.HasFlag(PeerCapabilities.Tcp));
             Assert.IsTrue(caps.HasFlag(PeerCapabilities.Quic));
             Assert.IsTrue(caps.HasFlag(PeerCapabilities.FullNode));
+            Assert.IsTrue(caps.HasFlag(PeerCapabilities.WebSocket));
             Assert.IsFalse(caps.HasFlag(PeerCapabilities.ArchivalNode));
             Assert.IsFalse(caps.HasFlag(PeerCapabilities.Compression));
         }
@@ -87,6 +96,7 @@ namespace Neo.UnitTests.Network.P2P.Transport
         {
             Assert.AreEqual(0, (int)TransportProtocol.Tcp);
             Assert.AreEqual(1, (int)TransportProtocol.Quic);
+            Assert.AreEqual(2, (int)TransportProtocol.WebSocket);
         }
 
         [TestMethod]
@@ -96,6 +106,7 @@ namespace Neo.UnitTests.Network.P2P.Transport
             {
                 Protocol = TransportProtocol.Tcp,
                 QuicConnection = null,
+                WsConnection = null,
                 RemoteEndPoint = new IPEndPoint(IPAddress.Loopback, 10333)
             };
 
@@ -103,11 +114,22 @@ namespace Neo.UnitTests.Network.P2P.Transport
             {
                 Protocol = TransportProtocol.Quic,
                 QuicConnection = null, // Would be non-null in real scenario
+                WsConnection = null,
                 RemoteEndPoint = new IPEndPoint(IPAddress.Loopback, 10334)
+            };
+
+            var wsResult = new ConnectionResult
+            {
+                Protocol = TransportProtocol.WebSocket,
+                QuicConnection = null,
+                WsConnection = null, // Would be non-null in real scenario
+                RemoteEndPoint = new IPEndPoint(IPAddress.Loopback, 10335)
             };
 
             Assert.IsFalse(tcpResult.IsQuic);
             Assert.IsTrue(quicResult.IsQuic);
+            Assert.IsFalse(tcpResult.IsWebSocket);
+            Assert.IsTrue(wsResult.IsWebSocket);
         }
     }
 }

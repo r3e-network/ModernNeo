@@ -25,12 +25,19 @@ namespace Neo.Services.Events
         private readonly Subject<Block> _blockCommitted = new();
         private readonly Subject<Transaction> _transactionAdded = new();
         private readonly Subject<TransactionRemovedEvent> _transactionRemoved = new();
+        private readonly IMemoryPool? _memoryPool;
         private bool _disposed;
 
-        public BlockchainEventService()
+        public BlockchainEventService(IMemoryPool? memoryPool = null)
         {
             // Subscribe to Blockchain.Committed event
             Blockchain.Committed += OnBlockCommitted;
+            _memoryPool = memoryPool;
+            if (_memoryPool != null)
+            {
+                _memoryPool.TransactionAdded += OnTransactionAdded;
+                _memoryPool.TransactionRemoved += OnTransactionRemoved;
+            }
         }
 
         public IObservable<Block> BlockCommitted => _blockCommitted.AsObservable();
@@ -43,6 +50,20 @@ namespace Neo.Services.Events
         {
             if (_disposed) return;
             _blockCommitted.OnNext(block);
+        }
+
+        private void OnTransactionAdded(object? sender, Transaction tx)
+        {
+            PublishTransactionAdded(tx);
+        }
+
+        private void OnTransactionRemoved(object? sender, TransactionRemovedEventArgs args)
+        {
+            if (_disposed) return;
+            foreach (var tx in args.Transactions)
+            {
+                PublishTransactionRemoved(tx, args.Reason.ToString());
+            }
         }
 
         /// <summary>
@@ -73,6 +94,11 @@ namespace Neo.Services.Events
             _disposed = true;
 
             Blockchain.Committed -= OnBlockCommitted;
+            if (_memoryPool != null)
+            {
+                _memoryPool.TransactionAdded -= OnTransactionAdded;
+                _memoryPool.TransactionRemoved -= OnTransactionRemoved;
+            }
 
             _blockCommitted.OnCompleted();
             _blockCommitted.Dispose();

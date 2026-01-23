@@ -8,9 +8,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Neo.Core\Neo.Core.csproj" />
-    <ProjectReference Include="..\Neo.Json\Neo.Json.csproj" />
-    <ProjectReference Include="..\Neo.Observability\Neo.Observability.csproj" />
+    <ProjectReference Include="../Neo.Core/Neo.Core.csproj" />
+    <ProjectReference Include="../Neo.Json/Neo.Json.csproj" />
+    <ProjectReference Include="../Neo.Observability/Neo.Observability.csproj" />
   </ItemGroup>
 
 </Project>

@@ -32,7 +32,7 @@ namespace Neo.Network.P2P
         IMemoryPool MemPool { get; }
 
         /// <summary>
-        /// Gets the unified runtime abstraction for Orleans/Akka switching.
+        /// Gets the runtime abstraction used by the P2P stack.
         /// </summary>
         INeoSystemRuntime Runtime { get; }
 

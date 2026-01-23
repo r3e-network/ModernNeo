@@ -70,6 +70,9 @@ namespace Neo.Execution
             if (txList.Count == 0)
                 return Array.Empty<IExecutionResult>();
 
+            if (block is not Block blockPayload)
+                throw new ArgumentException("Block must be of type Neo.Network.P2P.Payloads.Block", nameof(block));
+
             var stopwatch = Stopwatch.StartNew();
             var statistics = new ExecutionStatistics { TotalTransactions = txList.Count };
 
@@ -88,7 +91,7 @@ namespace Neo.Execution
                 cancellationToken.ThrowIfCancellationRequested();
 
                 var batchResults = await ExecuteBatchAsync(
-                    batch, txList, snapshot, block, settings, statistics, cancellationToken);
+                    batch, txList, snapshot, blockPayload, settings, statistics, cancellationToken);
 
                 foreach (var (idx, result) in batchResults)
                 {
@@ -112,7 +115,7 @@ namespace Neo.Execution
             IExecutionBatch batch,
             List<ITransactionData> allTransactions,
             object snapshot,
-            IBlockData block,
+            Block block,
             object settings,
             ExecutionStatistics statistics,
             CancellationToken cancellationToken)
@@ -180,7 +183,7 @@ namespace Neo.Execution
         private async Task<IExecutionResult> ExecuteTransactionAsync(
             ITransactionData txData,
             object snapshot,
-            IBlockData block,
+            Block block,
             object settings,
             CancellationToken cancellationToken)
         {
@@ -197,13 +200,6 @@ namespace Neo.Execution
                 return ExecutionResult.Failure(
                     tx.Hash.GetSpan().ToArray(),
                     "Snapshot must be of type StoreCache");
-            }
-
-            if (block is not Block neoBlock)
-            {
-                return ExecutionResult.Failure(
-                    tx.Hash.GetSpan().ToArray(),
-                    "Block must be of type Neo.Network.P2P.Payloads.Block");
             }
 
             if (settings is not ProtocolSettings protocolSettings)
@@ -223,7 +219,7 @@ namespace Neo.Execution
                     TriggerType.Application,
                     tx,
                     clonedCache,
-                    neoBlock,
+                    block,
                     protocolSettings,
                     tx.SystemFee);
 

@@ -1,4 +1,4 @@
-// Copyright (C) 2015-2025 The Neo Project.
+// Copyright (C) 2015-2026 The Neo Project.
 //
 // Block.cs file belongs to the neo project and is free
 // software distributed under the MIT software license, see the
@@ -36,6 +36,11 @@ namespace Neo.Network.P2P.Payloads
         /// The transaction list of the block.
         /// </summary>
         public required Transaction[] Transactions;
+
+        /// <summary>
+        /// The number of transactions in the block.
+        /// </summary>
+        public int TransactionCount => Transactions.Length;
 
         /// <inheritdoc/>
         public UInt256 Hash => Header.Hash;
@@ -89,14 +94,15 @@ namespace Neo.Network.P2P.Payloads
 
         public int Size => Header.Size + Transactions.GetVarSize();
 
-        /// <inheritdoc/>
-        public int TransactionsCount => Transactions.Length;
-
         Witness[] IVerifiable.Witnesses
         {
             get => ((IVerifiable)Header).Witnesses;
             set => throw new NotSupportedException();
         }
+
+        IReadOnlyList<Core.Interfaces.ITransactionData> Core.Interfaces.IBlockData.Transactions => Transactions;
+
+        Core.Interfaces.IWitness? Core.Interfaces.IHeaderData.Witness => Header.Witness;
 
         public void Deserialize(ref MemoryReader reader)
         {
@@ -128,7 +134,7 @@ namespace Neo.Network.P2P.Payloads
             return txs;
         }
 
-        void Core.Interfaces.IVerifiableBase.DeserializeUnsigned(ref MemoryReader reader) => ((Core.Interfaces.IVerifiableBase)Header).DeserializeUnsigned(ref reader);
+        void Core.Interfaces.IVerifiableBase.DeserializeUnsigned(ref MemoryReader reader) => throw new NotSupportedException();
 
         public bool Equals(Block? other)
         {

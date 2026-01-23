@@ -4,8 +4,8 @@
 // software distributed under the MIT software license.
 
 using Neo;
-using Neo.Core.Interfaces;
-using Neo.IO;
+using Neo.Cryptography;
+using Neo.Network.P2P.Payloads;
 using Neo.Orleans.Services;
 using Neo.Persistence;
 using Neo.Persistence.Providers;
@@ -40,7 +40,7 @@ public class StoreBasedBlockStorageServiceTests
     public async Task StoreBlockAsync_NewBlock_ReturnsTrue()
     {
         // Arrange
-        var block = new StoreTestBlockData(1, 1000);
+        var block = CreateBlock(1, 1000);
 
         // Act
         var result = await _storage.StoreBlockAsync(block);
@@ -53,7 +53,7 @@ public class StoreBasedBlockStorageServiceTests
     public async Task StoreBlockAsync_DuplicateBlock_ReturnsFalse()
     {
         // Arrange
-        var block = new StoreTestBlockData(1, 1000);
+        var block = CreateBlock(1, 1000);
         await _storage.StoreBlockAsync(block);
 
         // Act - Try to store same block again
@@ -67,7 +67,7 @@ public class StoreBasedBlockStorageServiceTests
     public async Task GetBlockByHashAsync_ExistingBlock_ReturnsBlock()
     {
         // Arrange
-        var block = new StoreTestBlockData(1, 1000);
+        var block = CreateBlock(1, 1000);
         await _storage.StoreBlockAsync(block);
 
         // Act
@@ -96,7 +96,7 @@ public class StoreBasedBlockStorageServiceTests
     public async Task GetBlockByIndexAsync_ExistingBlock_ReturnsBlock()
     {
         // Arrange
-        var block = new StoreTestBlockData(5, 5000);
+        var block = CreateBlock(5, 5000);
         await _storage.StoreBlockAsync(block);
 
         // Act
@@ -121,7 +121,7 @@ public class StoreBasedBlockStorageServiceTests
     public async Task ContainsBlockAsync_ExistingBlock_ReturnsTrue()
     {
         // Arrange
-        var block = new StoreTestBlockData(1, 1000);
+        var block = CreateBlock(1, 1000);
         await _storage.StoreBlockAsync(block);
 
         // Act
@@ -158,9 +158,9 @@ public class StoreBasedBlockStorageServiceTests
     public async Task GetHeightAsync_AfterStoringBlocks_ReturnsHighestIndex()
     {
         // Arrange
-        await _storage.StoreBlockAsync(new StoreTestBlockData(1, 1000));
-        await _storage.StoreBlockAsync(new StoreTestBlockData(5, 5000));
-        await _storage.StoreBlockAsync(new StoreTestBlockData(3, 3000));
+        await _storage.StoreBlockAsync(CreateBlock(1, 1000));
+        await _storage.StoreBlockAsync(CreateBlock(5, 5000));
+        await _storage.StoreBlockAsync(CreateBlock(3, 3000));
 
         // Act
         var height = await _storage.GetHeightAsync();
@@ -175,9 +175,9 @@ public class StoreBasedBlockStorageServiceTests
         // Arrange
         var blocks = new[]
         {
-            new StoreTestBlockData(1, 1000),
-            new StoreTestBlockData(2, 2000),
-            new StoreTestBlockData(3, 3000)
+            CreateBlock(1, 1000),
+            CreateBlock(2, 2000),
+            CreateBlock(3, 3000)
         };
 
         foreach (var block in blocks)
@@ -196,6 +196,22 @@ public class StoreBasedBlockStorageServiceTests
             Assert.AreEqual(block.Index, byHash.Index);
             Assert.AreEqual(block.Index, byIndex.Index);
         }
+    }
+
+    [TestMethod]
+    public async Task ContainsTransactionAsync_BlockWithTransaction_ReturnsTrue()
+    {
+        var block = CreateBlockWithTransaction(1);
+
+        await _storage.StoreBlockAsync(block);
+
+        var txHash = block.Transactions[0].Hash.GetSpan().ToArray();
+        var contains = await _storage.ContainsTransactionAsync(txHash);
+        var retrieved = await _storage.GetTransactionAsync(txHash);
+
+        Assert.IsTrue(contains);
+        Assert.IsNotNull(retrieved);
+        Assert.AreEqual(block.Transactions[0].Hash, retrieved.Hash);
     }
 
     [TestMethod]
@@ -218,12 +234,12 @@ public class StoreBasedBlockStorageServiceTests
         _storage.BlockDeserializer = data =>
         {
             deserializerCalled = true;
-            return new StoreTestBlockData(
+            return CreateBlock(
                 BitConverter.ToUInt32(data, 0),
                 BitConverter.ToUInt64(data, 4));
         };
 
-        var block = new StoreTestBlockData(10, 10000);
+        var block = CreateBlock(10, 10000);
 
         // Act
         await _storage.StoreBlockAsync(block);
@@ -267,6 +283,63 @@ public class StoreBasedBlockStorageServiceTests
         sharedStore.Dispose();
     }
 
+    private static Block CreateBlock(uint index, ulong timestamp)
+    {
+        var header = new Header
+        {
+            Version = 0,
+            PrevHash = UInt256.Zero,
+            MerkleRoot = UInt256.Zero,
+            Timestamp = timestamp,
+            Nonce = 0,
+            Index = index,
+            PrimaryIndex = 0,
+            NextConsensus = UInt160.Zero,
+            Witness = Witness.Empty
+        };
+
+        return new Block
+        {
+            Header = header,
+            Transactions = Array.Empty<Transaction>()
+        };
+    }
+
+    private static Block CreateBlockWithTransaction(uint index)
+    {
+        var tx = new Transaction
+        {
+            Version = 0,
+            Nonce = 1,
+            SystemFee = 0,
+            NetworkFee = 0,
+            ValidUntilBlock = index + 1,
+            Signers = [new Signer { Account = UInt160.Zero, Scopes = WitnessScope.None }],
+            Attributes = Array.Empty<TransactionAttribute>(),
+            Script = new byte[] { 0x01 },
+            Witnesses = [new Witness { InvocationScript = Array.Empty<byte>(), VerificationScript = Array.Empty<byte>() }]
+        };
+
+        var header = new Header
+        {
+            Version = 0,
+            PrevHash = UInt256.Zero,
+            MerkleRoot = MerkleTree.ComputeRoot([tx.Hash]),
+            Timestamp = 1,
+            Nonce = 0,
+            Index = index,
+            PrimaryIndex = 0,
+            NextConsensus = UInt160.Zero,
+            Witness = new Witness { InvocationScript = Array.Empty<byte>(), VerificationScript = Array.Empty<byte>() }
+        };
+
+        return new Block
+        {
+            Header = header,
+            Transactions = [tx]
+        };
+    }
+
     [TestMethod]
     public void Constructor_NullStore_ThrowsArgumentNullException()
     {
@@ -303,7 +376,7 @@ public class StoreBasedBlockStorageServiceTests
     public async Task DataPersistence_AcrossServiceInstances()
     {
         // Arrange - Store block with first service instance
-        var block = new StoreTestBlockData(42, 42000);
+        var block = CreateBlock(42, 42000);
         await _storage.StoreBlockAsync(block);
 
         // Act - Create new service instance with same store
@@ -316,42 +389,4 @@ public class StoreBasedBlockStorageServiceTests
         Assert.AreEqual(42u, retrieved.Index);
         Assert.AreEqual(42u, height);
     }
-}
-
-/// <summary>
-/// Test implementation of IBlockData for StoreBasedBlockStorageService tests.
-/// </summary>
-internal class StoreTestBlockData : IBlockData
-{
-    private readonly byte[] _hashBytes;
-
-    public StoreTestBlockData(uint index, ulong timestamp)
-    {
-        Index = index;
-        Timestamp = timestamp;
-        _hashBytes = new byte[32];
-        BitConverter.GetBytes(index).CopyTo(_hashBytes, 0);
-        BitConverter.GetBytes(timestamp).CopyTo(_hashBytes, 4);
-        Hash = new UInt256(_hashBytes);
-        PrevHash = UInt256.Zero;
-        MerkleRoot = UInt256.Zero;
-        NextConsensus = UInt160.Zero;
-    }
-
-    public UInt256 Hash { get; }
-    public uint Version => 0;
-    public UInt256 PrevHash { get; }
-    public UInt256 MerkleRoot { get; }
-    public ulong Timestamp { get; }
-    public ulong Nonce => 0;
-    public uint Index { get; }
-    public byte PrimaryIndex => 0;
-    public UInt160 NextConsensus { get; }
-    public int TransactionsCount => 0;
-    public int Size => 141;
-
-    public void Deserialize(ref MemoryReader reader) { }
-    public void DeserializeUnsigned(ref MemoryReader reader) { }
-    public void Serialize(System.IO.BinaryWriter writer) { }
-    public void SerializeUnsigned(System.IO.BinaryWriter writer) { }
 }
