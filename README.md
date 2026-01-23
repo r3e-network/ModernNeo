@@ -38,10 +38,11 @@
 
 - **Modularity**: 36+ focused, single-responsibility modules
 - **Modern .NET**: .NET 10 with NativeAOT compilation support
-- **Multiple Transports**: TCP, QUIC, and WebSocket P2P networking
-- **Distributed Architecture**: Microsoft Orleans integration for actor-based consensus
+- **Multiple Transports (Neo.Orleans host)**: TCP, QUIC, and WebSocket P2P networking
+- **Distributed Architecture**: Microsoft Orleans runtime for consensus/state
 - **Observability**: OpenTelemetry tracing, Prometheus metrics, health endpoints
-- **Pluggable Storage**: LevelDB, RocksDB, LMDB, and in-memory providers
+- **Pluggable Storage**: MemoryStore, LevelDBStore, RocksDBStore (optional LMDB cache layer)
+- **NativeAOT**: Core modules and `Neo.Node.AOT` (Orleans/full node remain JIT-only)
 
 ### Fork Tracking
 
@@ -51,8 +52,13 @@ This repository is a modular refactoring of [neo-project/neo](https://github.com
 | ------------- | ------------------------------------------------- | --------- |
 | `72846744`    | Fix create Snapshot inside loops (#4369)          | ✅ Synced |
 | `1f32e67e`    | Policy blockAccount callflags for HF_Faun (#4385) | ✅ Synced |
+| `309353a6`    | Fix WhiteList (#4434)                              | ✅ Synced |
+| `a54158b9`    | Policy's recoverFund CallFlags (#4444)              | ✅ Synced |
+| `87e4dd0e`    | Fix GetWhitelistFeeContracts (#4426)              | ✅ Synced |
+| `b277b597`    | Resources: BIP-39.en.txt filename (#4448)        | ✅ Synced |
 
-**Last sync**: December 2025
+**Compatible with**: neo-csharp v3.9.2 (master-n3)
+**Last sync**: January 2026
 
 ## Architecture
 
@@ -178,11 +184,40 @@ dotnet build
 dotnet test
 ```
 
-### Run Node
+### Run Neo.Node (management host)
 
 ```bash
 dotnet run --project src/Neo.Node -- --config src/Neo.Node/config.json
 ```
+
+Note: `Neo.Node` is a lightweight management host; it does not enable P2P networking. For full P2P and consensus, use `Neo.Orleans`.
+
+### Run Neo.Orleans (full P2P host)
+
+`Neo.Orleans` is currently hosted programmatically:
+
+```csharp
+await using var system = Neo.Orleans.NeoOrleansSystem.CreateDevelopment();
+await system.StartAsync();
+```
+
+To load P2P settings from `config.json`:
+
+```csharp
+var config = new ConfigurationBuilder()
+    .AddJsonFile("config.json")
+    .Build();
+
+var host = new Neo.Orleans.Hosting.NeoOrleansHostBuilder()
+    .UseDevelopment()
+    .ConfigureFromConfiguration(config)
+    .Build();
+
+await using var system = Neo.Orleans.NeoOrleansSystem.Create(host);
+await system.StartAsync();
+```
+
+Note: Orleans grain state uses in-memory storage by default. For durable storage, register an Orleans storage provider and set `UseMemoryStorage=false` in `NeoOrleansOptions`.
 
 ### Endpoints
 
@@ -192,22 +227,33 @@ dotnet run --project src/Neo.Node -- --config src/Neo.Node/config.json
 | Ready         | `http://localhost:5000/ready`   | Readiness probe        |
 | Metrics       | `http://localhost:5000/metrics` | Prometheus metrics     |
 | Node Info     | `http://localhost:5000/info`    | Node status JSON       |
-| P2P WebSocket | `ws://localhost:5000/p2p`       | WebSocket P2P endpoint |
+
+`/p2p` returns 501 in `Neo.Node`. Use `Neo.Orleans` for P2P networking.
+
+Security note: RPC endpoints are unauthenticated by default. Keep them bound to localhost or protect them behind an authenticated reverse proxy.
 
 ## Configuration
 
-### P2P with QUIC Support
+### P2P with QUIC and WebSocket Support
 
 ```json
 {
   "ApplicationConfiguration": {
     "P2P": {
       "Port": 10333,
+      "MaxConnections": 40,
+      "MaxConnectionsPerAddress": 3,
+      "ProtocolVersion": 0,
+      "UserAgent": "/Neo:4.0.0/",
       "EnableCompression": true,
       "Quic": {
         "Enabled": true,
         "Port": 10334,
         "Alpn": "neo-p2p"
+      },
+      "WebSocket": {
+        "Enabled": true,
+        "Port": 10335
       }
     }
   }
@@ -220,18 +266,20 @@ dotnet run --project src/Neo.Node -- --config src/Neo.Node/config.json
 {
   "ApplicationConfiguration": {
     "Storage": {
-      "Engine": "LevelDB",
+      "Engine": "LevelDBStore",
       "Path": "Data_LevelDB"
     }
   }
 }
 ```
 
-Supported engines: `Memory`, `LevelDB`, `RocksDB`
+Supported engines: `MemoryStore`, `LevelDBStore`, `RocksDBStore` (aliases: `Memory`, `LevelDB`, `RocksDB`)
 
 ## Key Features
 
 ### Multi-Transport Networking
+
+These transports are available via the `Neo.Orleans` host:
 
 - **TCP**: Default reliable transport
 - **QUIC**: Low-latency, multiplexed connections (Windows 11+, Linux with libmsquic, macOS 14+)
