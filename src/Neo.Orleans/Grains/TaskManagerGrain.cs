@@ -488,14 +488,47 @@ namespace Neo.Orleans.Grains
 
             foreach (var session in _sessions.Values)
             {
-                session.InvTasks.RemoveWhere(p => now - p.Value > TaskTimeout, p => DecrementGlobalTask(p.Key));
-                session.IndexTasks.RemoveWhere(p => now - p.Value > TaskTimeout, p => DecrementGlobalTask(p.Key));
+                RemoveExpiredTasks(session.InvTasks, now, p => DecrementGlobalTask(p.Key));
+                RemoveExpiredTasks(session.IndexTasks, now, p => DecrementGlobalTask(p.Key));
             }
 
             _ = ProcessTimeoutsAsync();
 
             foreach (var (peerId, session) in _sessions)
                 await RequestTasksAsync(peerId, session);
+        }
+
+        private static void RemoveExpiredTasks<TKey>(Dictionary<TKey, DateTime> tasks, DateTime now, Action<KeyValuePair<TKey, DateTime>> onRemoved) where TKey : notnull
+        {
+            var keysToRemove = new List<TKey>();
+            foreach (var task in tasks)
+            {
+                if (now - task.Value > TaskTimeout)
+                {
+                    keysToRemove.Add(task.Key);
+                }
+            }
+            foreach (var key in keysToRemove)
+            {
+                onRemoved(new KeyValuePair<TKey, DateTime>(key, tasks[key]));
+                tasks.Remove(key);
+            }
+        }
+
+        private static void RemoveWhere<T>(HashSet<T> set, Func<T, bool> predicate)
+        {
+            var itemsToRemove = new List<T>();
+            foreach (var item in set)
+            {
+                if (predicate(item))
+                {
+                    itemsToRemove.Add(item);
+                }
+            }
+            foreach (var item in itemsToRemove)
+            {
+                set.Remove(item);
+            }
         }
 
         private async Task RequestTasksAsync(string peerId, PeerSession session)
@@ -518,7 +551,7 @@ namespace Neo.Orleans.Grains
                 if (_ledgerInitialized)
                 {
                     var snapshot = _system.StoreView;
-                    session.AvailableTasks.RemoveWhere(p => NativeContract.Ledger.ContainsBlock(snapshot, p));
+                    RemoveWhere(session.AvailableTasks, p => NativeContract.Ledger.ContainsBlock(snapshot, p));
                 }
                 var hashes = new HashSet<UInt256>(session.AvailableTasks);
                 if (hashes.Count > 0)

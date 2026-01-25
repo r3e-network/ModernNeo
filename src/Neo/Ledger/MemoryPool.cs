@@ -9,6 +9,7 @@
 // Redistribution and use in source and binary forms with or without
 // modifications are permitted.
 
+using Neo.Extensions;
 using Neo.Network.P2P;
 using Neo.Network.P2P.Payloads;
 using Neo.Persistence;
@@ -96,21 +97,8 @@ namespace Neo.Ledger
         /// <summary>
         /// Total count of transactions in the pool.
         /// </summary>
-        public int Count
-        {
-            get
-            {
-                _txRwLock.EnterReadLock();
-                try
-                {
-                    return _unsortedTransactions.Count + _unverifiedTransactions.Count;
-                }
-                finally
-                {
-                    _txRwLock.ExitReadLock();
-                }
-            }
-        }
+        public int Count => _txRwLock.Read(() =>
+            _unsortedTransactions.Count + _unverifiedTransactions.Count);
 
         /// <summary>
         /// Total count of verified transactions in the pool.
@@ -162,15 +150,7 @@ namespace Neo.Ledger
         /// </summary>
         public bool ContainsConflict(UInt256 hash)
         {
-            _txRwLock.EnterReadLock();
-            try
-            {
-                return _conflicts.ContainsKey(hash);
-            }
-            finally
-            {
-                _txRwLock.ExitReadLock();
-            }
+            return _txRwLock.Read(() => _conflicts.ContainsKey(hash));
         }
 
         /// <summary>
@@ -178,8 +158,7 @@ namespace Neo.Ledger
         /// </summary>
         public bool RemoveTransaction(UInt256 hash)
         {
-            _txRwLock.EnterWriteLock();
-            try
+            return _txRwLock.Write(() =>
             {
                 if (_unsortedTransactions.TryGetValue(hash, out var verifiedItem))
                 {
@@ -198,11 +177,7 @@ namespace Neo.Ledger
                 }
 
                 return false;
-            }
-            finally
-            {
-                _txRwLock.ExitWriteLock();
-            }
+            });
         }
 
         /// <summary>
@@ -213,18 +188,13 @@ namespace Neo.Ledger
         /// <returns><see langword="true"/> if the <see cref="MemoryPool"/> contains a <see cref="Transaction"/> with the specified hash; otherwise, <see langword="false"/>.</returns>
         public bool TryGetValue(UInt256 hash, [NotNullWhen(true)] out Transaction? tx)
         {
-            _txRwLock.EnterReadLock();
-            try
+            tx = _txRwLock.Read(() =>
             {
                 _ = _unsortedTransactions.TryGetValue(hash, out var item)
                     || _unverifiedTransactions.TryGetValue(hash, out item);
-                tx = item?.Tx;
-                return tx != null;
-            }
-            finally
-            {
-                _txRwLock.ExitReadLock();
-            }
+                return item?.Tx;
+            });
+            return tx != null;
         }
 
         // Note: This isn't used in Fill during consensus, fill uses GetSortedVerifiedTransactions()
@@ -247,54 +217,39 @@ namespace Neo.Ledger
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
         /// <summary>
-        /// Gets the verified transactions in the <see cref="MemoryPool"/>.
+        /// Gets the verified transactions in the <see cref="MemoryPool"/>
         /// </summary>
         /// <returns>The verified transactions.</returns>
         public IEnumerable<Transaction> GetVerifiedTransactions()
         {
-            _txRwLock.EnterReadLock();
-            try
-            {
-                return _unsortedTransactions.Select(p => p.Value.Tx).ToArray();
-            }
-            finally
-            {
-                _txRwLock.ExitReadLock();
-            }
+            return _txRwLock.Read(() =>
+                _unsortedTransactions.Select(p => p.Value.Tx).ToArray());
         }
 
         /// <summary>
-        /// Gets both the verified and the unverified transactions in the <see cref="MemoryPool"/>.
+        /// Gets both the verified and the unverified transactions in the <see cref="MemoryPool"/>
         /// </summary>
         /// <param name="verifiedTransactions">The verified transactions.</param>
         /// <param name="unverifiedTransactions">The unverified transactions.</param>
         public void GetVerifiedAndUnverifiedTransactions(out IEnumerable<Transaction> verifiedTransactions,
             out IEnumerable<Transaction> unverifiedTransactions)
         {
-            _txRwLock.EnterReadLock();
-            try
-            {
-                verifiedTransactions = _sortedTransactions.Reverse().Select(p => p.Tx).ToArray();
-                unverifiedTransactions = _unverifiedSortedTransactions.Reverse().Select(p => p.Tx).ToArray();
-            }
-            finally
-            {
-                _txRwLock.ExitReadLock();
-            }
+            verifiedTransactions = _txRwLock.Read(() =>
+                _sortedTransactions.Reverse().Select(p => p.Tx).ToArray());
+            unverifiedTransactions = _txRwLock.Read(() =>
+                _unverifiedSortedTransactions.Reverse().Select(p => p.Tx).ToArray());
         }
 
         /// <summary>
-        /// Gets the sorted verified transactions in the <see cref="MemoryPool"/>.
+        /// Gets the sorted verified transactions in the <see cref="MemoryPool"/>
         /// </summary>
         /// <returns>The sorted verified transactions.</returns>
         public Transaction[] GetSortedVerifiedTransactions(int count = -1)
         {
-            _txRwLock.EnterReadLock();
-            try
+            return _txRwLock.Read(() =>
             {
                 if (count < 0)
                 {
-                    // Return all results
                     return _sortedTransactions
                         .Reverse()
                         .Select(p => p.Tx)
@@ -306,11 +261,7 @@ namespace Neo.Ledger
                     .Take(count)
                     .Select(p => p.Tx)
                     .ToArray();
-            }
-            finally
-            {
-                _txRwLock.ExitReadLock();
-            }
+            });
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -749,19 +700,14 @@ namespace Neo.Ledger
         // Do not use this method outside of unit tests
         public void Clear()
         {
-            _txRwLock.EnterReadLock();
-            try
+            _txRwLock.Write(() =>
             {
                 _unsortedTransactions.Clear();
                 _conflicts.Clear();
                 _sortedTransactions.Clear();
                 _unverifiedTransactions.Clear();
                 _unverifiedSortedTransactions.Clear();
-            }
-            finally
-            {
-                _txRwLock.ExitReadLock();
-            }
+            });
         }
     }
 }

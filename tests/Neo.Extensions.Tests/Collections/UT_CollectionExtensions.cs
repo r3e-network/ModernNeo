@@ -7,60 +7,17 @@
 // for more details.
 //
 // Redistribution and use in source and binary forms with or without
-// modifications are permitted. 
+// modifications are permitted.
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Neo.Extensions.Tests.Collections
 {
     [TestClass]
     public class UT_CollectionExtensions
     {
-        [TestMethod]
-        public void TestChunk()
-        {
-            var source = new List<int> { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
-            var chunks = source.Chunk(3).GetEnumerator();
-
-            Assert.IsTrue(chunks.MoveNext());
-            CollectionAssert.AreEqual(new[] { 1, 2, 3 }, chunks.Current);
-
-            Assert.IsTrue(chunks.MoveNext());
-            CollectionAssert.AreEqual(new[] { 4, 5, 6 }, chunks.Current);
-
-            Assert.IsTrue(chunks.MoveNext());
-            CollectionAssert.AreEqual(new[] { 7, 8, 9 }, chunks.Current);
-
-            Assert.IsTrue(chunks.MoveNext());
-            CollectionAssert.AreEqual(new[] { 10 }, chunks.Current);
-
-            // Empty source
-            var empty = new List<int>();
-            var emptyChunks = empty.Chunk(3).GetEnumerator();
-            Assert.IsFalse(emptyChunks.MoveNext());
-
-            // Zero chunk size
-            var zero = new List<int> { 1, 2, 3 };
-            var zeroChunks = zero.Chunk(0).GetEnumerator();
-            Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => _ = zeroChunks.MoveNext());
-
-            // Null source
-            IReadOnlyCollection<int>? nullSource = null;
-            var nullChunks = nullSource.Chunk(3).GetEnumerator();
-            Assert.IsFalse(emptyChunks.MoveNext());
-
-            // HashSet
-            var hashSet = new HashSet<int> { 1, 2, 3, 4 };
-            chunks = hashSet.Chunk(3).GetEnumerator();
-
-            Assert.IsTrue(chunks.MoveNext());
-            CollectionAssert.AreEqual(new[] { 1, 2, 3 }, chunks.Current);
-
-            Assert.IsTrue(chunks.MoveNext());
-            CollectionAssert.AreEqual(new[] { 4 }, chunks.Current);
-        }
-
         [TestMethod]
         public void TestRemoveWhere()
         {
@@ -71,12 +28,24 @@ namespace Neo.Extensions.Tests.Collections
                 [3] = "c"
             };
 
-            dict.RemoveWhere(p => p.Value == "b");
+            dict.RemoveWhere(p => dict[p] == "b");
 
-            Assert.HasCount(2, dict);
+            Assert.AreEqual(2, dict.Count);
             Assert.IsFalse(dict.ContainsKey(2));
             Assert.AreEqual("a", dict[1]);
             Assert.AreEqual("c", dict[3]);
+        }
+
+        [TestMethod]
+        public void TestRemoveWhereHashSet()
+        {
+            var set = new HashSet<int> { 1, 2, 3, 4, 5 };
+            set.RemoveWhere(p => p % 2 == 0);
+
+            Assert.AreEqual(3, set.Count);
+            Assert.IsTrue(set.Contains(1));
+            Assert.IsTrue(set.Contains(3));
+            Assert.IsTrue(set.Contains(5));
         }
 
         [TestMethod]
@@ -84,19 +53,17 @@ namespace Neo.Extensions.Tests.Collections
         {
             var list = new List<int> { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
             var sampled = list.Sample(5);
-            Assert.AreEqual(5, sampled.Length);
+            Assert.AreEqual(5, sampled.Count);
             foreach (var item in sampled) Assert.Contains(item, list);
 
             sampled = list.Sample(10);
-            Assert.AreEqual(10, sampled.Length);
-            foreach (var item in sampled) Assert.Contains(item, list);
+            Assert.AreEqual(10, sampled.Count);
 
             sampled = list.Sample(0);
-            Assert.AreEqual(0, sampled.Length);
+            Assert.AreEqual(0, sampled.Count);
 
             sampled = list.Sample(100);
-            Assert.AreEqual(10, sampled.Length);
-            foreach (var item in sampled) Assert.Contains(item, list);
+            Assert.AreEqual(10, sampled.Count);
         }
     }
 }

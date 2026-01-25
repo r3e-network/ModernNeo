@@ -82,7 +82,7 @@ namespace Neo.Node
             builder.Services.AddSingleton<NeoSystemHealthCheck>();
 
             // Configure Kestrel for management endpoint
-            var managementPort = builder.Configuration.GetValue("ApplicationConfiguration:Management:Port", 5000);
+            var managementPort = builder.Configuration.GetValue("ApplicationConfiguration:Management:Port", 5001);
             builder.Services.Configure<KestrelServerOptions>(options =>
             {
                 options.ListenAnyIP(managementPort);

@@ -50,14 +50,13 @@ This repository is a modular refactoring of [neo-project/neo](https://github.com
 
 | Origin Commit | Description                                       | Status    |
 | ------------- | ------------------------------------------------- | --------- |
-| `72846744`    | Fix create Snapshot inside loops (#4369)          | ✅ Synced |
-| `1f32e67e`    | Policy blockAccount callflags for HF_Faun (#4385) | ✅ Synced |
-| `309353a6`    | Fix WhiteList (#4434)                              | ✅ Synced |
-| `a54158b9`    | Policy's recoverFund CallFlags (#4444)              | ✅ Synced |
-| `87e4dd0e`    | Fix GetWhitelistFeeContracts (#4426)              | ✅ Synced |
+| `e51ac9ed`    | chore: ignore .worktrees                          | ✅ Synced |
 | `b277b597`    | Resources: BIP-39.en.txt filename (#4448)        | ✅ Synced |
+| `4c2b7fbc`    | Cherry-Pick[N3]: uncontrolled stackalloc (#4431) | ✅ Synced |
+| `a54158b9`    | Policy's recoverFund CallFlags (#4444)           | ✅ Synced |
+| `f7f6bcc2`    | Increase version number: 3.9.3 (#4445)           | ✅ Synced |
 
-**Compatible with**: neo-csharp v3.9.2 (master-n3)
+**Compatible with**: neo-csharp v3.9.3 (master-n3)
 **Last sync**: January 2026
 
 ## Architecture

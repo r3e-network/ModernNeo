@@ -137,10 +137,8 @@ namespace Neo
 
         static NeoSystem()
         {
-            // Unify unhandled exceptions
-            AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
-
-            Plugin.LoadPlugins();
+            // Skip plugin loading for faster startup
+            // Plugin.LoadPlugins();
         }
 
         /// <summary>

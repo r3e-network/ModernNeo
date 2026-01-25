@@ -14,6 +14,7 @@ using Neo.IO;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 
 namespace Neo.Network.P2P.Payloads
 {
