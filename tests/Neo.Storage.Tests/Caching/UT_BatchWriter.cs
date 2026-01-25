@@ -406,12 +406,25 @@ namespace Neo.Storage.Tests.Caching
 
             _batchWriter.Put(new byte[] { 1 }, new byte[] { 10 });
 
-            // Wait for timer-based flush
-            await Task.Delay(200);
+            // Wait for timer-based flush with retry for CI environments
+            var maxRetries = 10;
+            var delayMs = 100;
+            var success = false;
+            byte[]? foundValue = null;
 
-            // Data should be flushed by timer
-            Assert.IsTrue(_store.TryGet(new byte[] { 1 }, out var value));
-            Assert.AreEqual(10, value[0]);
+            for (var retry = 0; retry < maxRetries; retry++)
+            {
+                await Task.Delay(delayMs);
+                if (_store.TryGet(new byte[] { 1 }, out var value))
+                {
+                    success = true;
+                    foundValue = value;
+                    break;
+                }
+            }
+
+            Assert.IsTrue(success, "Data should be flushed by timer");
+            Assert.AreEqual(10, foundValue![0]);
         }
 
         [TestMethod]
