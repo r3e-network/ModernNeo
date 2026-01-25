@@ -1,4 +1,4 @@
-// Copyright (C) 2015-2026 The Neo Project.
+// Copyright (C) 2015-2025 The Neo Project.
 //
 // RecoveryRequest.cs file belongs to the neo project and is free
 // software distributed under the MIT software license, see the
@@ -13,31 +13,32 @@
 using Neo.IO;
 using Neo.Orleans.Dbft.Types;
 
-namespace Neo.Orleans.Dbft.Messages;
-
-public class RecoveryRequest : ConsensusMessage
+namespace Neo.Orleans.Dbft.Messages
 {
-    /// <summary>
-    /// Timestamp of when the ChangeView message was created. This allows receiving nodes to ensure
-    /// they only respond once to a specific RecoveryRequest request.
-    /// In this sense, it prevents replay of the RecoveryRequest message from the repeatedly broadcast of Recovery's messages.
-    /// </summary>
-    public ulong Timestamp;
-
-    public override int Size => base.Size
-        + sizeof(ulong); //Timestamp
-
-    public RecoveryRequest() : base(ConsensusMessageType.RecoveryRequest) { }
-
-    public override void Deserialize(ref MemoryReader reader)
+    public class RecoveryRequest : ConsensusMessage
     {
-        base.Deserialize(ref reader);
-        Timestamp = reader.ReadUInt64();
-    }
+        /// <summary>
+        /// Timestamp of when the ChangeView message was created. This allows receiving nodes to ensure
+        /// they only respond once to a specific RecoveryRequest request.
+        /// In this sense, it prevents replay of the RecoveryRequest message from the repeatedly broadcast of Recovery's messages.
+        /// </summary>
+        public ulong Timestamp;
 
-    public override void Serialize(BinaryWriter writer)
-    {
-        base.Serialize(writer);
-        writer.Write(Timestamp);
+        public override int Size => base.Size
+            + sizeof(ulong); //Timestamp
+
+        public RecoveryRequest() : base(ConsensusMessageType.RecoveryRequest) { }
+
+        public override void Deserialize(ref MemoryReader reader)
+        {
+            base.Deserialize(ref reader);
+            Timestamp = reader.ReadUInt64();
+        }
+
+        public override void Serialize(BinaryWriter writer)
+        {
+            base.Serialize(writer);
+            writer.Write(Timestamp);
+        }
     }
 }

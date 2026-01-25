@@ -10,10 +10,10 @@
 // modifications are permitted.
 
 using Neo;
-using Neo.Orleans.Interfaces;
-using Neo.Orleans.States;
 using Neo.Network.P2P;
 using Neo.Network.P2P.Payloads;
+using Neo.Orleans.Interfaces;
+using Neo.Orleans.States;
 using Orleans.Runtime;
 using System.Net;
 

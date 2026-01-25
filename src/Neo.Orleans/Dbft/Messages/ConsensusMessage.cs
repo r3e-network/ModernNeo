@@ -1,4 +1,4 @@
-// Copyright (C) 2015-2026 The Neo Project.
+// Copyright (C) 2015-2025 The Neo Project.
 //
 // ConsensusMessage.cs file belongs to the neo project and is free
 // software distributed under the MIT software license, see the
@@ -14,57 +14,58 @@ using Neo.Extensions;
 using Neo.IO;
 using Neo.Orleans.Dbft.Types;
 
-namespace Neo.Orleans.Dbft.Messages;
-
-public abstract class ConsensusMessage : ISerializable
+namespace Neo.Orleans.Dbft.Messages
 {
-    public readonly ConsensusMessageType Type;
-    public uint BlockIndex;
-    public byte ValidatorIndex;
-    public byte ViewNumber;
-
-    public virtual int Size =>
-        sizeof(ConsensusMessageType) +  //Type
-        sizeof(uint) +                  //BlockIndex
-        sizeof(byte) +                  //ValidatorIndex
-        sizeof(byte);                   //ViewNumber
-
-    protected ConsensusMessage(ConsensusMessageType type)
+    public abstract class ConsensusMessage : ISerializable
     {
-        if (!Enum.IsDefined(type))
-            throw new ArgumentOutOfRangeException(nameof(type));
-        Type = type;
-    }
+        public readonly ConsensusMessageType Type;
+        public uint BlockIndex;
+        public byte ValidatorIndex;
+        public byte ViewNumber;
 
-    public virtual void Deserialize(ref MemoryReader reader)
-    {
-        var type = reader.ReadByte();
-        if (Type != (ConsensusMessageType)type)
-            throw new FormatException($"Invalid consensus message type: {type}");
-        BlockIndex = reader.ReadUInt32();
-        ValidatorIndex = reader.ReadByte();
-        ViewNumber = reader.ReadByte();
-    }
+        public virtual int Size =>
+            sizeof(ConsensusMessageType) +  //Type
+            sizeof(uint) +                  //BlockIndex
+            sizeof(byte) +                  //ValidatorIndex
+            sizeof(byte);                   //ViewNumber
 
-    public static ConsensusMessage DeserializeFrom(ReadOnlyMemory<byte> data)
-    {
-        ConsensusMessageType type = (ConsensusMessageType)data.Span[0];
-        Type t = typeof(ConsensusMessage);
-        t = t.Assembly.GetType($"{t.Namespace}.{type}", false);
-        if (t is null) throw new FormatException($"Invalid consensus message type: {type}");
-        return (ConsensusMessage)data.AsSerializable(t);
-    }
+        protected ConsensusMessage(ConsensusMessageType type)
+        {
+            if (!Enum.IsDefined(type))
+                throw new ArgumentOutOfRangeException(nameof(type));
+            Type = type;
+        }
 
-    public virtual bool Verify(ProtocolSettings protocolSettings)
-    {
-        return ValidatorIndex < protocolSettings.ValidatorsCount;
-    }
+        public virtual void Deserialize(ref MemoryReader reader)
+        {
+            var type = reader.ReadByte();
+            if (Type != (ConsensusMessageType)type)
+                throw new FormatException($"Invalid consensus message type: {type}");
+            BlockIndex = reader.ReadUInt32();
+            ValidatorIndex = reader.ReadByte();
+            ViewNumber = reader.ReadByte();
+        }
 
-    public virtual void Serialize(BinaryWriter writer)
-    {
-        writer.Write((byte)Type);
-        writer.Write(BlockIndex);
-        writer.Write(ValidatorIndex);
-        writer.Write(ViewNumber);
+        public static ConsensusMessage DeserializeFrom(ReadOnlyMemory<byte> data)
+        {
+            ConsensusMessageType type = (ConsensusMessageType)data.Span[0];
+            Type t = typeof(ConsensusMessage);
+            t = t.Assembly.GetType($"{t.Namespace}.{type}", false);
+            if (t is null) throw new FormatException($"Invalid consensus message type: {type}");
+            return (ConsensusMessage)data.AsSerializable(t);
+        }
+
+        public virtual bool Verify(ProtocolSettings protocolSettings)
+        {
+            return ValidatorIndex < protocolSettings.ValidatorsCount;
+        }
+
+        public virtual void Serialize(BinaryWriter writer)
+        {
+            writer.Write((byte)Type);
+            writer.Write(BlockIndex);
+            writer.Write(ValidatorIndex);
+            writer.Write(ViewNumber);
+        }
     }
 }

@@ -1,4 +1,4 @@
-// Copyright (C) 2015-2026 The Neo Project.
+// Copyright (C) 2015-2025 The Neo Project.
 //
 // ChangeViewReason.cs file belongs to the neo project and is free
 // software distributed under the MIT software license, see the
@@ -10,14 +10,15 @@
 // modifications are permitted.
 
 #nullable disable
-namespace Neo.Orleans.Dbft.Types;
-
-public enum ChangeViewReason : byte
+namespace Neo.Orleans.Dbft.Types
 {
-    Timeout = 0x0,
-    ChangeAgreement = 0x1,
-    TxNotFound = 0x2,
-    TxRejectedByPolicy = 0x3,
-    TxInvalid = 0x4,
-    BlockRejectedByPolicy = 0x5
+    public enum ChangeViewReason : byte
+    {
+        Timeout = 0x0,
+        ChangeAgreement = 0x1,
+        TxNotFound = 0x2,
+        TxRejectedByPolicy = 0x3,
+        TxInvalid = 0x4,
+        BlockRejectedByPolicy = 0x5
+    }
 }

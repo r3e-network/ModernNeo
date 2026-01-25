@@ -1,4 +1,4 @@
-// Copyright (C) 2015-2026 The Neo Project.
+// Copyright (C) 2015-2025 The Neo Project.
 //
 // RecoveryMessage.PreparationPayloadCompact.cs file belongs to the neo project and is free
 // software distributed under the MIT software license, see the
@@ -13,29 +13,30 @@
 using Neo.Extensions;
 using Neo.IO;
 
-namespace Neo.Orleans.Dbft.Messages;
-
-partial class RecoveryMessage
+namespace Neo.Orleans.Dbft.Messages
 {
-    public class PreparationPayloadCompact : ISerializable
+    partial class RecoveryMessage
     {
-        public byte ValidatorIndex;
-        public ReadOnlyMemory<byte> InvocationScript;
-
-        int ISerializable.Size =>
-            sizeof(byte) +                  //ValidatorIndex
-            InvocationScript.GetVarSize();  //InvocationScript
-
-        void ISerializable.Deserialize(ref MemoryReader reader)
+        public class PreparationPayloadCompact : ISerializable
         {
-            ValidatorIndex = reader.ReadByte();
-            InvocationScript = reader.ReadVarMemory(1024);
-        }
+            public byte ValidatorIndex;
+            public ReadOnlyMemory<byte> InvocationScript;
 
-        void ISerializable.Serialize(BinaryWriter writer)
-        {
-            writer.Write(ValidatorIndex);
-            writer.WriteVarBytes(InvocationScript.Span);
+            int ISerializable.Size =>
+                sizeof(byte) +                  //ValidatorIndex
+                InvocationScript.GetVarSize();  //InvocationScript
+
+            void ISerializable.Deserialize(ref MemoryReader reader)
+            {
+                ValidatorIndex = reader.ReadByte();
+                InvocationScript = reader.ReadVarMemory(1024);
+            }
+
+            void ISerializable.Serialize(BinaryWriter writer)
+            {
+                writer.Write(ValidatorIndex);
+                writer.WriteVarBytes(InvocationScript.Span);
+            }
         }
     }
 }

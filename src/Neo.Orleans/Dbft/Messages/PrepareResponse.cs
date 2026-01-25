@@ -1,4 +1,4 @@
-// Copyright (C) 2015-2026 The Neo Project.
+// Copyright (C) 2015-2025 The Neo Project.
 //
 // PrepareResponse.cs file belongs to the neo project and is free
 // software distributed under the MIT software license, see the
@@ -14,25 +14,26 @@ using Neo.Extensions;
 using Neo.IO;
 using Neo.Orleans.Dbft.Types;
 
-namespace Neo.Orleans.Dbft.Messages;
-
-public class PrepareResponse : ConsensusMessage
+namespace Neo.Orleans.Dbft.Messages
 {
-    public UInt256 PreparationHash;
-
-    public override int Size => base.Size + PreparationHash.Size;
-
-    public PrepareResponse() : base(ConsensusMessageType.PrepareResponse) { }
-
-    public override void Deserialize(ref MemoryReader reader)
+    public class PrepareResponse : ConsensusMessage
     {
-        base.Deserialize(ref reader);
-        PreparationHash = reader.ReadSerializable<UInt256>();
-    }
+        public UInt256 PreparationHash;
 
-    public override void Serialize(BinaryWriter writer)
-    {
-        base.Serialize(writer);
-        writer.Write(PreparationHash);
+        public override int Size => base.Size + PreparationHash.Size;
+
+        public PrepareResponse() : base(ConsensusMessageType.PrepareResponse) { }
+
+        public override void Deserialize(ref MemoryReader reader)
+        {
+            base.Deserialize(ref reader);
+            PreparationHash = reader.ReadSerializable<UInt256>();
+        }
+
+        public override void Serialize(BinaryWriter writer)
+        {
+            base.Serialize(writer);
+            writer.Write(PreparationHash);
+        }
     }
 }

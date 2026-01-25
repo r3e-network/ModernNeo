@@ -16,10 +16,10 @@ using Neo.Orleans.Interfaces;
 using Orleans;
 using System;
 using System.Buffers;
+using System.Buffers.Binary;
 using System.IO;
 using System.Net;
 using System.Net.WebSockets;
-using System.Buffers.Binary;
 using System.Threading;
 using System.Threading.Tasks;
 

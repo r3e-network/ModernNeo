@@ -23,16 +23,16 @@ using Neo.Orleans.Dbft.Types;
 using Neo.Orleans.Hosting;
 using Neo.Orleans.Interfaces;
 using Neo.Orleans.States;
+using Neo.Persistence;
 using Neo.Sign;
 using Neo.SmartContract;
 using Neo.SmartContract.Native;
-using Neo.Persistence;
+using Neo.VM;
 using Orleans.Runtime;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
-using Neo.VM;
 
 namespace Neo.Orleans.Grains
 {

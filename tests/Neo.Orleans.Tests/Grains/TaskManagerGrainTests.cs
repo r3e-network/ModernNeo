@@ -1,54 +1,66 @@
+// Copyright (C) 2015-2025 The Neo Project.
+//
+// TaskManagerGrainTests.cs file belongs to the neo project and is free
+// software distributed under the MIT software license, see the
+// accompanying file LICENSE in the main directory of the
+// repository or http://www.opensource.org/licenses/mit-license.php
+// for more details.
+//
+// Redistribution and use in source and binary forms with or without
+// modifications are permitted.
+
 using Neo.Network.P2P.Payloads;
 using Neo.Orleans.Interfaces;
 using Orleans.TestingHost;
 
-namespace Neo.Orleans.Tests.Grains;
-
-/// <summary>
-/// Unit tests for TaskManagerGrain.
-/// </summary>
-[TestClass]
-public class TaskManagerGrainTests
+namespace Neo.Orleans.Tests.Grains
 {
-    private TestCluster? _cluster;
-
-    [TestInitialize]
-    public async Task Setup()
+    /// <summary>
+    /// Unit tests for TaskManagerGrain.
+    /// </summary>
+    [TestClass]
+    public class TaskManagerGrainTests
     {
-        var builder = new TestClusterBuilder();
-        builder.AddSiloBuilderConfigurator<TestSiloConfigurator>();
-        _cluster = builder.Build();
-        await _cluster.DeployAsync();
-    }
+        private TestCluster? _cluster;
 
-    [TestCleanup]
-    public async Task Cleanup()
-    {
-        if (_cluster != null)
+        [TestInitialize]
+        public async Task Setup()
         {
-            await _cluster.StopAllSilosAsync();
-            await _cluster.DisposeAsync();
+            var builder = new TestClusterBuilder();
+            builder.AddSiloBuilderConfigurator<TestSiloConfigurator>();
+            _cluster = builder.Build();
+            await _cluster.DeployAsync();
         }
-    }
 
-    [TestMethod]
-    public async Task AddTasksAsync_UpdatesStateSummary()
-    {
-        var grain = _cluster!.GrainFactory.GetGrain<ITaskManagerGrain>(0);
+        [TestCleanup]
+        public async Task Cleanup()
+        {
+            if (_cluster != null)
+            {
+                await _cluster.StopAllSilosAsync();
+                await _cluster.DisposeAsync();
+            }
+        }
 
-        var hash1 = new byte[32];
-        var hash2 = new byte[32];
-        BitConverter.GetBytes(1).CopyTo(hash1, 0);
-        BitConverter.GetBytes(2).CopyTo(hash2, 0);
+        [TestMethod]
+        public async Task AddTasksAsync_UpdatesStateSummary()
+        {
+            var grain = _cluster!.GrainFactory.GetGrain<ITaskManagerGrain>(0);
 
-        var added = await grain.AddTasksAsync(new[] { hash1, hash2 }, (byte)InventoryType.Block);
-        Assert.AreEqual(2, added);
+            var hash1 = new byte[32];
+            var hash2 = new byte[32];
+            BitConverter.GetBytes(1).CopyTo(hash1, 0);
+            BitConverter.GetBytes(2).CopyTo(hash2, 0);
 
-        var summary = await grain.GetStateSummaryAsync();
-        Assert.IsTrue(summary.PendingTaskCount >= 2);
+            var added = await grain.AddTasksAsync(new[] { hash1, hash2 }, (byte)InventoryType.Block);
+            Assert.AreEqual(2, added);
 
-        await grain.ClearAsync();
-        summary = await grain.GetStateSummaryAsync();
-        Assert.AreEqual(0, summary.PendingTaskCount);
+            var summary = await grain.GetStateSummaryAsync();
+            Assert.IsTrue(summary.PendingTaskCount >= 2);
+
+            await grain.ClearAsync();
+            summary = await grain.GetStateSummaryAsync();
+            Assert.AreEqual(0, summary.PendingTaskCount);
+        }
     }
 }

@@ -1,4 +1,4 @@
-// Copyright (C) 2015-2026 The Neo Project.
+// Copyright (C) 2015-2025 The Neo Project.
 //
 // Commit.cs file belongs to the neo project and is free
 // software distributed under the MIT software license, see the
@@ -13,25 +13,26 @@
 using Neo.IO;
 using Neo.Orleans.Dbft.Types;
 
-namespace Neo.Orleans.Dbft.Messages;
-
-public class Commit : ConsensusMessage
+namespace Neo.Orleans.Dbft.Messages
 {
-    public ReadOnlyMemory<byte> Signature;
-
-    public override int Size => base.Size + Signature.Length;
-
-    public Commit() : base(ConsensusMessageType.Commit) { }
-
-    public override void Deserialize(ref MemoryReader reader)
+    public class Commit : ConsensusMessage
     {
-        base.Deserialize(ref reader);
-        Signature = reader.ReadMemory(64);
-    }
+        public ReadOnlyMemory<byte> Signature;
 
-    public override void Serialize(BinaryWriter writer)
-    {
-        base.Serialize(writer);
-        writer.Write(Signature.Span);
+        public override int Size => base.Size + Signature.Length;
+
+        public Commit() : base(ConsensusMessageType.Commit) { }
+
+        public override void Deserialize(ref MemoryReader reader)
+        {
+            base.Deserialize(ref reader);
+            Signature = reader.ReadMemory(64);
+        }
+
+        public override void Serialize(BinaryWriter writer)
+        {
+            base.Serialize(writer);
+            writer.Write(Signature.Span);
+        }
     }
 }

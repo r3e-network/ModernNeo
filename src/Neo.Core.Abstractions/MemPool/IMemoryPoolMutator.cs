@@ -9,9 +9,9 @@
 // Redistribution and use in source and binary forms with or without
 // modifications are permitted.
 
+using Neo.Core.Abstractions.Blockchain;
 using System.Threading;
 using System.Threading.Tasks;
-using Neo.Core.Abstractions.Blockchain;
 
 namespace Neo.Core.Abstractions.MemPool
 {

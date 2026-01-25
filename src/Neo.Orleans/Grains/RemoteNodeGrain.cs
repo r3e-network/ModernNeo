@@ -958,77 +958,77 @@ namespace Neo.Orleans.Grains
             switch (payload.Type)
             {
                 case InventoryType.Block:
-                {
-                    var blockchain = _grainFactory.GetGrain<IBlockchainGrain>(0);
-                    foreach (var hash in payload.Hashes)
                     {
-                        if (sentHashes != null && !sentHashes.TryAdd(hash))
-                            continue;
-
-                        var block = await blockchain.GetBlockByHashAsync(hash.GetSpan().ToArray());
-                        if (block is Block fullBlock)
+                        var blockchain = _grainFactory.GetGrain<IBlockchainGrain>(0);
+                        foreach (var hash in payload.Hashes)
                         {
-                            byte[] message;
-                            if (_bloomFilter == null)
+                            if (sentHashes != null && !sentHashes.TryAdd(hash))
+                                continue;
+
+                            var block = await blockchain.GetBlockByHashAsync(hash.GetSpan().ToArray());
+                            if (block is Block fullBlock)
                             {
-                                message = SerializeMessage(MessageCommand.Block, fullBlock);
+                                byte[] message;
+                                if (_bloomFilter == null)
+                                {
+                                    message = SerializeMessage(MessageCommand.Block, fullBlock);
+                                }
+                                else
+                                {
+                                    var flags = new BitArray(fullBlock.Transactions.Select(IsFilteredTransaction).ToArray());
+                                    var merkleBlock = MerkleBlockPayload.Create(fullBlock, flags);
+                                    message = SerializeMessage(MessageCommand.MerkleBlock, merkleBlock);
+                                }
+                                await SendAsync(message);
                             }
                             else
                             {
-                                var flags = new BitArray(fullBlock.Transactions.Select(IsFilteredTransaction).ToArray());
-                                var merkleBlock = MerkleBlockPayload.Create(fullBlock, flags);
-                                message = SerializeMessage(MessageCommand.MerkleBlock, merkleBlock);
+                                missing.Add(hash);
                             }
-                            await SendAsync(message);
                         }
-                        else
-                        {
-                            missing.Add(hash);
-                        }
+                        break;
                     }
-                    break;
-                }
                 case InventoryType.TX:
-                {
-                    var memoryPool = _grainFactory.GetGrain<IMemoryPoolGrain>(0);
-                    foreach (var hash in payload.Hashes)
                     {
-                        if (sentHashes != null && !sentHashes.TryAdd(hash))
-                            continue;
+                        var memoryPool = _grainFactory.GetGrain<IMemoryPoolGrain>(0);
+                        foreach (var hash in payload.Hashes)
+                        {
+                            if (sentHashes != null && !sentHashes.TryAdd(hash))
+                                continue;
 
-                        var transaction = await memoryPool.GetTransactionAsync(hash.GetSpan().ToArray());
-                        if (transaction is Transaction fullTransaction)
-                        {
-                            var message = SerializeMessage(MessageCommand.Transaction, fullTransaction);
-                            await SendAsync(message);
+                            var transaction = await memoryPool.GetTransactionAsync(hash.GetSpan().ToArray());
+                            if (transaction is Transaction fullTransaction)
+                            {
+                                var message = SerializeMessage(MessageCommand.Transaction, fullTransaction);
+                                await SendAsync(message);
+                            }
+                            else
+                            {
+                                missing.Add(hash);
+                            }
                         }
-                        else
-                        {
-                            missing.Add(hash);
-                        }
+                        break;
                     }
-                    break;
-                }
                 case InventoryType.Extensible:
-                {
-                    foreach (var hash in payload.Hashes)
                     {
-                        if (sentHashes != null && !sentHashes.TryAdd(hash))
-                            continue;
+                        foreach (var hash in payload.Hashes)
+                        {
+                            if (sentHashes != null && !sentHashes.TryAdd(hash))
+                                continue;
 
-                        if (_system.RelayCache.TryGet(hash, out var inventory) &&
-                            inventory is ExtensiblePayload extensible)
-                        {
-                            var message = SerializeMessage(MessageCommand.Extensible, extensible);
-                            await SendAsync(message);
+                            if (_system.RelayCache.TryGet(hash, out var inventory) &&
+                                inventory is ExtensiblePayload extensible)
+                            {
+                                var message = SerializeMessage(MessageCommand.Extensible, extensible);
+                                await SendAsync(message);
+                            }
+                            else
+                            {
+                                missing.Add(hash);
+                            }
                         }
-                        else
-                        {
-                            missing.Add(hash);
-                        }
+                        break;
                     }
-                    break;
-                }
                 default:
                     foreach (var hash in payload.Hashes)
                     {

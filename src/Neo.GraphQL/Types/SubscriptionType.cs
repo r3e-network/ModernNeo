@@ -9,11 +9,11 @@
 // Redistribution and use in source and binary forms with or without
 // modifications are permitted.
 
-using System;
 using GraphQL.Resolvers;
 using GraphQL.Types;
 using Neo.Network.P2P.Payloads;
 using Neo.Services.Events;
+using System;
 
 namespace Neo.GraphQL.Types
 {

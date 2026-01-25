@@ -1,4 +1,4 @@
-// Copyright (C) 2015-2026 The Neo Project.
+// Copyright (C) 2015-2025 The Neo Project.
 //
 // DbftSettings.cs file belongs to the neo project and is free
 // software distributed under the MIT software license, see the
@@ -15,51 +15,52 @@ using Neo;
 using Neo.Plugins;
 using System;
 
-namespace Neo.Orleans.Dbft;
-
-public class DbftSettings : IPluginSettings
+namespace Neo.Orleans.Dbft
 {
-    public string RecoveryLogs { get; }
-    public bool IgnoreRecoveryLogs { get; }
-    public bool AutoStart { get; }
-    public uint Network { get; }
-    public uint MaxBlockSize { get; }
-    public long MaxBlockSystemFee { get; }
-
-    public UnhandledExceptionPolicy ExceptionPolicy { get; }
-
-    public DbftSettings()
+    public class DbftSettings : IPluginSettings
     {
-        RecoveryLogs = "ConsensusState";
-        IgnoreRecoveryLogs = false;
-        AutoStart = false;
-        Network = ProtocolSettings.Default.Network;
-        MaxBlockSize = 262144u;
-        MaxBlockSystemFee = 150000000000L;
-        ExceptionPolicy = UnhandledExceptionPolicy.StopNode;
-    }
+        public string RecoveryLogs { get; }
+        public bool IgnoreRecoveryLogs { get; }
+        public bool AutoStart { get; }
+        public uint Network { get; }
+        public uint MaxBlockSize { get; }
+        public long MaxBlockSystemFee { get; }
 
-    public DbftSettings(ProtocolSettings settings)
-    {
-        ArgumentNullException.ThrowIfNull(settings);
+        public UnhandledExceptionPolicy ExceptionPolicy { get; }
 
-        RecoveryLogs = "ConsensusState";
-        IgnoreRecoveryLogs = false;
-        AutoStart = false;
-        Network = settings.Network;
-        MaxBlockSize = 262144u;
-        MaxBlockSystemFee = 150000000000L;
-        ExceptionPolicy = UnhandledExceptionPolicy.StopNode;
-    }
+        public DbftSettings()
+        {
+            RecoveryLogs = "ConsensusState";
+            IgnoreRecoveryLogs = false;
+            AutoStart = false;
+            Network = ProtocolSettings.Default.Network;
+            MaxBlockSize = 262144u;
+            MaxBlockSystemFee = 150000000000L;
+            ExceptionPolicy = UnhandledExceptionPolicy.StopNode;
+        }
 
-    public DbftSettings(IConfigurationSection section)
-    {
-        RecoveryLogs = section.GetValue("RecoveryLogs", "ConsensusState");
-        IgnoreRecoveryLogs = section.GetValue("IgnoreRecoveryLogs", false);
-        AutoStart = section.GetValue("AutoStart", false);
-        Network = section.GetValue("Network", ProtocolSettings.Default.Network);
-        MaxBlockSize = section.GetValue("MaxBlockSize", 262144u);
-        MaxBlockSystemFee = section.GetValue("MaxBlockSystemFee", 150000000000L);
-        ExceptionPolicy = section.GetValue("UnhandledExceptionPolicy", UnhandledExceptionPolicy.StopNode);
+        public DbftSettings(ProtocolSettings settings)
+        {
+            ArgumentNullException.ThrowIfNull(settings);
+
+            RecoveryLogs = "ConsensusState";
+            IgnoreRecoveryLogs = false;
+            AutoStart = false;
+            Network = settings.Network;
+            MaxBlockSize = 262144u;
+            MaxBlockSystemFee = 150000000000L;
+            ExceptionPolicy = UnhandledExceptionPolicy.StopNode;
+        }
+
+        public DbftSettings(IConfigurationSection section)
+        {
+            RecoveryLogs = section.GetValue("RecoveryLogs", "ConsensusState");
+            IgnoreRecoveryLogs = section.GetValue("IgnoreRecoveryLogs", false);
+            AutoStart = section.GetValue("AutoStart", false);
+            Network = section.GetValue("Network", ProtocolSettings.Default.Network);
+            MaxBlockSize = section.GetValue("MaxBlockSize", 262144u);
+            MaxBlockSystemFee = section.GetValue("MaxBlockSystemFee", 150000000000L);
+            ExceptionPolicy = section.GetValue("UnhandledExceptionPolicy", UnhandledExceptionPolicy.StopNode);
+        }
     }
 }
