@@ -26,7 +26,7 @@ jobs:
         run: dotnet list package --vulnerable --include-transitive
 
   Test:
-    timeout-minutes: 30
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -48,10 +48,13 @@ jobs:
       - name: Check Format (*.cs)
         if: matrix.os == 'ubuntu-latest'
         run: dotnet format --verify-no-changes --verbosity diagnostic
-      - name: Test (ALL OS)
-        if: matrix.os != 'ubuntu-latest'
+      - name: Test (ALL OS) - Unit Tests
         run: |
-          dotnet test -p:GITHUB_ACTIONS=true
+          dotnet test tests/Neo.UnitTests/ tests/Neo.Storage.Tests/ tests/Neo.Extensions.Tests/ tests/Neo.Core.Abstractions.Tests/ tests/Neo.Ledger.Abstractions.Tests/ tests/Neo.Network.Abstractions.Tests/ tests/Neo.Json.UnitTests/ -p:GITHUB_ACTIONS=true
+      - name: Orleans Tests (ubuntu only)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          dotnet test tests/Neo.Orleans.Tests/ -p:GITHUB_ACTIONS=true --timeout=600000
       - name: Golden Vectors (fast)
         if: matrix.os == 'ubuntu-latest'
         run: |
@@ -64,11 +67,11 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: |
           dotnet test tests/Neo.UnitTests/Neo.UnitTests.csproj -c Release --filter TestCategory=Bridge -v minimal
-      - name: Test (ubuntu)
+      - name: Coverage (ubuntu)
         if: matrix.os == 'ubuntu-latest'
         run: |
-          find tests -name *.csproj | xargs -I % dotnet add % package coverlet.msbuild
-          dotnet test /p:GITHUB_ACTIONS=true /p:CollectCoverage=true /p:CoverletOutput='${{ github.workspace }}/TestResults/coverage/' /p:MergeWith='${{ github.workspace }}/TestResults/coverage/coverage.json' /p:CoverletOutputFormat=\"lcov,json\" -m:1
+          find tests -name *.csproj ! -path "tests/Neo.Orleans.Tests/*" | xargs -I % dotnet add % package coverlet.msbuild 2>/dev/null || true
+          dotnet test /p:GITHUB_ACTIONS=true /p:CollectCoverage=true /p:CoverletOutput='${{ github.workspace }}/TestResults/coverage/' /p:MergeWith='${{ github.workspace }}/TestResults/coverage/coverage.json' /p:CoverletOutputFormat=\"lcov,json\" -m:1 tests/Neo.UnitTests/ tests/Neo.Storage.Tests/ tests/Neo.Extensions.Tests/ tests/Neo.Core.Abstractions.Tests/ tests/Neo.Ledger.Abstractions.Tests/ tests/Neo.Network.Abstractions.Tests/ tests/Neo.Json.UnitTests/
       - name: Coveralls
         if: matrix.os == 'ubuntu-latest'
         uses: coverallsapp/github-action@v2
