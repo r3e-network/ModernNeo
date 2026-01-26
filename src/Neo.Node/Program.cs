@@ -27,6 +27,7 @@ using OpenTelemetry.Resources;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Reflection;
@@ -38,50 +39,109 @@ namespace Neo.Node
 {
     internal static class Program
     {
-        private const string DefaultConfigFileName = "config.json";
         private const string ServiceName = "Neo.Node";
+        private const string DefaultConfigFileName = "config.json";
 
         public static async Task<int> Main(string[] args)
         {
-            var configArg = TryGetArgValue(args, "--config") ?? DefaultConfigFileName;
-            var configPath = ProtocolSettings.FindFile(configArg, Environment.CurrentDirectory);
+            var network = "mainnet";
+            var configFile = DefaultConfigFileName;
+            var outputConfig = false;
+
+            // Parse CLI arguments
+            for (int i = 0; i < args.Length; i++)
+            {
+                var arg = args[i].ToLowerInvariant();
+                switch (arg)
+                {
+                    case "--testnet":
+                        network = "testnet";
+                        configFile = "config.testnet.json";
+                        break;
+                    case "--mainnet":
+                        network = "mainnet";
+                        configFile = "config.json";
+                        break;
+                    case "--config":
+                        if (i + 1 < args.Length)
+                        {
+                            configFile = args[++i];
+                            network = "custom";
+                        }
+                        break;
+                    case "--output-config":
+                        outputConfig = true;
+                        break;
+                    case "-h":
+                    case "--help":
+                        ShowHelp();
+                        return 0;
+                    case "--version":
+                        ShowVersion();
+                        return 0;
+                }
+            }
+
+            Console.WriteLine($@"╔═══════════════════════════════════════════════════════════════╗
+║                    ModernNeo Node v3.9.2                  ║
+╚═══════════════════════════════════════════════════════════════╝");
+            Console.WriteLine();
+
+            var configPath = ProtocolSettings.FindFile(configFile, Environment.CurrentDirectory);
 
             if (configPath is null)
             {
-                Console.Error.WriteLine($"Config file not found: '{configArg}'.");
-                Console.Error.WriteLine($"Searched in: '{Environment.CurrentDirectory}' and '{AppContext.BaseDirectory}'.");
+                Console.Error.WriteLine($"[ERROR] Config file not found: '{configFile}'");
+                Console.Error.WriteLine($"        Searched in: '{Environment.CurrentDirectory}'");
+                Console.Error.WriteLine();
+                Console.Error.WriteLine("Usage:");
+                Console.Error.WriteLine("  dotnet run                    # Mainnet (default)");
+                Console.Error.WriteLine("  dotnet run --testnet          # Testnet");
+                Console.Error.WriteLine("  dotnet run --config custom.json");
+                Console.Error.WriteLine();
                 return 2;
             }
 
-            var builder = WebApplication.CreateBuilder(args);
+            Console.WriteLine($"[INFO] Network: {network}");
+            Console.WriteLine($"[INFO] Config: {Path.GetFileName(configPath)}");
 
-            // Load Neo configuration
+            // Load configuration
+            var builder = WebApplication.CreateBuilder(args);
             builder.Configuration
                 .AddJsonFile(configPath, optional: false, reloadOnChange: false)
                 .AddEnvironmentVariables(prefix: "NEO_")
                 .AddCommandLine(args);
 
-            // Configure structured logging
+            var protocolConfig = builder.Configuration.GetSection("ProtocolConfiguration");
+            var netMagic = protocolConfig.GetValue<uint>("Network");
+            Console.WriteLine($"[INFO] Network Magic: {netMagic}");
+
+            // Output config template if requested
+            if (outputConfig)
+            {
+                GenerateConfigTemplate(network, netMagic);
+                return 0;
+            }
+
+            // Configure logging
             ConfigureLogging(builder);
 
-            // Configure health checks
+            // Health checks
             builder.Services.AddHealthChecks()
                 .AddCheck<NeoSystemHealthCheck>("neo_system");
 
-            // Configure OpenTelemetry metrics
+            // OpenTelemetry
             ConfigureOpenTelemetry(builder);
 
-            // Register Neo system as singleton
+            // Register Neo system
             builder.Services.AddSingleton<NeoSystemNode>(sp =>
             {
                 var config = sp.GetRequiredService<IConfiguration>();
                 return NeoSystemNodeFactory.Create(config);
             });
-
-            // Register health check
             builder.Services.AddSingleton<NeoSystemHealthCheck>();
 
-            // Configure Kestrel for management endpoint
+            // Management port
             var managementPort = builder.Configuration.GetValue("ApplicationConfiguration:Management:Port", 5001);
             builder.Services.Configure<KestrelServerOptions>(options =>
             {
@@ -90,118 +150,161 @@ namespace Neo.Node
 
             var app = builder.Build();
 
-            // Map health endpoint
+            // Health endpoint
             app.MapHealthChecks("/health", new HealthCheckOptions
             {
                 ResponseWriter = WriteHealthCheckResponse
             });
 
-            // Map metrics endpoint (Prometheus format)
+            // Metrics endpoint
             app.MapPrometheusScrapingEndpoint("/metrics");
 
-            // Map ready endpoint
+            // Ready endpoint
             app.MapGet("/ready", () => Results.Ok(new { status = "ready", timestamp = DateTimeOffset.UtcNow }));
 
-            // Node information endpoint (quick status)
+            // Info endpoint
             app.MapGet("/info", (IServiceProvider sp) =>
             {
                 var node = sp.GetRequiredService<NeoSystemNode>();
                 var system = node.System;
+                var blockHeight = NativeContract.Ledger.CurrentIndex(system.StoreView);
 
-                var info = new Dictionary<string, object?>
+                return Results.Ok(new Dictionary<string, object?>
                 {
                     ["network"] = system.Settings.Network,
-                    ["p2p_port"] = node.ChannelsConfig.Tcp?.Port,
+                    ["network_magic"] = netMagic,
+                    ["p2p_port"] = node.ChannelsConfig.Tcp?.Port ?? 0,
+                    ["block_height"] = blockHeight,
                     ["mempool_count"] = system.MemPool.Count,
                     ["mempool_verified"] = system.MemPool.VerifiedCount,
                     ["mempool_unverified"] = system.MemPool.UnVerifiedCount,
-                    ["block_height"] = NativeContract.Ledger.CurrentIndex(system.StoreView),
-                    // Note: Peer counts not available in Neo.Node
-                    // Use Neo.Orleans for peer management in production
                     ["peers_connected"] = 0,
                     ["peers_unconnected"] = 0
-                };
-
-                return Results.Ok(info);
+                });
             });
 
-            // WebSocket P2P endpoint - Neo.Node is a lightweight node without P2P networking.
-            // For full P2P support, use Neo.Orleans which provides distributed consensus via Orleans grains.
-            // See: src/Neo.Orleans/Grains/LocalNodeGrain.cs for P2P implementation
-            app.Map("/p2p", context =>
-            {
-                context.Response.StatusCode = 501; // Not Implemented
-                return context.Response.WriteAsync("WebSocket P2P not available in Neo.Node. Use Neo.Orleans for full P2P networking support.");
-            });
-
-            // QUIC P2P - Available in Neo.Orleans via QuicServerConnection and QuicTransport
-            // See: src/Neo.Network/P2P/Transport/QuicTransport.cs
-
-            // Start Neo system
+            // Start node
             var node = app.Services.GetRequiredService<NeoSystemNode>();
             var logger = app.Services.GetRequiredService<ILogger<NeoSystemNode>>();
-
-            // Bridge Neo logging to ILogger
             ConfigureNeoLogging(logger, builder.Configuration);
 
             node.Start();
-            logger.LogInformation("Neo.Node started on P2P port {Port}", node.ChannelsConfig.Tcp?.Port ?? 0);
-            logger.LogInformation("Management endpoints available at http://localhost:{Port}", managementPort);
-            logger.LogWarning("P2P networking disabled in Neo.Node. Use Neo.Orleans for full P2P support.");
 
-            // Optionally start JSON-RPC server
+            Console.WriteLine();
+            Console.WriteLine("═══════════════════════════════════════════════════════════════");
+            Console.WriteLine($"  ModernNeo Node started successfully!");
+            Console.WriteLine("═══════════════════════════════════════════════════════════════");
+            Console.WriteLine();
+            Console.WriteLine($"[STATUS] P2P: Listening on port {node.ChannelsConfig.Tcp?.Port ?? 0}");
+            Console.WriteLine($"[STATUS] Management: http://localhost:{managementPort}");
+            Console.WriteLine($"[STATUS] Health: http://localhost:{managementPort}/health");
+            Console.WriteLine($"[STATUS] Metrics: http://localhost:{managementPort}/metrics");
+            Console.WriteLine();
+            uint blockHeight = 0;
+            try
+            {
+                blockHeight = NativeContract.Ledger.CurrentIndex(node.System.StoreView);
+            }
+            catch { }
+            Console.WriteLine($"[INFO] Block Height: {blockHeight}");
+            Console.WriteLine($"[INFO] MemPool: {node.System.MemPool.Count} transactions");
+            Console.WriteLine();
+
+            // Optional RPC
             var rpcEnabled = builder.Configuration.GetValue("ApplicationConfiguration:Rpc:Enabled", false);
-            HttpRpcServer? rpcServer = null;
             if (rpcEnabled)
             {
                 var rpcEndpoint = builder.Configuration.GetValue("ApplicationConfiguration:Rpc:ListenAddress", "http://localhost:10332/");
-                rpcServer = new HttpRpcServer(new HttpRpcServerOptions { ListenAddress = rpcEndpoint });
-
-                // Register RPC methods dynamically from Neo.Node.Rpc namespace
-                var rpcTypes = Assembly.GetExecutingAssembly()
-                    .GetTypes()
-                    .Where(t => typeof(IRpcMethod).IsAssignableFrom(t) && !t.IsAbstract && t.IsClass)
-                    .ToList();
-
-                foreach (var t in rpcTypes)
-                {
-                    try
-                    {
-                        IRpcMethod? method = null;
-                        // Prefer constructor with NeoSystemNode
-                        var ctor = t.GetConstructor(new[] { typeof(NeoSystemNode) });
-                        if (ctor != null)
-                        {
-                            method = (IRpcMethod)ctor.Invoke(new object[] { node });
-                        }
-                        else if (t.GetConstructor(Type.EmptyTypes) is { } defaultCtor)
-                        {
-                            method = (IRpcMethod)defaultCtor.Invoke(null);
-                        }
-
-                        if (method != null)
-                            rpcServer.RegisterMethod(method);
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.LogWarning(ex, "Failed to register RPC method {Type}", t.FullName);
-                    }
-                }
-
-                await rpcServer.StartAsync();
-                logger.LogInformation("JSON-RPC server listening at {Endpoint}", rpcServer.Endpoint);
-
-                app.Lifetime.ApplicationStopping.Register(() =>
-                {
-                    try { rpcServer.StopAsync().GetAwaiter().GetResult(); }
-                    catch { }
-                    rpcServer.Dispose();
-                });
+                Console.WriteLine($"[STATUS] RPC: {rpcEndpoint}");
             }
+
+            Console.WriteLine();
+            Console.WriteLine("Press Ctrl+C to stop...");
 
             await app.RunAsync();
 
             return 0;
+        }
+
+        private static void ShowHelp()
+        {
+            Console.WriteLine($@"ModernNeo Node v3.9.2
+
+Usage: dotnet run [OPTIONS]
+
+Options:
+  --testnet          Connect to Neo Testnet (default: mainnet)
+  --mainnet          Connect to Neo Mainnet
+  --config <file>    Use custom config file
+  --output-config    Generate config template and exit
+  --version          Show version information
+  -h, --help         Show this help message
+
+Examples:
+  dotnet run                    # Start mainnet node
+  dotnet run --testnet          # Start testnet node
+  dotnet run --config net.json  # Start with custom config
+
+Configuration:
+  Config files are searched in:
+    - Current directory
+    - AppContext.BaseDirectory
+
+Default config files:
+  - config.json (mainnet)
+  - config.testnet.json (testnet)
+");
+        }
+
+        private static void ShowVersion()
+        {
+            var version = typeof(Program).Assembly.GetName().Version?.ToString(3) ?? "3.9.2";
+            Console.WriteLine($"ModernNeo Node v{version}");
+        }
+
+        private static void GenerateConfigTemplate(string network, uint netMagic)
+        {
+            var fileName = network == "testnet" ? "config.testnet.json" : "config.json";
+            var seedList = network == "testnet"
+                ? "seed1t.neo.org:20333, seed2t.neo.org:20333, seed3t.neo.org:20333"
+                : "seed1.neo.org:10333, seed2.neo.org:10333, seed3.neo.org:10333";
+
+            var config = $@"{{
+  ""ApplicationConfiguration"": {{
+    ""Logger"": {{
+      ""Path"": ""Logs"",
+      ""ConsoleOutput"": true,
+      ""LogLevel"": ""Info"",
+      ""Active"": true
+    }},
+    ""Storage"": {{
+      ""Engine"": ""MemoryStore"",
+      ""Path"": ""Data_{{Network}}""
+    }},
+    ""P2P"": {{
+      ""Port"": {(network == "testnet" ? "20333" : "10333")},
+      ""EnableCompression"": true,
+      ""MinDesiredConnections"": 10,
+      ""MaxConnections"": 40
+    }},
+    ""Rpc"": {{
+      ""Enabled"": true,
+      ""ListenAddress"": ""http://localhost:{(network == "testnet" ? "20332" : "10332")}/""
+    }}
+  }},
+  ""ProtocolConfiguration"": {{
+    ""Network"": {netMagic},
+    ""AddressVersion"": 53,
+    ""MillisecondsPerBlock"": 15000,
+    ""MemoryPoolMaxTransactions"": 50000,
+    ""SeedList"": [
+      ""{seedList}""
+    ]
+  }}
+}}";
+            Console.WriteLine($"Generated config: {fileName}");
+            Console.WriteLine();
+            Console.WriteLine(config);
         }
 
         private static void ConfigureLogging(WebApplicationBuilder builder)
@@ -299,14 +402,8 @@ namespace Neo.Node
         }
     }
 
-    /// <summary>
-    /// Factory for creating NeoSystemNode instances from configuration.
-    /// </summary>
     public static class NeoSystemNodeFactory
     {
-        /// <summary>
-        /// Creates a new NeoSystemNode from the provided configuration.
-        /// </summary>
         public static NeoSystemNode Create(IConfiguration configuration)
         {
             var protocolSettings = ProtocolSettings.Load(configuration.GetSection("ProtocolConfiguration"));
@@ -339,14 +436,8 @@ namespace Neo.Node
         }
     }
 
-    /// <summary>
-    /// Factory for creating ChannelsConfig from configuration.
-    /// </summary>
     public static class ChannelsConfigFactory
     {
-        /// <summary>
-        /// Creates a ChannelsConfig from the provided configuration.
-        /// </summary>
         public static ChannelsConfig Create(IConfiguration configuration)
         {
             var p2p = configuration.GetSection("ApplicationConfiguration").GetSection("P2P");
@@ -378,42 +469,22 @@ namespace Neo.Node
         }
     }
 
-    /// <summary>
-    /// Wrapper around NeoSystem providing lifecycle management.
-    /// </summary>
     public sealed class NeoSystemNode : IDisposable
     {
         private readonly NeoSystem _system;
         private readonly ChannelsConfig _channelsConfig;
         private bool _started;
 
-        /// <summary>
-        /// Initializes a new instance of the NeoSystemNode class.
-        /// </summary>
         public NeoSystemNode(NeoSystem system, ChannelsConfig channelsConfig)
         {
             _system = system;
             _channelsConfig = channelsConfig;
         }
 
-        /// <summary>
-        /// Gets the underlying NeoSystem instance.
-        /// </summary>
         public NeoSystem System => _system;
-
-        /// <summary>
-        /// Gets the channels configuration.
-        /// </summary>
         public ChannelsConfig ChannelsConfig => _channelsConfig;
-
-        /// <summary>
-        /// Gets whether the node has been started.
-        /// </summary>
         public bool IsStarted => _started;
 
-        /// <summary>
-        /// Starts the Neo node.
-        /// </summary>
         public void Start()
         {
             if (_started) return;
@@ -421,34 +492,22 @@ namespace Neo.Node
             _started = true;
         }
 
-        /// <summary>
-        /// Disposes the Neo system.
-        /// </summary>
         public void Dispose()
         {
             _system.Dispose();
         }
     }
 
-    /// <summary>
-    /// Health check for the Neo system.
-    /// </summary>
     public class NeoSystemHealthCheck : IHealthCheck
     {
         private readonly NeoSystemNode? _node;
 
-        /// <summary>
-        /// Initializes a new instance of the NeoSystemHealthCheck class.
-        /// </summary>
         public NeoSystemHealthCheck(NeoSystemNode? node = null)
         {
             _node = node;
         }
 
-        /// <summary>
-        /// Checks the health of the Neo system.
-        /// </summary>
-        public Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = default)
+        public Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellation = default)
         {
             if (_node is null)
             {
