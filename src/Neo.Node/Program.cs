@@ -201,10 +201,14 @@ namespace Neo.Node
 
             Console.WriteLine();
             Console.WriteLine("═══════════════════════════════════════════════════════════════");
-            Console.WriteLine($"  ModernNeo Node started successfully!");
+            Console.WriteLine($"  ModernNeo RPC Node started successfully!");
             Console.WriteLine("═══════════════════════════════════════════════════════════════");
             Console.WriteLine();
-            Console.WriteLine($"[STATUS] P2P: Listening on port {node.ChannelsConfig.Tcp?.Port ?? 0}");
+            Console.WriteLine($"[NOTE] This is an RPC/API node. For full P2P networking,");
+            Console.WriteLine($"      block sync, and consensus, use Neo.Orleans instead:");
+            Console.WriteLine($"      cd src/Neo.Orleans && dotnet run -- --testnet");
+            Console.WriteLine();
+            Console.WriteLine($"[STATUS] P2P Port: {node.ChannelsConfig.Tcp?.Port ?? 0} (listening only)");
             Console.WriteLine($"[STATUS] Management: http://localhost:{managementPort}");
             Console.WriteLine($"[STATUS] Health: http://localhost:{managementPort}/health");
             Console.WriteLine($"[STATUS] Metrics: http://localhost:{managementPort}/metrics");
@@ -250,9 +254,20 @@ Options:
   -h, --help         Show this help message
 
 Examples:
-  dotnet run                    # Start mainnet node
-  dotnet run --testnet          # Start testnet node
+  dotnet run                    # Mainnet RPC node
+  dotnet run --testnet          # Testnet RPC node
   dotnet run --config net.json  # Start with custom config
+
+NOTE: Neo.Node provides RPC/API endpoints only. For full P2P networking
+      and block synchronization, use Neo.Orleans instead:
+
+      cd src/Neo.Orleans && dotnet run -- --testnet
+
+      Neo.Orleans provides:
+      - Full P2P protocol with peer discovery
+      - Block synchronization from seed nodes
+      - Transaction propagation
+      - Consensus participation
 
 Configuration:
   Config files are searched in:
