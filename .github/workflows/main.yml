@@ -50,7 +50,13 @@ jobs:
         run: dotnet format --verify-no-changes --verbosity diagnostic
       - name: Test (ALL OS) - Unit Tests
         run: |
-          dotnet test tests/Neo.UnitTests/ tests/Neo.Storage.Tests/ tests/Neo.Extensions.Tests/ tests/Neo.Core.Abstractions.Tests/ tests/Neo.Ledger.Abstractions.Tests/ tests/Neo.Network.Abstractions.Tests/ tests/Neo.Json.UnitTests/ -p:GITHUB_ACTIONS=true
+          dotnet test tests/Neo.UnitTests/ -p:GITHUB_ACTIONS=true
+          dotnet test tests/Neo.Storage.Tests/ -p:GITHUB_ACTIONS=true
+          dotnet test tests/Neo.Extensions.Tests/ -p:GITHUB_ACTIONS=true
+          dotnet test tests/Neo.Core.Abstractions.Tests/ -p:GITHUB_ACTIONS=true
+          dotnet test tests/Neo.Ledger.Abstractions.Tests/ -p:GITHUB_ACTIONS=true
+          dotnet test tests/Neo.Network.Abstractions.Tests/ -p:GITHUB_ACTIONS=true
+          dotnet test tests/Neo.Json.UnitTests/ -p:GITHUB_ACTIONS=true
       - name: Orleans Tests (ubuntu only)
         if: matrix.os == 'ubuntu-latest'
         run: |
@@ -71,7 +77,9 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: |
           find tests -name *.csproj ! -path "tests/Neo.Orleans.Tests/*" | xargs -I % dotnet add % package coverlet.msbuild 2>/dev/null || true
-          dotnet test /p:GITHUB_ACTIONS=true /p:CollectCoverage=true /p:CoverletOutput='${{ github.workspace }}/TestResults/coverage/' /p:MergeWith='${{ github.workspace }}/TestResults/coverage/coverage.json' /p:CoverletOutputFormat=\"lcov,json\" -m:1 tests/Neo.UnitTests/ tests/Neo.Storage.Tests/ tests/Neo.Extensions.Tests/ tests/Neo.Core.Abstractions.Tests/ tests/Neo.Ledger.Abstractions.Tests/ tests/Neo.Network.Abstractions.Tests/ tests/Neo.Json.UnitTests/
+          for proj in tests/Neo.UnitTests/ tests/Neo.Storage.Tests/ tests/Neo.Extensions.Tests/ tests/Neo.Core.Abstractions.Tests/ tests/Neo.Ledger.Abstractions.Tests/ tests/Neo.Network.Abstractions.Tests/ tests/Neo.Json.UnitTests/; do
+            dotnet test "$proj" /p:GITHUB_ACTIONS=true /p:CollectCoverage=true /p:CoverletOutput='${{ github.workspace }}/TestResults/coverage/' /p:MergeWith='${{ github.workspace }}/TestResults/coverage/coverage.json' /p:CoverletOutputFormat=\"lcov,json\" -m:1
+          done
       - name: Coveralls
         if: matrix.os == 'ubuntu-latest'
         uses: coverallsapp/github-action@v2
