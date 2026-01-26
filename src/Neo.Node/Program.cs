@@ -167,7 +167,16 @@ namespace Neo.Node
             {
                 var node = sp.GetRequiredService<NeoSystemNode>();
                 var system = node.System;
-                var blockHeight = NativeContract.Ledger.CurrentIndex(system.StoreView);
+
+                uint blockHeight = 0;
+                try
+                {
+                    blockHeight = NativeContract.Ledger.CurrentIndex(system.StoreView);
+                }
+                catch
+                {
+                    // Blockchain not initialized yet
+                }
 
                 return Results.Ok(new Dictionary<string, object?>
                 {
