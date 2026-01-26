@@ -1,4 +1,4 @@
-﻿
+
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 18
 VisualStudioVersion = 18.0.11201.2
@@ -82,6 +82,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Neo.Node.AOT", "src\Neo.Node.AOT\Neo.Node.AOT.csproj", "{775A9B6A-6011-46FE-8D4F-ECE14E3026EE}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Neo.Orleans", "src\Neo.Orleans\Neo.Orleans.csproj", "{5ACC9D07-F194-4767-8986-928F60FE68D2}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Neo.TestnetNode", "src\Neo.TestnetNode\Neo.TestnetNode.csproj", "{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Neo.Serialization.MessagePack", "src\Neo.Serialization.MessagePack\Neo.Serialization.MessagePack.csproj", "{7407BEA4-F752-4F45-9120-C3E0AC793E9B}"
 EndProject
