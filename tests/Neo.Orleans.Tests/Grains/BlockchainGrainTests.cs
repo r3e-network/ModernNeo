@@ -14,9 +14,11 @@ using Neo;
 using Neo.Core.Interfaces;
 using Neo.Cryptography;
 using Neo.Network.P2P.Payloads;
+using Neo.Orleans.Adapters;
 using Neo.Orleans.Grains;
 using Neo.Orleans.Hosting;
 using Neo.Orleans.Interfaces;
+using Neo.Orleans.Options;
 using Neo.Orleans.Services;
 using Neo.Orleans.States;
 using Neo.Orleans.Tests;
@@ -375,7 +377,7 @@ namespace Neo.Orleans.Tests.Grains
             siloBuilder.AddMemoryGrainStorage("TaskManagerStore");
             siloBuilder.AddMemoryGrainStorage("TxRouterStore");
             siloBuilder.Services.AddSingleton<IBlockStorageService, InMemoryBlockStorageService>();
-            siloBuilder.Services.AddSingleton(new NeoOrleansOptions
+            siloBuilder.Services.AddSingleton(new OrleansOptions
             {
                 ValidationMode = NeoValidationMode.None,
                 ProtocolSettings = TestProtocolSettings.SoleNode,
@@ -384,8 +386,9 @@ namespace Neo.Orleans.Tests.Grains
             });
             siloBuilder.Services.AddSingleton(sp =>
             {
-                var options = sp.GetRequiredService<NeoOrleansOptions>();
-                return new NeoSystem(options.ProtocolSettings);
+                var options = sp.GetRequiredService<OrleansOptions>();
+                var system = new NeoSystem((ProtocolSettings)options.ProtocolSettings!);
+                return new NeoSystemAdapter(system) as INeoSystem;
             });
         }
     }

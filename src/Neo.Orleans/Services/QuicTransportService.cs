@@ -9,8 +9,8 @@
 // Redistribution and use in source and binary forms with or without
 // modifications are permitted.
 
-using Neo.Network.P2P;
 using Neo.Network.P2P.Transport;
+using Neo.Orleans.Utilities;
 using System;
 using System.Collections.Concurrent;
 using System.Linq;
@@ -26,7 +26,6 @@ namespace Neo.Orleans.Services
     /// </summary>
     public sealed class QuicTransportService : ITransportService, IAsyncDisposable
     {
-        private static readonly int MaxMessageBytes = Message.PayloadMaxSize + 16;
 
         private sealed class QuicConnection : IAsyncDisposable
         {
@@ -87,10 +86,10 @@ namespace Neo.Orleans.Services
         {
             if (_disposed || message.Length == 0)
                 return false;
-            if (message.Length > MaxMessageBytes)
+            if (message.Length > TransportConstants.MaxMessageBytes)
                 return false;
 
-            var key = TcpTransportService.FormatConnectionKey(address, port);
+            var key = TransportConstants.FormatConnectionKey(address, port);
             if (!_connections.TryGetValue(key, out var connection))
                 return false;
 
@@ -116,13 +115,13 @@ namespace Neo.Orleans.Services
 
         public Task<bool> ConnectAsync(string address, int port, CancellationToken cancellationToken = default)
         {
-            var key = TcpTransportService.FormatConnectionKey(address, port);
+            var key = TransportConstants.FormatConnectionKey(address, port);
             return Task.FromResult(_connections.ContainsKey(key));
         }
 
         public async Task DisconnectAsync(string address, int port, CancellationToken cancellationToken = default)
         {
-            var key = TcpTransportService.FormatConnectionKey(address, port);
+            var key = TransportConstants.FormatConnectionKey(address, port);
             if (_connections.TryRemove(key, out var connection))
             {
                 await connection.DisposeAsync();
@@ -131,7 +130,7 @@ namespace Neo.Orleans.Services
 
         public bool IsConnected(string address, int port)
         {
-            var key = TcpTransportService.FormatConnectionKey(address, port);
+            var key = TransportConstants.FormatConnectionKey(address, port);
             return _connections.ContainsKey(key);
         }
 
@@ -158,7 +157,7 @@ namespace Neo.Orleans.Services
                 throw new ObjectDisposedException(nameof(QuicTransportService));
             }
 
-            var key = TcpTransportService.FormatConnectionKey(remoteEndPoint.Address.ToString(), remoteEndPoint.Port);
+            var key = TransportConstants.FormatConnectionKey(remoteEndPoint.Address.ToString(), remoteEndPoint.Port);
             RemoveConnection(key, dispose: true);
             _connections[key] = new QuicConnection(
                 connection,

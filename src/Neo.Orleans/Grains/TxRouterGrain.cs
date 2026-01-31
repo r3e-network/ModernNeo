@@ -17,9 +17,12 @@ using Neo.Ledger;
 using Neo.Network.P2P.Payloads;
 using Neo.Orleans.Hosting;
 using Neo.Orleans.Interfaces;
+using Neo.Orleans.Options;
+using Neo.Orleans.Utilities;
 using Orleans.Runtime;
 using System.Diagnostics;
 
+#pragma warning disable CS0618 // OrleansOptions is obsolete during migration
 namespace Neo.Orleans.Grains
 {
     /// <summary>
@@ -30,20 +33,20 @@ namespace Neo.Orleans.Grains
     {
         private readonly IPersistentState<TxRouterState> _state;
         private readonly IGrainFactory _grainFactory;
-        private readonly ProtocolSettings _settings;
-        private readonly NeoOrleansOptions _options;
+        private readonly IProtocolSettings _settings;
+        private readonly IOrleansOptions _options;
 
         public TxRouterGrain(
             [PersistentState("txrouter", "TxRouterStore")]
             IPersistentState<TxRouterState> state,
             IGrainFactory grainFactory,
-            ProtocolSettings settings,
-            NeoOrleansOptions? options = null)
+            IProtocolSettings settings,
+            IOrleansOptions? options = null)
         {
             _state = state;
             _grainFactory = grainFactory;
             _settings = settings ?? throw new ArgumentNullException(nameof(settings));
-            _options = options ?? new NeoOrleansOptions();
+            _options = options ?? new OrleansOptions();
         }
 
         public Task<TxPreverifyResult> PreverifyAsync(ITransactionData transaction, bool relay)
@@ -52,7 +55,7 @@ namespace Neo.Orleans.Grains
 
             try
             {
-                if (!TryDeserializeTransaction(transaction, out var tx))
+                if (!SerializationHelper.TryDeserializeTransaction(transaction, out var tx))
                 {
                     sw.Stop();
                     UpdateStats(false, sw.ElapsedMilliseconds);
@@ -120,35 +123,6 @@ namespace Neo.Orleans.Grains
             return _state.WriteStateAsync();
         }
 
-        private static bool TryDeserializeTransaction(ITransactionData transaction, out Transaction tx)
-        {
-            tx = null!;
-            if (transaction is Transaction fullTransaction)
-            {
-                tx = fullTransaction;
-                return true;
-            }
-
-            var raw = transaction.ToArray();
-            if (raw.Length == 0)
-                return false;
-
-            try
-            {
-                var reader = new MemoryReader(raw);
-                tx = reader.ReadSerializable<Transaction>();
-                return true;
-            }
-            catch (FormatException)
-            {
-                return false;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
         private void UpdateStats(bool isValid, long elapsedMs)
         {
             _state.State.TotalVerified++;
@@ -179,3 +153,4 @@ namespace Neo.Orleans.Grains
         [Id(3)] public double TotalVerificationTimeMs { get; set; }
     }
 }
+#pragma warning restore CS0618

@@ -16,13 +16,18 @@ using Neo.Orleans.Interfaces;
 using Neo.Orleans.States;
 using Orleans.Runtime;
 using System.Net;
+using System.Security.Cryptography;
 
 namespace Neo.Orleans.Grains
 {
     /// <summary>
     /// Orleans Grain implementation for local P2P node management.
-    /// Handles seed nodes and connection management.
+    /// Handles seed nodes, peer discovery, and connection management.
     /// </summary>
+    /// <remarks>
+    /// This grain manages the local node's connections to peers, maintains
+    /// lists of connected and unconnected peers, and handles peer registration/unregistration.
+    /// </remarks>
     public class LocalNodeGrain : Grain, ILocalNodeGrain
     {
         private readonly IPersistentState<LocalNodeState> _state;
@@ -44,6 +49,7 @@ namespace Neo.Orleans.Grains
 
         public override async Task OnActivateAsync(CancellationToken cancellationToken)
         {
+
             _connectionMaintainer ??= this.RegisterGrainTimer(
                 _ => MaintainConnectionsAsync(),
                 new GrainTimerCreationOptions
@@ -140,6 +146,10 @@ namespace Neo.Orleans.Grains
             return base.OnDeactivateAsync(reason, cancellationToken);
         }
 
+        /// <summary>
+        /// Initializes the local node with configuration.
+        /// </summary>
+        /// <param name="config">The local node configuration.</param>
         public async Task InitializeAsync(LocalNodeConfig config)
         {
             _state.State.Nonce = config.Nonce;
@@ -156,10 +166,15 @@ namespace Neo.Orleans.Grains
             await _state.WriteStateAsync();
         }
 
+        /// <summary>
+        /// Starts the local node and begins connecting to peers.
+        /// </summary>
         public async Task StartAsync()
         {
             if (_state.State.IsStarted)
+            {
                 return;
+            }
 
             _state.State.IsStarted = true;
 
@@ -178,6 +193,9 @@ namespace Neo.Orleans.Grains
             await MaintainConnectionsAsync();
         }
 
+        /// <summary>
+        /// Stops the local node and disconnects all peers.
+        /// </summary>
         public async Task StopAsync()
         {
             _state.State.IsStarted = false;
@@ -194,6 +212,12 @@ namespace Neo.Orleans.Grains
             await _state.WriteStateAsync();
         }
 
+        /// <summary>
+        /// Registers a new peer connection.
+        /// </summary>
+        /// <param name="address">The peer address.</param>
+        /// <param name="port">The peer port.</param>
+        /// <param name="height">The peer blockchain height.</param>
         public async Task RegisterPeerAsync(string address, int port, uint height)
         {
             if (string.IsNullOrWhiteSpace(address) || port <= 0 || port > ushort.MaxValue)
@@ -241,6 +265,10 @@ namespace Neo.Orleans.Grains
             await _state.WriteStateAsync();
         }
 
+        /// <summary>
+        /// Registers a new peer connection with full connection info.
+        /// </summary>
+        /// <param name="info">The peer connection information.</param>
         public async Task RegisterPeerAsync(PeerConnectionInfo info)
         {
             if (string.IsNullOrWhiteSpace(info.Address) || info.Port <= 0 || info.Port > ushort.MaxValue)
@@ -290,6 +318,11 @@ namespace Neo.Orleans.Grains
             await _state.WriteStateAsync();
         }
 
+        /// <summary>
+        /// Unregisters a peer connection.
+        /// </summary>
+        /// <param name="address">The peer address.</param>
+        /// <param name="port">The peer port.</param>
         public async Task UnregisterPeerAsync(string address, int port)
         {
             if (string.IsNullOrWhiteSpace(address) || port <= 0 || port > ushort.MaxValue)
@@ -313,6 +346,12 @@ namespace Neo.Orleans.Grains
             }
         }
 
+        /// <summary>
+        /// Updates a peer's reported blockchain height.
+        /// </summary>
+        /// <param name="address">The peer address.</param>
+        /// <param name="port">The peer port.</param>
+        /// <param name="height">The new blockchain height.</param>
         public async Task UpdatePeerHeightAsync(string address, int port, uint height)
         {
             if (string.IsNullOrWhiteSpace(address) || port <= 0 || port > ushort.MaxValue)
@@ -336,6 +375,13 @@ namespace Neo.Orleans.Grains
             }
         }
 
+        /// <summary>
+        /// Checks if a new connection should be allowed based on current state.
+        /// </summary>
+        /// <param name="nonce">The connection nonce.</param>
+        /// <param name="networkMagic">The expected network magic.</param>
+        /// <param name="address">The connecting address.</param>
+        /// <returns>True if the connection should be allowed.</returns>
         public Task<bool> AllowNewConnectionAsync(uint nonce, uint networkMagic, string address)
         {
             if (!_state.State.IsStarted)
@@ -368,6 +414,11 @@ namespace Neo.Orleans.Grains
             return Task.FromResult(true);
         }
 
+        /// <summary>
+        /// Relays an inventory to all connected peers.
+        /// </summary>
+        /// <param name="inventoryHash">The inventory hash to relay.</param>
+        /// <param name="inventoryType">The inventory type.</param>
         public async Task RelayAsync(byte[] inventoryHash, byte inventoryType)
         {
             var hashKey = Convert.ToBase64String(inventoryHash);
@@ -405,6 +456,11 @@ namespace Neo.Orleans.Grains
             await Task.WhenAll(relayTasks);
         }
 
+        /// <summary>
+        /// Relays a block to peers that are behind.
+        /// </summary>
+        /// <param name="blockHash">The block hash to relay.</param>
+        /// <param name="blockIndex">The block index.</param>
         public async Task RelayBlockAsync(byte[] blockHash, uint blockIndex)
         {
             var hashKey = Convert.ToBase64String(blockHash);
@@ -440,12 +496,24 @@ namespace Neo.Orleans.Grains
             await Task.WhenAll(relayTasks);
         }
 
+        /// <summary>
+        /// Gets the number of connected peers.
+        /// </summary>
+        /// <returns>The connected peer count.</returns>
         public Task<int> GetConnectedPeerCountAsync() =>
             Task.FromResult(_state.State.ConnectedPeers.Count);
 
+        /// <summary>
+        /// Gets the number of unconnected peers.
+        /// </summary>
+        /// <returns>The unconnected peer count.</returns>
         public Task<int> GetUnconnectedPeerCountAsync() =>
             Task.FromResult(_state.State.UnconnectedPeers.Count);
 
+        /// <summary>
+        /// Gets information about all connected peers.
+        /// </summary>
+        /// <returns>A collection of peer information.</returns>
         public Task<IEnumerable<PeerInfo>> GetConnectedPeersAsync()
         {
             var peers = _state.State.ConnectedPeers.Values
@@ -454,11 +522,19 @@ namespace Neo.Orleans.Grains
             return Task.FromResult<IEnumerable<PeerInfo>>(peers);
         }
 
+        /// <summary>
+        /// Gets a list of unconnected peer addresses.
+        /// </summary>
+        /// <returns>A collection of peer addresses.</returns>
         public Task<IEnumerable<string>> GetUnconnectedPeersAsync()
         {
             return Task.FromResult<IEnumerable<string>>(_state.State.UnconnectedPeers.ToList());
         }
 
+        /// <summary>
+        /// Adds new peer addresses to the unconnected pool.
+        /// </summary>
+        /// <param name="addresses">The addresses to add.</param>
         public async Task AddPeersAsync(IEnumerable<string> addresses)
         {
             var added = false;
@@ -488,6 +564,10 @@ namespace Neo.Orleans.Grains
                 await _state.WriteStateAsync();
         }
 
+        /// <summary>
+        /// Broadcasts a message to all connected peers.
+        /// </summary>
+        /// <param name="message">The message bytes to broadcast.</param>
         public async Task BroadcastAsync(byte[] message)
         {
             var broadcastTasks = _state.State.ConnectedPeers.Keys
@@ -500,6 +580,10 @@ namespace Neo.Orleans.Grains
             await Task.WhenAll(broadcastTasks);
         }
 
+        /// <summary>
+        /// Requests more peers from existing connections or seed list.
+        /// </summary>
+        /// <param name="count">The desired number of new peers.</param>
         public async Task RequestMorePeersAsync(int count)
         {
             count = Math.Max(count, MaxCountFromSeedList);
@@ -515,19 +599,31 @@ namespace Neo.Orleans.Grains
                 // Use seed list when no connections
                 var seedsToAdd = _state.State.SeedList
                     .Where(s => !string.IsNullOrEmpty(s))
-                    .OrderBy(_ => Random.Shared.Next())
+                    .OrderBy(_ => RandomNumberGenerator.GetInt32(int.MaxValue))
                     .Take(count);
 
                 await AddPeersAsync(seedsToAdd);
             }
         }
 
+        /// <summary>
+        /// Gets the local node's nonce.
+        /// </summary>
+        /// <returns>The nonce value.</returns>
         public Task<uint> GetNonceAsync() =>
             Task.FromResult(_state.State.Nonce);
 
+        /// <summary>
+        /// Gets the local node's user agent string.
+        /// </summary>
+        /// <returns>The user agent string.</returns>
         public Task<string> GetUserAgentAsync() =>
             Task.FromResult(_state.State.UserAgent);
 
+        /// <summary>
+        /// Gets a summary of the local node's current state.
+        /// </summary>
+        /// <returns>The local node state summary.</returns>
         public Task<LocalNodeStateSummary> GetStateSummaryAsync()
         {
             return Task.FromResult(new LocalNodeStateSummary(
@@ -542,41 +638,55 @@ namespace Neo.Orleans.Grains
         private async Task MaintainConnectionsAsync()
         {
             if (!_state.State.IsStarted)
+            {
                 return;
+            }
 
             var maxConnections = _state.State.MaxConnections;
+
             if (maxConnections <= 0)
+            {
                 return;
+            }
 
             var desiredConnections = _state.State.MinDesiredConnections > 0
                 ? _state.State.MinDesiredConnections
                 : maxConnections;
             desiredConnections = Math.Min(desiredConnections, maxConnections);
 
-            if (_state.State.ConnectedPeers.Count >= desiredConnections)
-                return;
 
-            var needed = desiredConnections - _state.State.ConnectedPeers.Count;
-            if (needed <= 0)
+            if (_state.State.ConnectedPeers.Count >= desiredConnections)
+            {
                 return;
+            }
+
+            var neededCount = desiredConnections - _state.State.ConnectedPeers.Count;
+            if (neededCount <= 0)
+            {
+                return;
+            }
 
             if (_state.State.UnconnectedPeers.Count == 0)
             {
-                await RequestMorePeersAsync(needed);
+                await RequestMorePeersAsync(neededCount);
                 return;
             }
+
+
+            if (_state.State.ConnectedPeers.Count >= desiredConnections)
+                return;
 
             var blockchain = _grainFactory.GetGrain<IBlockchainGrain>(0);
             var localHeight = await blockchain.GetHeightAsync();
             var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             var candidates = _state.State.UnconnectedPeers
-                .OrderBy(_ => Random.Shared.Next())
+                .OrderBy(_ => RandomNumberGenerator.GetInt32(int.MaxValue))
                 .ToList();
             var stateChanged = false;
 
             foreach (var candidate in candidates)
             {
-                if (needed <= 0)
+                if (neededCount <= 0)
                     break;
 
                 if (!TryParsePeerEndpoint(candidate, out var address, out var port))
@@ -601,7 +711,9 @@ namespace Neo.Orleans.Grains
                 }
 
                 if (IsPendingConnection(key, now))
+                {
                     continue;
+                }
 
                 if (_state.State.MaxConnectionsPerAddress > 0 &&
                     CountConnectionsForAddress(address) >= _state.State.MaxConnectionsPerAddress)
@@ -610,7 +722,7 @@ namespace Neo.Orleans.Grains
                 }
 
                 _pendingConnections[key] = now;
-                needed--;
+                neededCount--;
 
                 var remoteGrain = _grainFactory.GetGrain<IRemoteNodeGrain>(key);
                 _ = remoteGrain.StartHandshakeAsync(localHeight, _state.State.Nonce, _state.State.UserAgent);

@@ -18,17 +18,19 @@ namespace Neo.Orleans.Services
     /// <summary>
     /// Transport that routes messages to the appropriate underlying transport.
     /// WebSocket or QUIC is used when an active connection exists; otherwise TCP is used.
+    /// Note: This implementation depends on concrete transport services for composition.
+    /// Consider using ITransportService abstraction if DI-friendly flexibility is needed.
     /// </summary>
     internal sealed class CompositeTransportService : ITransportService
     {
-        private readonly TcpTransportService _tcpTransport;
-        private readonly QuicTransportService _quicTransport;
-        private readonly WsTransportService _wsTransport;
+        private readonly ITransportService _tcpTransport;
+        private readonly ITransportService _quicTransport;
+        private readonly ITransportService _wsTransport;
 
         public CompositeTransportService(
-            TcpTransportService tcpTransport,
-            QuicTransportService quicTransport,
-            WsTransportService wsTransport)
+            ITransportService tcpTransport,
+            ITransportService quicTransport,
+            ITransportService wsTransport)
         {
             _tcpTransport = tcpTransport ?? throw new ArgumentNullException(nameof(tcpTransport));
             _quicTransport = quicTransport ?? throw new ArgumentNullException(nameof(quicTransport));

@@ -17,8 +17,10 @@ using Neo.Network.P2P;
 using Neo.Network.P2P.Payloads;
 using Neo.Orleans.Hosting;
 using Neo.Orleans.Interfaces;
+using Neo.Orleans.Options;
 using Neo.Orleans.Services;
 using Neo.Orleans.States;
+using Neo.Orleans.Utilities;
 using Neo.Persistence;
 using Neo.Protocol;
 using Neo.SmartContract;
@@ -33,10 +35,13 @@ namespace Neo.Orleans.Grains
     /// Orleans Grain implementation for blockchain state management.
     /// Manages headers, blocks, and inventory state.
     /// </summary>
+    /// <remarks>
+    /// This grain is responsible for persisting blockchain data, validating blocks,
+    /// and maintaining the local ledger state. It supports both validated and legacy
+    /// modes of operation depending on the configured validation mode.
+    /// </remarks>
     public class BlockchainGrain : Grain, IBlockchainGrain
     {
-        private static readonly Script OnPersistScript;
-        private static readonly Script PostPersistScript;
         private const byte LedgerPrefixBlock = 5;
         private const byte LedgerPrefixBlockHash = 9;
         private const byte LedgerPrefixCurrentBlock = 12;
@@ -44,34 +49,24 @@ namespace Neo.Orleans.Grains
         private readonly IPersistentState<BlockchainState> _state;
         private readonly IBlockStorageService? _blockStorage;
         private readonly IGrainFactory _grainFactory;
-        private readonly NeoSystem _system;
-        private readonly NeoOrleansOptions _options;
+        private readonly INeoSystem _system;
+        private readonly IOrleansOptions _options;
         private ImmutableHashSet<UInt160>? _extensibleWitnessWhiteList;
-
-        static BlockchainGrain()
-        {
-            using var onPersistBuilder = new ScriptBuilder();
-            onPersistBuilder.EmitSysCall(ApplicationEngine.System_Contract_NativeOnPersist);
-            OnPersistScript = new Script(onPersistBuilder.ToArray(), true);
-
-            using var postPersistBuilder = new ScriptBuilder();
-            postPersistBuilder.EmitSysCall(ApplicationEngine.System_Contract_NativePostPersist);
-            PostPersistScript = new Script(postPersistBuilder.ToArray(), true);
-        }
+        private readonly Dictionary<string, bool> _persistLocks = new();
 
         public BlockchainGrain(
             [PersistentState("blockchain", "BlockchainStore")]
             IPersistentState<BlockchainState> state,
             IGrainFactory grainFactory,
-            NeoSystem system,
-            NeoOrleansOptions? options = null,
+            INeoSystem system,
+            IOrleansOptions? options = null,
             IBlockStorageService? blockStorage = null)
         {
             _state = state;
             _grainFactory = grainFactory;
             _blockStorage = blockStorage;
             _system = system;
-            _options = options ?? new NeoOrleansOptions();
+            _options = options ?? new OrleansOptions();
         }
 
         public override async Task OnActivateAsync(CancellationToken cancellationToken)
@@ -82,6 +77,12 @@ namespace Neo.Orleans.Grains
             await base.OnActivateAsync(cancellationToken);
         }
 
+        /// <summary>
+        /// Persists a block to the blockchain storage.
+        /// </summary>
+        /// <param name="block">The block to persist.</param>
+        /// <param name="senderAddress">Optional address of the peer that sent the block.</param>
+        /// <returns>The verification result of the block.</returns>
         public Task<BlockVerifyResult> PersistBlockAsync(Block block, string? senderAddress = null)
         {
             if (_options.ValidationMode == NeoValidationMode.None)
@@ -94,52 +95,54 @@ namespace Neo.Orleans.Grains
         {
             var hashHex = Convert.ToHexString(block.Hash.GetSpan());
 
-            // Check if already exists
-            if (block.Index <= _state.State.Height && _state.State.IsInitialized)
+            if (!AcquirePersistLock(hashHex))
                 return BlockVerifyResult.AlreadyExists;
 
-            // Check if we can verify this block
-            var headerHeight = _state.State.HeaderHeight > 0 ? _state.State.HeaderHeight : _state.State.Height;
-            if (block.Index - 1 > headerHeight)
+            try
             {
-                // Add to unverified blocks cache
-                AddUnverifiedBlock(block, hashHex, senderAddress);
-                await _state.WriteStateAsync();
-                return BlockVerifyResult.UnableToVerify;
-            }
+                if (block.Index <= _state.State.Height && _state.State.IsInitialized)
+                    return BlockVerifyResult.AlreadyExists;
 
-            // Verify block matches header if we have it cached
-            if (block.Index <= headerHeight && block.Index > _state.State.Height)
-            {
-                if (_state.State.HeaderCache.TryGetValue(block.Index, out var cachedHeader))
+                var headerHeight = _state.State.HeaderHeight > 0 ? _state.State.HeaderHeight : _state.State.Height;
+                if (block.Index - 1 > headerHeight)
                 {
-                    var blockHash = block.Hash.GetSpan().ToArray();
-                    if (!blockHash.SequenceEqual(cachedHeader.Hash))
+                    AddUnverifiedBlock(block, hashHex, senderAddress);
+                    await _state.WriteStateAsync();
+                    return BlockVerifyResult.UnableToVerify;
+                }
+
+                if (block.Index <= headerHeight && block.Index > _state.State.Height)
+                {
+                    if (_state.State.HeaderCache.TryGetValue(block.Index, out var cachedHeader))
                     {
-                        var taskManager = _grainFactory.GetGrain<ITaskManagerGrain>(0);
-                        await taskManager.NotifyInvalidBlockAsync(blockHash, block.Index);
-                        return BlockVerifyResult.Invalid;
+                        var blockHash = block.Hash.GetSpan().ToArray();
+                        if (!blockHash.SequenceEqual(cachedHeader.Hash))
+                        {
+                            var taskManager = _grainFactory.GetGrain<ITaskManagerGrain>(0);
+                            await taskManager.NotifyInvalidBlockAsync(blockHash, block.Index);
+                            return BlockVerifyResult.Invalid;
+                        }
                     }
                 }
+
+                _state.State.BlockCache[hashHex] = block.ToArray();
+
+                if (block.Index == _state.State.Height + 1 || !_state.State.IsInitialized)
+                {
+                    await PersistBlockChainAsync(block);
+                }
+                else if (block.Index == headerHeight + 1)
+                {
+                    AddHeaderFromBlock(block);
+                }
+
+                await _state.WriteStateAsync();
+                return BlockVerifyResult.Succeed;
             }
-
-            // Add to block cache
-            _state.State.BlockCache[hashHex] = block.ToArray();
-
-            // Check if this is the next block to persist
-            if (block.Index == _state.State.Height + 1 || !_state.State.IsInitialized)
+            finally
             {
-                // Persist this block and any subsequent cached blocks
-                await PersistBlockChainAsync(block);
+                ReleasePersistLock(hashHex);
             }
-            else if (block.Index == headerHeight + 1)
-            {
-                // Add header to cache
-                AddHeaderFromBlock(block);
-            }
-
-            await _state.WriteStateAsync();
-            return BlockVerifyResult.Succeed;
         }
 
         private async Task<BlockVerifyResult> PersistBlockValidatedAsync(Block block, string? senderAddress)
@@ -148,66 +151,76 @@ namespace Neo.Orleans.Grains
                 return BlockVerifyResult.Invalid;
 
             var blockHash = fullBlock.Hash;
+            var hashHex = Convert.ToHexString(blockHash.GetSpan());
 
-            await EnsureGenesisPersistedAsync();
-
-            var snapshot = _system.StoreView;
-            var currentHeight = NativeContract.Ledger.CurrentIndex(snapshot);
-            var headerHeight = _system.HeaderCache.Last?.Index ?? currentHeight;
-
-            if (fullBlock.Index <= currentHeight)
+            if (!AcquirePersistLock(hashHex))
                 return BlockVerifyResult.AlreadyExists;
 
-            var hashHex = Convert.ToHexString(blockHash.GetSpan());
-            if (fullBlock.Index - 1 > headerHeight)
+            try
             {
-                AddUnverifiedBlock(fullBlock, hashHex, senderAddress);
+                await EnsureGenesisPersistedAsync();
+
+                var snapshot = _system.StoreView;
+                var currentHeight = NativeContract.Ledger.CurrentIndex(snapshot);
+                var headerHeight = _system.HeaderCache.Last?.Index ?? currentHeight;
+
+                if (fullBlock.Index <= currentHeight)
+                    return BlockVerifyResult.AlreadyExists;
+
+                if (fullBlock.Index - 1 > headerHeight)
+                {
+                    AddUnverifiedBlock(fullBlock, hashHex, senderAddress);
+                    await _state.WriteStateAsync();
+                    return BlockVerifyResult.UnableToVerify;
+                }
+
+                if (fullBlock.Index == headerHeight + 1)
+                {
+                    if (!fullBlock.Verify(_system.Settings, snapshot, _system.HeaderCache))
+                    {
+                        var taskManager = _grainFactory.GetGrain<ITaskManagerGrain>(0);
+                        await taskManager.NotifyInvalidBlockAsync(blockHash.GetSpan().ToArray(), fullBlock.Index);
+                        return BlockVerifyResult.Invalid;
+                    }
+                }
+                else
+                {
+                    var header = _system.HeaderCache[fullBlock.Index];
+                    if (header == null || !blockHash.Equals(header.Hash))
+                    {
+                        var taskManager = _grainFactory.GetGrain<ITaskManagerGrain>(0);
+                        await taskManager.NotifyInvalidBlockAsync(blockHash.GetSpan().ToArray(), fullBlock.Index);
+                        return BlockVerifyResult.Invalid;
+                    }
+                }
+
+                _state.State.BlockCache[hashHex] = fullBlock.ToArray();
+
+                if (fullBlock.Index == currentHeight + 1)
+                {
+                    var persistResult = await PersistBlockChainValidatedAsync(fullBlock);
+                    if (persistResult != BlockVerifyResult.Succeed)
+                        return persistResult;
+                }
+                else if (fullBlock.Index == headerHeight + 1)
+                {
+                    if (_system.HeaderCache.Add(fullBlock.Header))
+                        UpdateHeaderCacheState(fullBlock.Header);
+                }
+
+                if (fullBlock.Index != currentHeight + 1 && fullBlock.Index + 99 >= headerHeight)
+                {
+                    var localNode = _grainFactory.GetGrain<ILocalNodeGrain>(0);
+                    _ = localNode.RelayBlockAsync(blockHash.GetSpan().ToArray(), fullBlock.Index);
+                }
+
                 await _state.WriteStateAsync();
-                return BlockVerifyResult.UnableToVerify;
+                return BlockVerifyResult.Succeed;
             }
-
-            if (fullBlock.Index == headerHeight + 1)
+            finally
             {
-                if (!fullBlock.Verify(_system.Settings, snapshot, _system.HeaderCache))
-                {
-                    var taskManager = _grainFactory.GetGrain<ITaskManagerGrain>(0);
-                    await taskManager.NotifyInvalidBlockAsync(blockHash.GetSpan().ToArray(), fullBlock.Index);
-                    return BlockVerifyResult.Invalid;
-                }
+                ReleasePersistLock(hashHex);
             }
-            else
-            {
-                var header = _system.HeaderCache[fullBlock.Index];
-                if (header == null || !blockHash.Equals(header.Hash))
-                {
-                    var taskManager = _grainFactory.GetGrain<ITaskManagerGrain>(0);
-                    await taskManager.NotifyInvalidBlockAsync(blockHash.GetSpan().ToArray(), fullBlock.Index);
-                    return BlockVerifyResult.Invalid;
-                }
-            }
-
-            _state.State.BlockCache[hashHex] = fullBlock.ToArray();
-
-            if (fullBlock.Index == currentHeight + 1)
-            {
-                var persistResult = await PersistBlockChainValidatedAsync(fullBlock);
-                if (persistResult != BlockVerifyResult.Succeed)
-                    return persistResult;
-            }
-            else if (fullBlock.Index == headerHeight + 1)
-            {
-                if (_system.HeaderCache.Add(fullBlock.Header))
-                    UpdateHeaderCacheState(fullBlock.Header);
-            }
-
-            if (fullBlock.Index != currentHeight + 1 && fullBlock.Index + 99 >= headerHeight)
-            {
-                var localNode = _grainFactory.GetGrain<ILocalNodeGrain>(0);
-                _ = localNode.RelayBlockAsync(blockHash.GetSpan().ToArray(), fullBlock.Index);
-            }
-
-            await _state.WriteStateAsync();
-            return BlockVerifyResult.Succeed;
         }
 
         public Task<uint> GetHeightAsync()
@@ -218,6 +231,10 @@ namespace Neo.Orleans.Grains
             return Task.FromResult(GetCurrentHeight());
         }
 
+        /// <summary>
+        /// Gets the current header height of the blockchain.
+        /// </summary>
+        /// <returns>The header height.</returns>
         public Task<uint> GetHeaderHeightAsync()
         {
             if (_options.ValidationMode == NeoValidationMode.None)
@@ -228,6 +245,11 @@ namespace Neo.Orleans.Grains
             return Task.FromResult(headerHeight);
         }
 
+        /// <summary>
+        /// Retrieves a block by its hash.
+        /// </summary>
+        /// <param name="hash">The block hash (32 bytes).</param>
+        /// <returns>The block if found, null otherwise.</returns>
         public async Task<Block?> GetBlockByHashAsync(byte[] hash)
         {
             if (_options.ValidationMode != NeoValidationMode.None)
@@ -246,6 +268,11 @@ namespace Neo.Orleans.Grains
             return await _blockStorage.GetBlockByHashAsync(hash);
         }
 
+        /// <summary>
+        /// Retrieves a block by its index (height).
+        /// </summary>
+        /// <param name="index">The block height.</param>
+        /// <returns>The block if found, null otherwise.</returns>
         public async Task<Block?> GetBlockByIndexAsync(uint index)
         {
             if (_options.ValidationMode != NeoValidationMode.None)
@@ -264,6 +291,11 @@ namespace Neo.Orleans.Grains
             return await _blockStorage.GetBlockByIndexAsync(index);
         }
 
+        /// <summary>
+        /// Retrieves a block hash by its index (height).
+        /// </summary>
+        /// <param name="index">The block height.</param>
+        /// <returns>The block hash (32 bytes) if found, null otherwise.</returns>
         public async Task<byte[]?> GetBlockHashByIndexAsync(uint index)
         {
             if (_options.ValidationMode != NeoValidationMode.None)
@@ -289,6 +321,12 @@ namespace Neo.Orleans.Grains
             return block?.Hash.GetSpan().ToArray();
         }
 
+        /// <summary>
+        /// Imports a collection of blocks into the blockchain.
+        /// </summary>
+        /// <param name="blocks">The blocks to import.</param>
+        /// <param name="verify">Whether to verify blocks during import.</param>
+        /// <returns>The number of successfully imported blocks.</returns>
         public async Task<int> ImportBlocksAsync(IEnumerable<Block> blocks, bool verify = true)
         {
             int count = 0;
@@ -301,6 +339,10 @@ namespace Neo.Orleans.Grains
             return count;
         }
 
+        /// <summary>
+        /// Gets the current block hash.
+        /// </summary>
+        /// <returns>The current block hash bytes.</returns>
         public Task<byte[]> GetCurrentBlockHashAsync()
         {
             if (_options.ValidationMode == NeoValidationMode.None)
@@ -313,6 +355,11 @@ namespace Neo.Orleans.Grains
             return Task.FromResult(hash);
         }
 
+        /// <summary>
+        /// Adds headers to the blockchain cache.
+        /// </summary>
+        /// <param name="headers">The headers to add.</param>
+        /// <returns>The number of headers successfully added.</returns>
         public async Task<int> AddHeadersAsync(IEnumerable<HeaderCacheEntry> headers)
         {
             if (_options.ValidationMode == NeoValidationMode.None)
@@ -336,7 +383,7 @@ namespace Neo.Orleans.Grains
                 if (_system.HeaderCache.Full)
                     break;
 
-                if (!TryDeserializeHeader(header.Data, out var parsedHeader))
+                if (!SerializationHelper.TryDeserializeHeader(header.Data, out var parsedHeader))
                     break;
 
                 if (!parsedHeader.Verify(_system.Settings, snapshot, _system.HeaderCache))
@@ -356,6 +403,11 @@ namespace Neo.Orleans.Grains
             return added;
         }
 
+        /// <summary>
+        /// Retrieves a cached header by index.
+        /// </summary>
+        /// <param name="index">The header height.</param>
+        /// <returns>The header cache entry if found, null otherwise.</returns>
         public Task<HeaderCacheEntry?> GetHeaderAsync(uint index)
         {
             if (_options.ValidationMode != NeoValidationMode.None)
@@ -379,6 +431,11 @@ namespace Neo.Orleans.Grains
             return Task.FromResult(legacyHeader);
         }
 
+        /// <summary>
+        /// Checks if the blockchain contains a specific transaction.
+        /// </summary>
+        /// <param name="hash">The transaction hash (32 bytes).</param>
+        /// <returns>True if the transaction exists, false otherwise.</returns>
         public async Task<bool> ContainsTransactionAsync(byte[] hash)
         {
             if (_options.ValidationMode != NeoValidationMode.None)
@@ -402,6 +459,11 @@ namespace Neo.Orleans.Grains
             return await _blockStorage.ContainsTransactionAsync(hash);
         }
 
+        /// <summary>
+        /// Checks if the blockchain contains a specific block.
+        /// </summary>
+        /// <param name="hash">The block hash (32 bytes).</param>
+        /// <returns>True if the block exists, false otherwise.</returns>
         public Task<bool> ContainsBlockAsync(byte[] hash)
         {
             var hashHex = Convert.ToHexString(hash);
@@ -422,6 +484,10 @@ namespace Neo.Orleans.Grains
             return _blockStorage.ContainsBlockAsync(hash);
         }
 
+        /// <summary>
+        /// Fills the memory pool with transactions.
+        /// </summary>
+        /// <param name="transactions">The transactions to add to the memory pool.</param>
         public async Task FillMemoryPoolAsync(IEnumerable<ITransactionData> transactions)
         {
             ArgumentNullException.ThrowIfNull(transactions);
@@ -440,13 +506,13 @@ namespace Neo.Orleans.Grains
                     if (transaction == null)
                         continue;
 
-                    if (!TryDeserializeTransaction(transaction, out var tx))
+                    if (!SerializationHelper.TryDeserializeTransaction(transaction, out var tx))
                         continue;
 
                     if (NativeContract.Ledger.ContainsTransaction(snapshot, tx.Hash))
                         continue;
 
-                    if (NativeContract.Ledger.ContainsConflictHash(snapshot, tx.Hash, tx.Signers.Select(s => s.Account), maxTraceableBlocks))
+                    if (NativeContract.Ledger.ContainsConflictHash(snapshot, tx.Hash, tx.Signers.Select(s => s.Account).ToArray().AsSpan(), maxTraceableBlocks))
                         continue;
 
                     _system.MemPool.TryRemoveUnverified(tx.Hash);
@@ -469,6 +535,10 @@ namespace Neo.Orleans.Grains
             }
         }
 
+        /// <summary>
+        /// Fills the memory pool with transactions identified by their hashes.
+        /// </summary>
+        /// <param name="transactionHashes">The transaction hashes to fetch and add.</param>
         public async Task FillMemoryPoolAsync(IEnumerable<byte[]> transactionHashes)
         {
             ArgumentNullException.ThrowIfNull(transactionHashes);
@@ -489,7 +559,7 @@ namespace Neo.Orleans.Grains
                     else if (_blockStorage != null)
                     {
                         var storedTx = await _blockStorage.GetTransactionAsync(hash);
-                        if (storedTx != null && TryDeserializeTransaction(storedTx, out var parsedTx))
+                        if (storedTx != null && SerializationHelper.TryDeserializeTransaction(storedTx, out var parsedTx))
                             tx = parsedTx;
                     }
                 }
@@ -497,7 +567,7 @@ namespace Neo.Orleans.Grains
                 {
                     var storedTx = await _blockStorage.GetTransactionAsync(hash);
                     if (storedTx != null)
-                        tx = storedTx as Transaction ?? (TryDeserializeTransaction(storedTx, out var parsedTx) ? parsedTx : null);
+                        tx = storedTx as Transaction ?? (SerializationHelper.TryDeserializeTransaction(storedTx, out var parsedTx) ? parsedTx : null);
                 }
 
                 if (tx != null)
@@ -507,12 +577,21 @@ namespace Neo.Orleans.Grains
             await FillMemoryPoolAsync(transactions);
         }
 
+        /// <summary>
+        /// Re-verifies inventories that were previously unverified.
+        /// </summary>
+        /// <param name="inventoryHashes">The inventory hashes to re-verify.</param>
         public Task ReverifyInventoriesAsync(IEnumerable<byte[]> inventoryHashes)
         {
             ArgumentNullException.ThrowIfNull(inventoryHashes);
             return ReverifyInventoriesInternalAsync(inventoryHashes);
         }
 
+        /// <summary>
+        /// Verifies an extensible payload for compliance with witness rules.
+        /// </summary>
+        /// <param name="payload">The extensible payload to verify.</param>
+        /// <returns>The verification result.</returns>
         public Task<Neo.Ledger.VerifyResult> VerifyExtensiblePayloadAsync(ExtensiblePayload payload)
         {
             if (payload is null)
@@ -562,6 +641,10 @@ namespace Neo.Orleans.Grains
             }
         }
 
+        /// <summary>
+        /// Gets a summary of the current blockchain state.
+        /// </summary>
+        /// <returns>A summary containing height, header height, current hash, and other state information.</returns>
         public Task<BlockchainStateSummary> GetStateSummaryAsync()
         {
             var unverifiedCount = _state.State.UnverifiedBlocks.Values.Sum(list => list.Count);
@@ -594,6 +677,25 @@ namespace Neo.Orleans.Grains
         }
 
         #region Private Methods
+
+        private bool AcquirePersistLock(string hashHex)
+        {
+            lock (_persistLocks)
+            {
+                if (_persistLocks.TryGetValue(hashHex, out var inProgress) && inProgress)
+                    return false;
+                _persistLocks[hashHex] = true;
+                return true;
+            }
+        }
+
+        private void ReleasePersistLock(string hashHex)
+        {
+            lock (_persistLocks)
+            {
+                _persistLocks.Remove(hashHex);
+            }
+        }
 
         private async Task<int> AddHeadersLegacyAsync(IEnumerable<HeaderCacheEntry> headers)
         {
@@ -645,28 +747,6 @@ namespace Neo.Orleans.Grains
 
             if (_state.State.HeaderHeight == index)
                 _state.State.HeaderHeight = _state.State.HeaderCache.Count > 0 ? _state.State.HeaderCache.Keys.Max() : 0;
-        }
-
-        private static bool TryDeserializeHeader(byte[] data, out Header header)
-        {
-            header = null!;
-            if (data.Length == 0)
-                return false;
-
-            try
-            {
-                var reader = new MemoryReader(data);
-                header = reader.ReadSerializable<Header>();
-                return true;
-            }
-            catch (FormatException)
-            {
-                return false;
-            }
-            catch
-            {
-                return false;
-            }
         }
 
         private bool IsLedgerInitialized() =>
@@ -768,7 +848,7 @@ namespace Neo.Orleans.Grains
                 if (!_state.State.BlockCache.TryGetValue(nextHashHex, out var nextBlockData))
                     break;
 
-                if (!TryDeserializeBlock(nextBlockData, out var nextBlock))
+                if (!SerializationHelper.TryDeserializeBlock(nextBlockData, out var nextBlock))
                 {
                     _state.State.BlockCache.Remove(nextHashHex);
                     break;
@@ -842,7 +922,7 @@ namespace Neo.Orleans.Grains
                 if (NativeContract.Ledger.ContainsTransaction(snapshot, tx.Hash))
                     return false;
 
-                if (NativeContract.Ledger.ContainsConflictHash(snapshot, tx.Hash, tx.Signers.Select(s => s.Account), maxTraceableBlocks))
+                if (NativeContract.Ledger.ContainsConflictHash(snapshot, tx.Hash, tx.Signers.Select(s => s.Account).ToArray().AsSpan(), maxTraceableBlocks))
                     return false;
 
                 Neo.Ledger.VerifyResult result;
@@ -872,7 +952,7 @@ namespace Neo.Orleans.Grains
 
             using (var engine = ApplicationEngine.Create(TriggerType.OnPersist, null, snapshot, block, _system.Settings, 0))
             {
-                engine.LoadScript(OnPersistScript);
+                engine.LoadScript(NativeContractScripts.OnPersist);
                 if (engine.Execute() != VMState.HALT)
                 {
                     if (engine.FaultException != null)
@@ -907,7 +987,7 @@ namespace Neo.Orleans.Grains
 
             using (var engine = ApplicationEngine.Create(TriggerType.PostPersist, null, snapshot, block, _system.Settings, 0))
             {
-                engine.LoadScript(PostPersistScript);
+                engine.LoadScript(NativeContractScripts.PostPersist);
                 if (engine.Execute() != VMState.HALT)
                 {
                     if (engine.FaultException != null)
@@ -986,7 +1066,7 @@ namespace Neo.Orleans.Grains
                 if (!_state.State.BlockCache.TryGetValue(nextHashHex, out var nextBlockData))
                     break;
 
-                if (!TryDeserializeBlock(nextBlockData, out var nextBlock))
+                if (!SerializationHelper.TryDeserializeBlock(nextBlockData, out var nextBlock))
                 {
                     _state.State.BlockCache.Remove(nextHashHex);
                     break;
@@ -1010,7 +1090,7 @@ namespace Neo.Orleans.Grains
             // Process unverified blocks at the next index
             foreach (var entry in unverifiedList.ToList())
             {
-                if (!TryDeserializeBlock(entry.Data, out var block))
+                if (!SerializationHelper.TryDeserializeBlock(entry.Data, out var block))
                 {
                     unverifiedList.Remove(entry);
                     stateChanged = true;
@@ -1085,58 +1165,7 @@ namespace Neo.Orleans.Grains
                 .ToArray();
         }
 
-        private static bool TryDeserializeTransaction(ITransactionData transaction, out Transaction tx)
-        {
-            tx = null!;
-            if (transaction is Transaction fullTransaction)
-            {
-                tx = fullTransaction;
-                return true;
-            }
-
-            var raw = transaction.ToArray();
-            if (raw.Length == 0)
-                return false;
-
-            try
-            {
-                var reader = new MemoryReader(raw);
-                tx = reader.ReadSerializable<Transaction>();
-                return true;
-            }
-            catch (FormatException)
-            {
-                return false;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        private static bool TryDeserializeBlock(byte[] data, out Block block)
-        {
-            block = null!;
-            if (data.Length == 0)
-                return false;
-
-            try
-            {
-                var reader = new MemoryReader(data);
-                block = reader.ReadSerializable<Block>();
-                return true;
-            }
-            catch (FormatException)
-            {
-                return false;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        private static ImmutableHashSet<UInt160> UpdateExtensibleWitnessWhiteList(ProtocolSettings settings, DataCache snapshot)
+        private static ImmutableHashSet<UInt160> UpdateExtensibleWitnessWhiteList(IProtocolSettings settings, DataCache snapshot)
         {
             var currentHeight = NativeContract.Ledger.CurrentIndex(snapshot);
             var builder = ImmutableHashSet.CreateBuilder<UInt160>();
@@ -1159,3 +1188,4 @@ namespace Neo.Orleans.Grains
         #endregion
     }
 }
+#pragma warning restore CS0618

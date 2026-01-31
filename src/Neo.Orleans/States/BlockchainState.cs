@@ -14,6 +14,19 @@ namespace Neo.Orleans.States
     /// <summary>
     /// Persistent state for BlockchainGrain.
     /// Tracks header cache and unverified blocks for sync.
+    ///
+    /// Architecture note: This is a "fat data model" with 10+ properties.
+    /// It is persisted frequently, which can impact performance.
+    ///
+    /// Refactoring suggestions if scalability issues arise:
+    /// 1. Split into separate state classes per concern:
+    ///    - SyncState (Height, CurrentBlockHash, HeaderHeight)
+    ///    - HeaderCacheState (HeaderCache, MaxHeaderCacheSize)
+    ///    - BlockBufferState (UnverifiedBlocks, BlockCache)
+    /// 2. Use Orleans' grain state subdivision features
+    /// 3. Consider snapshot-based persistence for cache data
+    ///
+    /// Current design prioritizes simplicity and consistency over extreme scalability.
     /// </summary>
     [GenerateSerializer]
     public class BlockchainState

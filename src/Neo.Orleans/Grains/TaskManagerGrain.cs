@@ -17,10 +17,12 @@ using Neo.Network.P2P;
 using Neo.Network.P2P.Payloads;
 using Neo.Orleans.Hosting;
 using Neo.Orleans.Interfaces;
+using Neo.Orleans.Options;
 using Neo.SmartContract.Native;
 using Orleans.Runtime;
 using System.Linq;
 
+#pragma warning disable CS0618 // OrleansOptions is obsolete during migration
 namespace Neo.Orleans.Grains
 {
     /// <summary>
@@ -30,8 +32,8 @@ namespace Neo.Orleans.Grains
     public class TaskManagerGrain : Grain, ITaskManagerGrain
     {
         private readonly IPersistentState<TaskManagerState> _state;
-        private readonly NeoSystem _system;
-        private readonly NeoOrleansOptions _options;
+        private readonly INeoSystem _system;
+        private readonly IOrleansOptions _options;
         private IGrainTimer? _timer;
 
         private static readonly TimeSpan TimerInterval = TimeSpan.FromSeconds(30);
@@ -40,6 +42,7 @@ namespace Neo.Orleans.Grains
         private const int MaxConcurrentTasks = 3;
 
         private readonly Dictionary<string, PeerSession> _sessions = new(StringComparer.Ordinal);
+        private readonly object _sessionsLock = new();
         private readonly Dictionary<UInt256, int> _globalInvTasks = new();
         private readonly Dictionary<uint, int> _globalIndexTasks = new();
         private readonly Dictionary<UInt256, PendingTask> _pendingTasks = new();
@@ -52,12 +55,12 @@ namespace Neo.Orleans.Grains
         public TaskManagerGrain(
             [PersistentState("taskmanager", "TaskManagerStore")]
             IPersistentState<TaskManagerState> state,
-            NeoSystem system,
-            NeoOrleansOptions? options = null)
+            INeoSystem system,
+            IOrleansOptions? options = null)
         {
             _state = state;
             _system = system;
-            _options = options ?? new NeoOrleansOptions();
+            _options = options ?? new OrleansOptions();
         }
 
         public override async Task OnActivateAsync(CancellationToken cancellationToken)
@@ -185,7 +188,13 @@ namespace Neo.Orleans.Grains
                 requestHashes.Remove(_knownHashes);
 
             if (type == InventoryType.Block)
-                session.AvailableTasks.UnionWith(requestHashes.Where(p => _globalInvTasks.ContainsKey(p)));
+            {
+                foreach (var hash in requestHashes)
+                {
+                    if (_globalInvTasks.ContainsKey(hash))
+                        session.AvailableTasks.Add(hash);
+                }
+            }
 
             requestHashes.Remove(_globalInvTasks);
             if (requestHashes.Count == 0)
@@ -252,8 +261,11 @@ namespace Neo.Orleans.Grains
 
             _knownHashes?.TryAdd(key);
             _globalInvTasks.Remove(key);
-            foreach (var peerSession in _sessions.Values)
-                peerSession.AvailableTasks.Remove(key);
+            lock (_sessionsLock)
+            {
+                foreach (var peerSession in _sessions.Values)
+                    peerSession.AvailableTasks.Remove(key);
+            }
 
             if (_pendingTasks.Remove(key, out var pending))
             {
@@ -279,8 +291,11 @@ namespace Neo.Orleans.Grains
             _knownHashes?.TryAdd(key);
             _globalInvTasks.Remove(key);
             _globalIndexTasks.Remove(blockIndex);
-            foreach (var peerSession in _sessions.Values)
-                peerSession.AvailableTasks.Remove(key);
+            lock (_sessionsLock)
+            {
+                foreach (var peerSession in _sessions.Values)
+                    peerSession.AvailableTasks.Remove(key);
+            }
 
             if (_pendingTasks.Remove(key, out var pending))
             {
@@ -407,8 +422,6 @@ namespace Neo.Orleans.Grains
             _knownHashes?.Clear();
             _lastSeenPersistedIndex = 0;
 
-            _state.State.Sessions.Clear();
-            _state.State.GlobalTasks.Clear();
             _state.State.KnownHashes.Clear();
             _state.State.LastSeenBlockIndex = 0;
             return _state.WriteStateAsync();
@@ -479,14 +492,23 @@ namespace Neo.Orleans.Grains
                 }
             }
 
-            _sessions.Remove(peerId);
+            lock (_sessionsLock)
+            {
+                _sessions.Remove(peerId);
+            }
         }
 
         private async Task OnTimerAsync()
         {
             var now = TimeProvider.Current.UtcNow;
 
-            foreach (var session in _sessions.Values)
+            KeyValuePair<string, PeerSession>[] sessionsSnapshot;
+            lock (_sessionsLock)
+            {
+                sessionsSnapshot = _sessions.ToArray();
+            }
+
+            foreach (var (_, session) in sessionsSnapshot)
             {
                 RemoveExpiredTasks(session.InvTasks, now, p => DecrementGlobalTask(p.Key));
                 RemoveExpiredTasks(session.IndexTasks, now, p => DecrementGlobalTask(p.Key));
@@ -494,7 +516,7 @@ namespace Neo.Orleans.Grains
 
             _ = ProcessTimeoutsAsync();
 
-            foreach (var (peerId, session) in _sessions)
+            foreach (var (peerId, session) in sessionsSnapshot)
                 await RequestTasksAsync(peerId, session);
         }
 
@@ -512,22 +534,6 @@ namespace Neo.Orleans.Grains
             {
                 onRemoved(new KeyValuePair<TKey, DateTime>(key, tasks[key]));
                 tasks.Remove(key);
-            }
-        }
-
-        private static void RemoveWhere<T>(HashSet<T> set, Func<T, bool> predicate)
-        {
-            var itemsToRemove = new List<T>();
-            foreach (var item in set)
-            {
-                if (predicate(item))
-                {
-                    itemsToRemove.Add(item);
-                }
-            }
-            foreach (var item in itemsToRemove)
-            {
-                set.Remove(item);
             }
         }
 
@@ -551,7 +557,7 @@ namespace Neo.Orleans.Grains
                 if (_ledgerInitialized)
                 {
                     var snapshot = _system.StoreView;
-                    RemoveWhere(session.AvailableTasks, p => NativeContract.Ledger.ContainsBlock(snapshot, p));
+                    session.AvailableTasks.RemoveWhere(p => NativeContract.Ledger.ContainsBlock(snapshot, p));
                 }
                 var hashes = new HashSet<UInt256>(session.AvailableTasks);
                 if (hashes.Count > 0)
@@ -836,43 +842,14 @@ namespace Neo.Orleans.Grains
 
     /// <summary>
     /// Persistent state for TaskManagerGrain.
+    /// Note: Most state is kept in-memory for performance; only essential data is persisted.
     /// </summary>
     [GenerateSerializer]
     public class TaskManagerState
     {
-        [Id(0)] public Dictionary<string, TaskSession> Sessions { get; set; } = new();
-        [Id(1)] public Dictionary<string, GlobalTask> GlobalTasks { get; set; } = new();
-        [Id(2)] public HashSet<string> KnownHashes { get; set; } = new();
-        [Id(3)] public uint LastSeenBlockIndex { get; set; }
-        [Id(4)] public int MaxKnownHashes { get; set; } = 50000;
-    }
-
-    /// <summary>
-    /// Represents a peer session.
-    /// </summary>
-    [GenerateSerializer]
-    public class TaskSession
-    {
-        [Id(0)] public string PeerId { get; set; } = "";
-        [Id(1)] public uint StartHeight { get; set; }
-        [Id(2)] public uint LastHeight { get; set; }
-        [Id(3)] public string UserAgent { get; set; } = "";
-        [Id(4)] public DateTime RegisteredAt { get; set; }
-        [Id(5)] public HashSet<string> PendingTasks { get; set; } = new();
-    }
-
-    /// <summary>
-    /// Represents a global task.
-    /// </summary>
-    [GenerateSerializer]
-    public class GlobalTask
-    {
-        [Id(0)] public string HashHex { get; set; } = "";
-        [Id(1)] public byte[] Hash { get; set; } = Array.Empty<byte>();
-        [Id(2)] public byte InventoryType { get; set; }
-        [Id(3)] public DateTime CreatedAt { get; set; }
-        [Id(4)] public int RetryCount { get; set; }
-        [Id(5)] public string? AssignedPeer { get; set; }
-        [Id(6)] public DateTime? AssignedAt { get; set; }
+        [Id(0)] public HashSet<string> KnownHashes { get; set; } = new();
+        [Id(1)] public uint LastSeenBlockIndex { get; set; }
+        [Id(2)] public int MaxKnownHashes { get; set; } = 50000;
     }
 }
+#pragma warning restore CS0618

@@ -11,6 +11,8 @@
 
 namespace Neo.Orleans.Hosting
 {
+    using Neo.Orleans.Options;
+
     /// <summary>
     /// Extension methods for configuring Neo Orleans client.
     /// </summary>
@@ -24,9 +26,9 @@ namespace Neo.Orleans.Hosting
         /// <returns>The client builder for chaining.</returns>
         public static IClientBuilder UseNeo(
             this IClientBuilder clientBuilder,
-            Action<NeoOrleansOptions>? options = null)
+            Action<OrleansOptions>? options = null)
         {
-            var config = new NeoOrleansOptions();
+            var config = new OrleansOptions();
             options?.Invoke(config);
 
             // Neo type serialization surrogates (UInt256, UInt160) are auto-discovered
@@ -43,3 +45,4 @@ namespace Neo.Orleans.Hosting
         }
     }
 }
+

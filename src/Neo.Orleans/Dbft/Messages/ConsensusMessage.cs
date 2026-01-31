@@ -55,7 +55,7 @@ namespace Neo.Orleans.Dbft.Messages
             return (ConsensusMessage)data.AsSerializable(t);
         }
 
-        public virtual bool Verify(ProtocolSettings protocolSettings)
+        public virtual bool Verify(IProtocolSettings protocolSettings)
         {
             return ValidatorIndex < protocolSettings.ValidatorsCount;
         }

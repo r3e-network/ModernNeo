@@ -128,7 +128,7 @@ namespace Neo.Orleans.Tests.Grains
             return primary >= 0 ? primary : primary + validatorCount;
         }
 
-        private static UInt160 GetNextConsensus(StoreCache snapshot, ProtocolSettings settings, uint blockIndex)
+        private static UInt160 GetNextConsensus(StoreCache snapshot, IProtocolSettings settings, uint blockIndex)
         {
             var validators = NeoToken.ShouldRefreshCommittee(blockIndex, settings.CommitteeMembersCount)
                 ? NativeContract.NEO.ComputeNextBlockValidators(snapshot, settings)

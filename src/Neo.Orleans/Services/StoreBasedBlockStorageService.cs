@@ -13,6 +13,7 @@ using Neo.Core.Interfaces;
 using Neo.Extensions;
 using Neo.IO;
 using Neo.Network.P2P.Payloads;
+using Neo.Orleans.Utilities;
 using Neo.Persistence;
 
 namespace Neo.Orleans.Services
@@ -183,32 +184,10 @@ namespace Neo.Orleans.Services
             if (BlockDeserializer != null)
                 return BlockDeserializer(data);
 
-            if (TryDeserializeFullBlock(data, out var fullBlock))
+            if (SerializationHelper.TryDeserializeBlock(data, out var fullBlock))
                 return fullBlock;
 
             throw new FormatException("Stored block data is not a full block payload.");
-        }
-
-        private static bool TryDeserializeFullBlock(byte[] data, out Block block)
-        {
-            block = null!;
-            if (data.Length == 0)
-                return false;
-
-            try
-            {
-                var reader = new MemoryReader(data);
-                block = reader.ReadSerializable<Block>();
-                return true;
-            }
-            catch (FormatException)
-            {
-                return false;
-            }
-            catch
-            {
-                return false;
-            }
         }
 
         /// <inheritdoc/>

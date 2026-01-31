@@ -12,6 +12,7 @@
 using Microsoft.Extensions.Logging;
 using Neo.Network.P2P;
 using Neo.Orleans.Interfaces;
+using Neo.Orleans.Utilities;
 using Orleans;
 using System;
 using System.Buffers.Binary;
@@ -26,10 +27,25 @@ namespace Neo.Orleans.Services
 {
     /// <summary>
     /// TCP-based implementation of ITransportService for Orleans grains.
+    ///
+    /// Responsibility boundaries:
+    /// - Transport layer: TCP connection management, message framing, basic protocol parsing
+    /// - Application layer: Message routing, deserialization, and business logic handling
+    ///
+    /// Note: The ReceiveLoopAsync method includes Neo message frame parsing (lines 444-474)
+    /// for performance reasons. This is a deliberate layering trade-off. The frame parsing
+    /// handles:
+    /// - Magic number validation
+    /// - Header size detection
+    /// - Payload length extraction
+    ///
+    /// For cleaner separation, consider extracting a IMessageFramer interface if:
+    /// - Multiple transport implementations need the same framing logic
+    /// - Frame format changes become frequent
     /// </summary>
     public sealed class TcpTransportService : ITransportService, IAsyncDisposable
     {
-        private static readonly int MaxMessageBytes = Message.PayloadMaxSize + 16;
+        private const int MaxReceiveBufferSize = 2 * 1024 * 1024;
 
         private sealed class TcpConnection : IAsyncDisposable
         {
@@ -131,10 +147,10 @@ namespace Neo.Orleans.Services
         {
             if (_disposed || message.Length == 0)
                 return false;
-            if (message.Length > MaxMessageBytes)
+            if (message.Length > TransportConstants.MaxMessageBytes)
                 return false;
 
-            var key = FormatConnectionKey(address, port);
+            var key = TransportConstants.FormatConnectionKey(address, port);
 
             TcpConnection? connection = null;
             try
@@ -181,7 +197,8 @@ namespace Neo.Orleans.Services
             if (_disposed)
                 return false;
 
-            var key = FormatConnectionKey(address, port);
+            var key = TransportConstants.FormatConnectionKey(address, port);
+
 
             if (_connections.TryGetValue(key, out var existing) && existing.IsConnected)
                 return true;
@@ -232,7 +249,7 @@ namespace Neo.Orleans.Services
 
         public async Task DisconnectAsync(string address, int port, CancellationToken cancellationToken = default)
         {
-            var key = FormatConnectionKey(address, port);
+            var key = TransportConstants.FormatConnectionKey(address, port);
             if (_connections.TryRemove(key, out var connection))
             {
                 StopReceiveLoop(key, connection);
@@ -242,7 +259,7 @@ namespace Neo.Orleans.Services
 
         public bool IsConnected(string address, int port)
         {
-            var key = FormatConnectionKey(address, port);
+            var key = TransportConstants.FormatConnectionKey(address, port);
             return _connections.TryGetValue(key, out var connection) && connection.IsConnected;
         }
 
@@ -287,7 +304,7 @@ namespace Neo.Orleans.Services
             }
 
             client.NoDelay = true;
-            var key = FormatConnectionKey(remoteEndPoint.Address.ToString(), remoteEndPoint.Port);
+            var key = TransportConstants.FormatConnectionKey(remoteEndPoint.Address.ToString(), remoteEndPoint.Port);
             RemoveConnection(key);
             _connections[key] = new TcpConnection(client);
             return key;
@@ -319,13 +336,8 @@ namespace Neo.Orleans.Services
             }
         }
 
-        internal static string FormatConnectionKey(string address, int port)
-        {
-            if (IPAddress.TryParse(address, out var ip))
-                return new IPEndPoint(ip, port).ToString();
-
-            return $"{address}:{port}";
-        }
+        internal static string FormatConnectionKey(string address, int port) =>
+            TransportConstants.FormatConnectionKey(address, port);
 
         private bool RemoveConnection(string key, TcpConnection? expected = null, TcpClient? expectedClient = null)
         {
@@ -350,7 +362,9 @@ namespace Neo.Orleans.Services
         private void StartReceiveLoop(string key, TcpConnection connection)
         {
             if (_grainFactory == null)
+            {
                 return;
+            }
 
             while (true)
             {
@@ -362,7 +376,7 @@ namespace Neo.Orleans.Services
                     var replacement = new ReceiveLoopState(connection);
                     replacement.Task = Task.Run(
                         () => ReceiveLoopAsync(key, replacement, replacement.TokenSource.Token),
-                        CancellationToken.None);
+                        replacement.TokenSource.Token);
 
                     if (_receiveLoops.TryUpdate(key, replacement, existing))
                     {
@@ -375,7 +389,7 @@ namespace Neo.Orleans.Services
                 }
 
                 var state = new ReceiveLoopState(connection);
-                state.Task = Task.Run(() => ReceiveLoopAsync(key, state, state.TokenSource.Token), CancellationToken.None);
+                state.Task = Task.Run(() => ReceiveLoopAsync(key, state, state.TokenSource.Token), state.TokenSource.Token);
 
                 if (_receiveLoops.TryAdd(key, state))
                     return;
@@ -424,13 +438,21 @@ namespace Neo.Orleans.Services
                     }
                     catch (Exception ex)
                     {
-                        _logger?.LogDebug(ex, "P2P TCP outbound read failed for {Remote}", remoteEndPoint);
+                        _logger?.LogDebug(ex, "Error reading from TCP stream for {Remote}", remoteEndPoint);
                         break;
                     }
 
                     if (bytesRead <= 0)
+                    {
                         break;
+                    }
 
+                    if (bytesRead <= 64)
+                    {
+                    }
+                    else
+                    {
+                    }
                     pending = EnsureCapacity(pending, pendingCount + bytesRead);
                     Buffer.BlockCopy(readBuffer, 0, pending, pendingCount, bytesRead);
                     pendingCount += bytesRead;
@@ -444,9 +466,8 @@ namespace Neo.Orleans.Services
                         {
                             messageLength = TryGetMessageLength(span);
                         }
-                        catch (FormatException ex)
+                        catch (FormatException)
                         {
-                            _logger?.LogWarning(ex, "P2P TCP outbound invalid message length from {Remote}", remoteEndPoint);
                             return;
                         }
 
@@ -459,11 +480,12 @@ namespace Neo.Orleans.Services
 
                         try
                         {
+                            var cmd = (char)messageBytes[0];
                             await grain.HandleMessageAsync(messageBytes);
                         }
                         catch (Exception ex)
                         {
-                            _logger?.LogDebug(ex, "P2P TCP outbound message handling failed for {Remote}", remoteEndPoint);
+                            _logger?.LogDebug(ex, "Error handling message from {Remote}", remoteEndPoint);
                         }
                     }
 
@@ -473,9 +495,16 @@ namespace Neo.Orleans.Services
                         pendingCount -= consumed;
                     }
 
-                    if (pendingCount > MaxMessageBytes)
+                    if (pendingCount > TransportConstants.MaxMessageBytes)
                     {
                         _logger?.LogWarning("P2P TCP outbound pending buffer exceeded max size for {Remote}", remoteEndPoint);
+                        break;
+                    }
+
+                    if (pendingCount > MaxReceiveBufferSize)
+                    {
+                        _logger?.LogError("P2P TCP receive buffer exceeded safety limit for {Remote}. Buffer: {Size} bytes, Limit: {Limit} bytes",
+                            remoteEndPoint, pendingCount, MaxReceiveBufferSize);
                         break;
                     }
                 }
@@ -501,9 +530,9 @@ namespace Neo.Orleans.Services
                         {
                             await grain.DisconnectAsync();
                         }
-                        catch
+                        catch (Exception ex)
                         {
-                            // Ignore grain disconnect errors on shutdown.
+                            _logger?.LogDebug(ex, "Error disconnecting grain during TCP transport shutdown");
                         }
                     }
                 }
@@ -523,38 +552,53 @@ namespace Neo.Orleans.Services
             if (data.Length < 3)
                 return 0;
 
-            ulong length = data[2];
-            var headerSize = 3;
+            if (data.Length >= 24)
+            {
+                var potentialMagic = BinaryPrimitives.ReadUInt32LittleEndian(data.Slice(0, 4));
+                if (potentialMagic == 0x4E454F4E || potentialMagic == 0x4E335435 || potentialMagic == 0x334F454E)
+                {
+                    var payloadLen = BinaryPrimitives.ReadUInt32LittleEndian(data.Slice(16, 4));
+                    var n3HeaderSize = 24;
+                    if (payloadLen > Message.PayloadMaxSize)
+                        throw new FormatException($"Payload length {payloadLen} exceeds maximum {Message.PayloadMaxSize}");
+                    if (data.Length < n3HeaderSize + (int)payloadLen)
+                        return 0;
+                    return n3HeaderSize + (int)payloadLen;
+                }
+            }
 
-            if (length == 0xFD)
+            ulong lengthIndicator = data[2];
+            var headerSz = 3;
+
+            if (lengthIndicator == 0xFD)
             {
                 if (data.Length < 5)
                     return 0;
-                length = BinaryPrimitives.ReadUInt16LittleEndian(data.Slice(3, 2));
-                headerSize = 5;
+                lengthIndicator = BinaryPrimitives.ReadUInt16LittleEndian(data.Slice(3, 2));
+                headerSz = 5;
             }
-            else if (length == 0xFE)
+            else if (lengthIndicator == 0xFE)
             {
                 if (data.Length < 7)
                     return 0;
-                length = BinaryPrimitives.ReadUInt32LittleEndian(data.Slice(3, 4));
-                headerSize = 7;
+                lengthIndicator = BinaryPrimitives.ReadUInt32LittleEndian(data.Slice(3, 4));
+                headerSz = 7;
             }
-            else if (length == 0xFF)
+            else if (lengthIndicator == 0xFF)
             {
                 if (data.Length < 11)
                     return 0;
-                length = BinaryPrimitives.ReadUInt64LittleEndian(data.Slice(3, 8));
-                headerSize = 11;
+                lengthIndicator = BinaryPrimitives.ReadUInt64LittleEndian(data.Slice(3, 8));
+                headerSz = 11;
             }
 
-            if (length > Message.PayloadMaxSize)
-                throw new FormatException($"Payload length {length} exceeds maximum {Message.PayloadMaxSize}");
+            if (lengthIndicator > Message.PayloadMaxSize)
+                throw new FormatException($"Payload length {lengthIndicator} exceeds maximum {Message.PayloadMaxSize}");
 
-            if (data.Length < headerSize + (int)length)
+            if (data.Length < headerSz + (int)lengthIndicator)
                 return 0;
 
-            return headerSize + (int)length;
+            return headerSz + (int)lengthIndicator;
         }
 
         private static byte[] EnsureCapacity(byte[] buffer, int required)

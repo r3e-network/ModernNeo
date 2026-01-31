@@ -19,17 +19,23 @@ using Neo.Network.P2P.Capabilities;
 using Neo.Network.P2P.Payloads;
 using Neo.Orleans.Hosting;
 using Neo.Orleans.Interfaces;
+using Neo.Orleans.Options;
 using Neo.Orleans.Services;
 using Neo.Orleans.States;
+using Neo.Orleans.Utilities;
 using Neo.SmartContract.Native;
 using Orleans;
 using Orleans.Runtime;
 using System;
+using System.Buffers.Binary;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
+using System.Security.Cryptography;
 
+#pragma warning disable CS0618 // OrleansOptions is obsolete during migration
 namespace Neo.Orleans.Grains
 {
     /// <summary>
@@ -46,9 +52,9 @@ namespace Neo.Orleans.Grains
     {
         private readonly IPersistentState<RemoteNodeState> _state;
         private readonly IGrainFactory _grainFactory;
-        private readonly NeoSystem _system;
+        private readonly INeoSystem _system;
         private readonly ITransportService? _transportService;
-        private readonly NeoOrleansOptions _options;
+        private readonly IOrleansOptions _options;
         private IGrainTimer? _pingTimer;
         private uint _lastHeightSent;
         private DateTime _lastSent = TimeProvider.Current.UtcNow;
@@ -66,15 +72,15 @@ namespace Neo.Orleans.Grains
             [PersistentState("remotenode", "RemoteNodeStore")]
             IPersistentState<RemoteNodeState> state,
             IGrainFactory grainFactory,
-            NeoSystem system,
+            INeoSystem system,
             ITransportService? transportService = null,
-            NeoOrleansOptions? options = null)
+            IOrleansOptions? options = null)
         {
             _state = state;
             _grainFactory = grainFactory;
             _system = system;
             _transportService = transportService;
-            _options = options ?? new NeoOrleansOptions();
+            _options = options ?? new OrleansOptions();
         }
 
         /// <summary>
@@ -202,6 +208,7 @@ namespace Neo.Orleans.Grains
         /// <summary>
         /// Handles an incoming protocol message.
         /// </summary>
+        /// <param name="message">The message bytes received.</param>
         public async Task HandleMessageAsync(byte[] message)
         {
             if (message == null || message.Length == 0)
@@ -215,11 +222,30 @@ namespace Neo.Orleans.Grains
             var shouldSendAddr = false;
             uint? pingNonceToSend = null;
 
-            if (!TryDeserializeMessage(message, out var parsedMessage) || parsedMessage == null)
+            if (!TryDeserializeMessage(message, _options.NetworkMagic, out var parsedMessage) || parsedMessage == null)
             {
                 await HandleProtocolViolationAsync("Invalid message framing");
                 return;
             }
+
+            // Detect message format based on incoming message structure
+            if (message.Length >= 24)
+            {
+                var potentialMagic = BitConverter.ToUInt32(message, 0);
+                if (potentialMagic == _options.NetworkMagic)
+                {
+                    _state.State.UseCompactFormat = false;
+                }
+                else
+                {
+                    _state.State.UseCompactFormat = true;
+                }
+            }
+            else
+            {
+                _state.State.UseCompactFormat = true;
+            }
+
 
             if ((ConnectionState)_state.State.ConnectionState != ConnectionState.Active &&
                 parsedMessage.Command != MessageCommand.Version &&
@@ -241,6 +267,7 @@ namespace Neo.Orleans.Grains
                     _state.State.VersionReceived = true;
                     if (parsedMessage.Payload is VersionPayload version)
                     {
+
                         if (version.Network != _options.NetworkMagic)
                         {
                             await DisconnectAsync();
@@ -262,7 +289,15 @@ namespace Neo.Orleans.Grains
                         _state.State.Nonce = version.Nonce;
                         _state.State.EnableCompression = _options.EnableCompression && version.AllowCompression;
 
-                        var fullNode = version.Capabilities.OfType<FullNodeCapability>().FirstOrDefault();
+                        FullNodeCapability? fullNode = null;
+                        foreach (var cap in version.Capabilities)
+                        {
+                            if (cap is FullNodeCapability fnc)
+                            {
+                                fullNode = fnc;
+                                break;
+                            }
+                        }
                         if (fullNode != null && _state.State.RemoteHeight != fullNode.StartHeight)
                         {
                             _state.State.RemoteHeight = fullNode.StartHeight;
@@ -270,8 +305,15 @@ namespace Neo.Orleans.Grains
                         }
                         _state.State.IsFullNode = fullNode != null;
 
-                        var server = version.Capabilities.OfType<ServerCapability>()
-                            .FirstOrDefault(cap => cap.Type == NodeCapabilityType.TcpServer);
+                        ServerCapability? server = null;
+                        foreach (var cap in version.Capabilities)
+                        {
+                            if (cap is ServerCapability sc && sc.Type == NodeCapabilityType.TcpServer)
+                            {
+                                server = sc;
+                                break;
+                            }
+                        }
                         if (server != null)
                             _state.State.ListenerPort = server.Port;
 
@@ -291,6 +333,7 @@ namespace Neo.Orleans.Grains
                     _state.State.VersionAcknowledged = true;
                     _state.State.ConnectionState = (int)ConnectionState.Active;
                     shouldRegister = true;
+                    await CompleteHandshakeAsync(_state.State.RemoteHeight, _state.State.ListenerPort, _state.State.IsFullNode, _state.State.UserAgent);
                     break;
                 case MessageCommand.Inv:
                     if (parsedMessage.Payload is InvPayload invPayload)
@@ -444,6 +487,7 @@ namespace Neo.Orleans.Grains
         /// <summary>
         /// Sends a message to the remote peer.
         /// </summary>
+        /// <param name="message">The message bytes to send.</param>
         public async Task SendAsync(byte[] message)
         {
             if (message == null || message.Length == 0)
@@ -464,6 +508,8 @@ namespace Neo.Orleans.Grains
         /// <summary>
         /// Sends a message to the remote peer using the negotiated compression settings.
         /// </summary>
+        /// <param name="command">The message command.</param>
+        /// <param name="payload">The optional payload to serialize.</param>
         public Task SendMessageAsync(MessageCommand command, ISerializable? payload = null)
         {
             var message = SerializeMessage(command, payload);
@@ -473,6 +519,7 @@ namespace Neo.Orleans.Grains
         /// <summary>
         /// Gets the connection state.
         /// </summary>
+        /// <returns>The current connection state.</returns>
         public Task<ConnectionState> GetStateAsync()
         {
             return Task.FromResult((ConnectionState)_state.State.ConnectionState);
@@ -524,6 +571,7 @@ namespace Neo.Orleans.Grains
         /// <summary>
         /// Gets the remote peer's reported height.
         /// </summary>
+        /// <returns>The remote peer's blockchain height.</returns>
         public Task<uint> GetRemoteHeightAsync()
         {
             return Task.FromResult(_state.State.RemoteHeight);
@@ -532,6 +580,8 @@ namespace Neo.Orleans.Grains
         /// <summary>
         /// Checks if an inventory hash is known.
         /// </summary>
+        /// <param name="hash">The hash to check (32 bytes).</param>
+        /// <returns>True if the hash is known, false otherwise.</returns>
         public Task<bool> IsKnownHashAsync(byte[] hash)
         {
             if (hash == null || hash.Length != UInt256.Length)
@@ -544,6 +594,7 @@ namespace Neo.Orleans.Grains
         /// <summary>
         /// Adds an inventory hash to the known set.
         /// </summary>
+        /// <param name="hash">The hash to add (32 bytes).</param>
         public Task AddKnownHashAsync(byte[] hash)
         {
             if (hash == null || hash.Length != UInt256.Length)
@@ -557,8 +608,12 @@ namespace Neo.Orleans.Grains
         /// <summary>
         /// Initiates the version handshake.
         /// </summary>
+        /// <param name="localHeight">The local blockchain height.</param>
+        /// <param name="nonce">The connection nonce.</param>
+        /// <param name="userAgent">The user agent string.</param>
         public async Task StartHandshakeAsync(uint localHeight, uint nonce, string userAgent)
         {
+
             _state.State.ConnectionState = (int)ConnectionState.Handshaking;
             _state.State.Nonce = nonce;
             _state.State.VersionSent = true;
@@ -600,6 +655,10 @@ namespace Neo.Orleans.Grains
         /// <summary>
         /// Updates connection info after successful handshake.
         /// </summary>
+        /// <param name="remoteHeight">The remote peer's reported height.</param>
+        /// <param name="listenerPort">The remote peer's listener port.</param>
+        /// <param name="isFullNode">Whether the remote is a full node.</param>
+        /// <param name="userAgent">The remote peer's user agent.</param>
         public async Task CompleteHandshakeAsync(uint remoteHeight, int listenerPort, bool isFullNode, string userAgent)
         {
             _state.State.RemoteHeight = remoteHeight;
@@ -631,6 +690,11 @@ namespace Neo.Orleans.Grains
 
         private async Task SendImmediateAsync(byte[] message)
         {
+            if (message.Length > 0)
+            {
+                var displayLen = Math.Min(24, message.Length);
+            }
+
             TrackSentCommand(message);
             _lastSent = TimeProvider.Current.UtcNow;
             _state.State.LastMessageAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
@@ -652,6 +716,7 @@ namespace Neo.Orleans.Grains
                 _state.State.Address,
                 _state.State.Port,
                 message);
+
 
             if (!success)
             {
@@ -1252,7 +1317,7 @@ namespace Neo.Orleans.Grains
                 return;
 
             var payload = AddrPayload.Create(addresses
-                .OrderBy(_ => Random.Shared.Next())
+                .OrderBy(_ => RandomNumberGenerator.GetInt32(int.MaxValue))
                 .Take(AddrPayload.MaxCountToSend)
                 .ToArray());
             var message = SerializeMessage(MessageCommand.Addr, payload);
@@ -1383,33 +1448,12 @@ namespace Neo.Orleans.Grains
             return transaction.Signers.Any(s => _bloomFilter.Check(s.Account.ToArray()));
         }
 
-        private static Header? TryDeserializeHeader(byte[] data)
-        {
-            if (data.Length == 0)
-                return null;
-
-            try
-            {
-                var reader = new MemoryReader(data);
-                return reader.ReadSerializable<Header>();
-            }
-            catch (FormatException)
-            {
-                return null;
-            }
-            catch
-            {
-                return null;
-            }
-        }
-
         private async Task<Header?> TryGetHeaderAsync(IBlockchainGrain blockchain, uint index)
         {
             var entry = await blockchain.GetHeaderAsync(index);
             if (entry != null && entry.Data.Length > 0)
             {
-                var parsed = TryDeserializeHeader(entry.Data);
-                if (parsed != null)
+                if (SerializationHelper.TryDeserializeHeader(entry.Data, out var parsed))
                     return parsed;
             }
 
@@ -1422,7 +1466,15 @@ namespace Neo.Orleans.Grains
 
         private byte[] SerializeMessage(MessageCommand command, ISerializable? payload = null)
         {
-            return Message.Create(command, payload).ToArray(_state.State.EnableCompression);
+            var message = Message.Create(command, payload);
+            if (_state.State.UseCompactFormat)
+            {
+                return message.ToArray(_state.State.EnableCompression);
+            }
+            else
+            {
+                return message.ToArrayStandardN3(_options.NetworkMagic, _state.State.EnableCompression);
+            }
         }
 
         private byte[] AdjustCompressionIfNeeded(byte[] message)
@@ -1433,7 +1485,7 @@ namespace Neo.Orleans.Grains
             if ((message[0] & (byte)MessageFlags.Compressed) == 0)
                 return message;
 
-            if (TryDeserializeMessage(message, out var parsed) && parsed != null)
+            if (TryDeserializeMessage(message, _options.NetworkMagic, out var parsed) && parsed != null)
                 return Message.Create(parsed.Command, parsed.Payload).ToArray(false);
 
             return message;
@@ -1459,11 +1511,21 @@ namespace Neo.Orleans.Grains
                 await DisconnectAsync();
         }
 
-        private static bool TryDeserializeMessage(byte[] data, out Message? message)
+        private static bool TryDeserializeMessage(byte[] data, uint networkMagic, out Message? message)
         {
             message = null;
             if (data.Length < 3)
                 return false;
+
+            if (data.Length >= 24)
+            {
+                var span = new ReadOnlySpan<byte>(data);
+                var potentialMagic = BinaryPrimitives.ReadUInt32LittleEndian(span.Slice(0, 4));
+                if (potentialMagic == networkMagic)
+                {
+                    return Message.TryDeserializeStandardN3(span, networkMagic, out message);
+                }
+            }
 
             var flags = data[0];
             if (flags > (byte)MessageFlags.Compressed)
@@ -1494,3 +1556,4 @@ namespace Neo.Orleans.Grains
         #endregion
     }
 }
+#pragma warning restore CS0618

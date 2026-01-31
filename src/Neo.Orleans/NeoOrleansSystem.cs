@@ -16,6 +16,7 @@ using Neo.Network.P2P.Payloads;
 using Neo.Orleans.Bridge;
 using Neo.Orleans.Hosting;
 using Neo.Orleans.Interfaces;
+using Neo.Orleans.Options;
 using Neo.Orleans.Services;
 
 namespace Neo.Orleans
@@ -30,7 +31,7 @@ namespace Neo.Orleans
         private readonly IGrainFactory _grainFactory;
         private readonly OrleansActorBridge _bridge;
         private readonly IP2PListener? _listener;
-        private readonly NeoOrleansOptions _options;
+        private readonly OrleansOptions _options;
         private bool _isStarted;
         private bool _isDisposed;
 
@@ -83,7 +84,7 @@ namespace Neo.Orleans
             _grainFactory = host.Services.GetRequiredService<IGrainFactory>();
             _bridge = new OrleansActorBridge(host);
             _listener = host.Services.GetService<IP2PListener>();
-            _options = host.Services.GetService<NeoOrleansOptions>() ?? new NeoOrleansOptions();
+            _options = host.Services.GetService<OrleansOptions>() ?? new OrleansOptions();
         }
 
         /// <summary>
@@ -100,7 +101,7 @@ namespace Neo.Orleans
         /// Creates a NeoOrleansSystem with custom configuration.
         /// Uses localhost clustering by default for development scenarios.
         /// </summary>
-        public static NeoOrleansSystem Create(Action<NeoOrleansOptions> configure)
+        public static NeoOrleansSystem Create(Action<OrleansOptions> configure)
         {
             var host = new NeoOrleansHostBuilder()
                 .UseDevelopment() // Enable localhost clustering
@@ -264,3 +265,4 @@ namespace Neo.Orleans
         }
     }
 }
+

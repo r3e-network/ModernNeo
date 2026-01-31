@@ -126,10 +126,17 @@ namespace Neo.Orleans.States
         public int MaxOutboundQueue { get; set; } = DefaultMaxOutboundQueue;
 
         /// <summary>
-        /// Whether payload compression is enabled for this connection.
-        /// </summary>
+        /// Whether payload compression is.
+        ///  enabled for this connection</summary>
         [Id(17)]
         public bool EnableCompression { get; set; } = Neo.Network.P2P.ChannelsConfig.DefaultEnableCompression;
+
+        /// <summary>
+        /// Whether to use compact message format instead of N3 format for this peer.
+        /// Set based on the format of the first message received from the peer.
+        /// </summary>
+        [Id(22)]
+        public bool UseCompactFormat { get; set; }
 
         /// <summary>
         /// Whether a mempool request has been sent for this session.

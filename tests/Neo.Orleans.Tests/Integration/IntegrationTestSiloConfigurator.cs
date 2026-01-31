@@ -11,7 +11,10 @@
 
 using Microsoft.Extensions.DependencyInjection;
 using Neo;
+using Neo.Core;
+using Neo.Orleans.Adapters;
 using Neo.Orleans.Hosting;
+using Neo.Orleans.Options;
 using Neo.Orleans.Services;
 using Neo.Orleans.Tests;
 using Orleans.TestingHost;
@@ -35,7 +38,8 @@ namespace Neo.Orleans.Tests.Integration
             siloBuilder.AddMemoryGrainStorage("TaskManagerStore");
             siloBuilder.AddMemoryGrainStorage("TxRouterStore");
             siloBuilder.Services.AddSingleton<IBlockStorageService, InMemoryBlockStorageService>();
-            siloBuilder.Services.AddSingleton(new NeoOrleansOptions
+            siloBuilder.Services.AddSingleton<ITimeProvider, TimeProvider>();
+            siloBuilder.Services.AddSingleton(new OrleansOptions
             {
                 ValidationMode = NeoValidationMode.None,
                 ProtocolSettings = TestProtocolSettings.SoleNode,
@@ -44,8 +48,10 @@ namespace Neo.Orleans.Tests.Integration
             });
             siloBuilder.Services.AddSingleton(sp =>
             {
-                var options = sp.GetRequiredService<NeoOrleansOptions>();
-                return new NeoSystem(options.ProtocolSettings);
+                var options = sp.GetRequiredService<OrleansOptions>();
+                var settings = (ProtocolSettings)options.ProtocolSettings!;
+                var system = new NeoSystem(settings);
+                return new NeoSystemAdapter(system) as INeoSystem;
             });
         }
     }

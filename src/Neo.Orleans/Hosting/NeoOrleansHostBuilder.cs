@@ -10,14 +10,17 @@
 // modifications are permitted.
 
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Neo;
 using Neo.Cryptography.ECC;
+using Neo.Orleans.Options;
 using LogLevel = Microsoft.Extensions.Logging.LogLevel;
 
 namespace Neo.Orleans.Hosting
 {
+#pragma warning disable CS0618 // OrleansOptions is obsolete during migration
     /// <summary>
     /// Builder for creating Neo Orleans host instances.
     /// Provides a simplified API for common deployment scenarios.
@@ -25,7 +28,7 @@ namespace Neo.Orleans.Hosting
     public class NeoOrleansHostBuilder
     {
         private readonly HostApplicationBuilder _builder;
-        private readonly NeoOrleansOptions _options = new();
+        private readonly OrleansOptions _options = new();
         private bool _isDevelopment;
         private int _siloPort = 11111;
         private int _gatewayPort = 30000;
@@ -52,7 +55,8 @@ namespace Neo.Orleans.Hosting
         {
             _isDevelopment = true;
             _options.UseMemoryStorage = true;
-            if (_options.ProtocolSettings.StandbyCommittee.Count == 0 || _options.ProtocolSettings.ValidatorsCount == 0)
+            var currentSettings = _options.ProtocolSettings ?? ProtocolSettings.Default;
+            if (currentSettings.StandbyCommittee.Count == 0 || currentSettings.ValidatorsCount == 0)
             {
                 ApplyProtocolSettings(_options, CreateDevelopmentProtocolSettings());
             }
@@ -62,7 +66,7 @@ namespace Neo.Orleans.Hosting
         /// <summary>
         /// Configures Neo Orleans options.
         /// </summary>
-        public NeoOrleansHostBuilder Configure(Action<NeoOrleansOptions> configure)
+        public NeoOrleansHostBuilder Configure(Action<OrleansOptions> configure)
         {
             configure(_options);
             return this;
@@ -179,6 +183,9 @@ namespace Neo.Orleans.Hosting
         /// </summary>
         public IHost Build()
         {
+            _builder.Services.AddSingleton<IOrleansOptions>(_options);
+            _builder.Services.AddSingleton(_options);
+
             _builder.UseOrleans(siloBuilder =>
             {
                 if (_isDevelopment)
@@ -259,7 +266,7 @@ namespace Neo.Orleans.Hosting
             };
         }
 
-        private static void ApplyProtocolSettings(NeoOrleansOptions options, ProtocolSettings settings)
+        private static void ApplyProtocolSettings(OrleansOptions options, ProtocolSettings settings)
         {
             options.ProtocolSettings = settings;
             options.NetworkMagic = settings.Network;
@@ -268,3 +275,4 @@ namespace Neo.Orleans.Hosting
         }
     }
 }
+#pragma warning restore CS0618

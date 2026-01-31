@@ -10,6 +10,7 @@
 // modifications are permitted.
 
 using Neo;
+using Neo.Core;
 using Neo.Core.Interfaces;
 using Neo.Extensions;
 using Neo.IO;
@@ -17,7 +18,9 @@ using Neo.Ledger;
 using Neo.Network.P2P.Payloads;
 using Neo.Orleans.Hosting;
 using Neo.Orleans.Interfaces;
+using Neo.Orleans.Options;
 using Neo.Orleans.States;
+using Neo.Orleans.Utilities;
 using Neo.SmartContract.Native;
 using Orleans.Runtime;
 
@@ -30,8 +33,8 @@ namespace Neo.Orleans.Grains
     public class MemoryPoolGrain : Grain, IMemoryPoolGrain
     {
         private readonly IPersistentState<MemoryPoolState> _state;
-        private readonly NeoOrleansOptions _options;
-        private readonly NeoSystem _system;
+        private readonly IOrleansOptions _options;
+        private readonly INeoSystem _system;
         private SortedSet<PoolItemState>? _sortedVerified;
         private SortedSet<PoolItemState>? _sortedUnverified;
         private bool UseLegacyState => _options.ValidationMode == NeoValidationMode.None;
@@ -39,12 +42,12 @@ namespace Neo.Orleans.Grains
         public MemoryPoolGrain(
             [PersistentState("memorypool", "MemoryPoolStore")]
             IPersistentState<MemoryPoolState> state,
-            NeoSystem system,
-            NeoOrleansOptions? options = null)
+            INeoSystem system,
+            IOrleansOptions? options = null)
         {
             _state = state;
             _system = system;
-            _options = options ?? new NeoOrleansOptions();
+            _options = options ?? new OrleansOptions();
         }
 
         public override async Task OnActivateAsync(CancellationToken cancellationToken)
@@ -115,7 +118,7 @@ namespace Neo.Orleans.Grains
                 return MemoryPoolAddResult.Succeed;
             }
 
-            if (!TryDeserializeTransaction(transaction, out var tx))
+            if (!SerializationHelper.TryDeserializeTransaction(transaction, out var tx))
                 return MemoryPoolAddResult.Invalid;
 
             if (tx.VerifyStateIndependent(_system.Settings) != VerifyResult.Succeed)
@@ -512,35 +515,6 @@ namespace Neo.Orleans.Grains
             }
         }
 
-        private static bool TryDeserializeTransaction(ITransactionData transaction, out Transaction tx)
-        {
-            tx = null!;
-            if (transaction is Transaction fullTransaction)
-            {
-                tx = fullTransaction;
-                return true;
-            }
-
-            var raw = transaction.ToArray();
-            if (raw.Length == 0)
-                return false;
-
-            try
-            {
-                var reader = new MemoryReader(raw);
-                tx = reader.ReadSerializable<Transaction>();
-                return true;
-            }
-            catch (FormatException)
-            {
-                return false;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
         private static PoolItemState CreatePoolItemState(Transaction tx)
         {
             return new PoolItemState
@@ -572,3 +546,4 @@ namespace Neo.Orleans.Grains
         #endregion
     }
 }
+#pragma warning restore CS0618

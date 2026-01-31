@@ -74,7 +74,8 @@ namespace Neo.Orleans.Services
                 _acceptTask = AcceptLoopAsync(_cts.Token);
                 _port = tcpPort;
 
-                _logger.LogInformation("P2P TCP listener started on {Address}:{Port}", address, tcpPort);
+                _logger.LogInformation("[DEBUG-LISTENER] P2P TCP listener started on {Address}:{Port}", address, tcpPort);
+                _logger.LogDebug("[DEBUG-LISTENER] AcceptLoopAsync task started, waiting for inbound connections...");
             }
             finally
             {
@@ -131,13 +132,16 @@ namespace Neo.Orleans.Services
 
         private async Task AcceptLoopAsync(CancellationToken cancellationToken)
         {
+            _logger.LogDebug("[DEBUG-ACCEPT] AcceptLoopAsync started, listening={ListenerNotNull}", _listener != null);
             while (!cancellationToken.IsCancellationRequested && _listener != null)
             {
                 TcpClient? client = null;
                 try
                 {
+                    _logger.LogDebug("[DEBUG-ACCEPT] Waiting for inbound connection...");
                     client = await _listener.AcceptTcpClientAsync(cancellationToken);
                     client.NoDelay = true;
+                    _logger.LogDebug("[DEBUG-ACCEPT] Accepted inbound connection from {RemoteEndPoint}", client.Client.RemoteEndPoint);
                 }
                 catch (OperationCanceledException)
                 {
@@ -171,6 +175,7 @@ namespace Neo.Orleans.Services
             try
             {
                 key = _transportService.RegisterInboundConnection(remoteEndPoint, client);
+                _logger.LogDebug("[DEBUG-INBOUND] Registered inbound connection with key={Key}", key);
             }
             catch (ObjectDisposedException)
             {
@@ -179,10 +184,12 @@ namespace Neo.Orleans.Services
             }
 
             var grain = _grainFactory.GetGrain<IRemoteNodeGrain>(key);
+            _logger.LogDebug("[DEBUG-INBOUND] Got RemoteNodeGrain for key={Key}", key);
 
             try
             {
                 await ReadLoopAsync(client, grain, cancellationToken);
+                _logger.LogDebug("[DEBUG-INBOUND] ReadLoopAsync completed for {Key}", key);
             }
             finally
             {
@@ -196,9 +203,9 @@ namespace Neo.Orleans.Services
                     {
                         await grain.DisconnectAsync();
                     }
-                    catch
+                    catch (Exception ex)
                     {
-                        // Ignore grain disconnect errors on shutdown.
+                        _logger?.LogDebug(ex, "Error disconnecting grain during TCP listener shutdown");
                     }
                 }
 
@@ -234,8 +241,12 @@ namespace Neo.Orleans.Services
                 }
 
                 if (bytesRead <= 0)
+                {
+                    _logger.LogDebug("[DEBUG-READ-INBOUND] Read {BytesRead} bytes (<=0 means connection closed), breaking loop", bytesRead);
                     break;
+                }
 
+                _logger.LogDebug("[DEBUG-READ-INBOUND] Read {BytesRead} bytes from {Remote}", bytesRead, client.Client.RemoteEndPoint);
                 pending = EnsureCapacity(pending, pendingCount + bytesRead);
                 Buffer.BlockCopy(readBuffer, 0, pending, pendingCount, bytesRead);
                 pendingCount += bytesRead;
@@ -264,7 +275,11 @@ namespace Neo.Orleans.Services
 
                     try
                     {
+                        var cmd = (char)messageBytes[0];
+                        _logger.LogDebug("[DEBUG-MSG-INBOUND] Handling message from {Remote}: cmd={Cmd}, length={Length}",
+                            client.Client.RemoteEndPoint, cmd, messageLength);
                         await grain.HandleMessageAsync(messageBytes);
+                        _logger.LogDebug("[DEBUG-MSG-INBOUND] Handled message from {Remote}: cmd={Cmd}", client.Client.RemoteEndPoint, cmd);
                     }
                     catch (Exception ex)
                     {

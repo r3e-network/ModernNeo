@@ -15,6 +15,7 @@ using Neo.Network.P2P;
 using Neo.Network.P2P.Payloads;
 using Neo.Orleans.Hosting;
 using Neo.Orleans.Interfaces;
+using Neo.Orleans.Options;
 using Orleans;
 using System;
 using System.Threading.Tasks;
@@ -24,18 +25,18 @@ namespace Neo.Orleans.Bridge
     internal sealed class OrleansLocalNodeMessageTarget : ISystemMessageTarget
     {
         private readonly IGrainFactory _grainFactory;
-        private readonly ProtocolSettings _settings;
-        private readonly NeoOrleansOptions _options;
+        private readonly IProtocolSettings _settings;
+        private readonly OrleansOptions _options;
         private readonly uint _nonce;
         private bool _enableCompression;
 
-        public OrleansLocalNodeMessageTarget(IGrainFactory grainFactory, ProtocolSettings settings, NeoOrleansOptions options)
+        public OrleansLocalNodeMessageTarget(IGrainFactory grainFactory, IProtocolSettings settings, OrleansOptions options)
         {
             _grainFactory = grainFactory;
             _settings = settings;
             _options = options;
             _nonce = RandomNumberFactory.NextUInt32();
-            _enableCompression = options.EnableCompression;
+            _enableCompression = true;
         }
 
         public void Tell(object message)
@@ -113,3 +114,4 @@ namespace Neo.Orleans.Bridge
         }
     }
 }
+#pragma warning restore CS0618

@@ -39,7 +39,7 @@ namespace Neo.Orleans.Dbft
             ExceptionPolicy = UnhandledExceptionPolicy.StopNode;
         }
 
-        public DbftSettings(ProtocolSettings settings)
+        public DbftSettings(IProtocolSettings settings)
         {
             ArgumentNullException.ThrowIfNull(settings);
 

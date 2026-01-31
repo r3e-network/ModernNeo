@@ -10,9 +10,10 @@
 // modifications are permitted.
 
 using Microsoft.Extensions.Logging;
-using Neo.Network.P2P;
 using Neo.Orleans.Hosting;
 using Neo.Orleans.Interfaces;
+using Neo.Orleans.Options;
+using Neo.Orleans.Utilities;
 using Orleans;
 using System;
 using System.Buffers;
@@ -28,11 +29,10 @@ namespace Neo.Orleans.Services
     internal sealed class WsP2PListener : IP2PListener, IAsyncDisposable
     {
         private const int ReceiveBufferSize = 64 * 1024;
-        private static readonly int MaxMessageBytes = Message.PayloadMaxSize + 16 + 4;
 
         private readonly IGrainFactory _grainFactory;
         private readonly WsTransportService _transportService;
-        private readonly NeoOrleansOptions _options;
+        private readonly OrleansOptions _options;
         private readonly ILogger<WsP2PListener> _logger;
         private readonly SemaphoreSlim _gate = new(1, 1);
 
@@ -44,7 +44,7 @@ namespace Neo.Orleans.Services
         public WsP2PListener(
             IGrainFactory grainFactory,
             WsTransportService transportService,
-            NeoOrleansOptions options,
+            OrleansOptions options,
             ILogger<WsP2PListener> logger)
         {
             _grainFactory = grainFactory;
@@ -276,7 +276,7 @@ namespace Neo.Orleans.Services
                     if (result.Count > 0)
                     {
                         stream.Write(buffer, 0, result.Count);
-                        if (stream.Length > MaxMessageBytes)
+                        if (stream.Length > TransportConstants.MaxWsMessageBytes)
                         {
                             _logger.LogWarning("P2P WebSocket message exceeded max size for {Remote}", remoteEndPoint);
                             break;
@@ -318,9 +318,9 @@ namespace Neo.Orleans.Services
                     {
                         await grain.DisconnectAsync();
                     }
-                    catch
+                    catch (Exception ex)
                     {
-                        // Ignore grain disconnect errors on shutdown.
+                        _logger?.LogDebug(ex, "Error disconnecting grain during WebSocket listener shutdown");
                     }
                 }
 
@@ -367,3 +367,4 @@ namespace Neo.Orleans.Services
         }
     }
 }
+

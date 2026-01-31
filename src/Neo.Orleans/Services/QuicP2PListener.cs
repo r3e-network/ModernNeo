@@ -13,6 +13,7 @@ using Microsoft.Extensions.Logging;
 using Neo.Network.P2P.Transport;
 using Neo.Orleans.Hosting;
 using Neo.Orleans.Interfaces;
+using Neo.Orleans.Options;
 using Orleans;
 using System;
 using System.Net;
@@ -27,7 +28,7 @@ namespace Neo.Orleans.Services
     {
         private readonly IGrainFactory _grainFactory;
         private readonly QuicTransportService _transportService;
-        private readonly NeoOrleansOptions _options;
+        private readonly OrleansOptions _options;
         private readonly ILogger<QuicP2PListener> _logger;
         private readonly SemaphoreSlim _gate = new(1, 1);
 
@@ -39,7 +40,7 @@ namespace Neo.Orleans.Services
         public QuicP2PListener(
             IGrainFactory grainFactory,
             QuicTransportService transportService,
-            NeoOrleansOptions options,
+            OrleansOptions options,
             ILogger<QuicP2PListener> logger)
         {
             _grainFactory = grainFactory;
@@ -306,3 +307,4 @@ namespace Neo.Orleans.Services
         }
     }
 }
+

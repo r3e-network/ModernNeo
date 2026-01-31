@@ -18,6 +18,7 @@ using Neo.Network.P2P;
 using Neo.Network.P2P.Payloads;
 using Neo.Orleans.Hosting;
 using Neo.Orleans.Interfaces;
+using Neo.Orleans.Options;
 using Neo.Orleans.Services;
 
 namespace Neo.Orleans.Bridge
@@ -36,7 +37,7 @@ namespace Neo.Orleans.Bridge
         private readonly OrleansTaskManagerRuntime _taskManager;
         private readonly OrleansConsensusRuntime _consensus;
         private readonly IP2PListener? _listener;
-        private readonly NeoOrleansOptions _options;
+        private readonly IOrleansOptions _options;
         private bool _isStarted;
 
         public IBlockchainRuntime Blockchain => _blockchain;
@@ -53,7 +54,7 @@ namespace Neo.Orleans.Bridge
         {
             _host = host ?? throw new ArgumentNullException(nameof(host));
             _grainFactory = host.Services.GetRequiredService<IGrainFactory>();
-            _options = host.Services.GetService<NeoOrleansOptions>() ?? new NeoOrleansOptions();
+            _options = host.Services.GetService<IOrleansOptions>() ?? new OrleansOptions();
             _listener = host.Services.GetService<IP2PListener>();
             _blockchain = new OrleansBlockchainRuntime(_grainFactory);
             _memoryPool = new OrleansMemoryPoolRuntime(_grainFactory);
@@ -74,7 +75,7 @@ namespace Neo.Orleans.Bridge
         /// <summary>
         /// Creates an Orleans runtime with custom configuration.
         /// </summary>
-        public static OrleansSystemRuntime Create(Action<NeoOrleansOptions> configure)
+        public static OrleansSystemRuntime Create(Action<IOrleansOptions> configure)
         {
             var host = new NeoOrleansHostBuilder()
                 .UseDevelopment()
@@ -246,10 +247,10 @@ namespace Neo.Orleans.Bridge
     internal class OrleansLocalNodeRuntime : ILocalNodeRuntime
     {
         private readonly IGrainFactory _grainFactory;
-        private readonly NeoOrleansOptions _options;
+        private readonly IOrleansOptions _options;
         private readonly IP2PListener? _listener;
 
-        public OrleansLocalNodeRuntime(IGrainFactory grainFactory, NeoOrleansOptions options, IP2PListener? listener)
+        public OrleansLocalNodeRuntime(IGrainFactory grainFactory, IOrleansOptions options, IP2PListener? listener)
         {
             _grainFactory = grainFactory;
             _options = options ?? throw new ArgumentNullException(nameof(options));
@@ -260,20 +261,21 @@ namespace Neo.Orleans.Bridge
 
         public async Task StartAsync(RuntimeNodeConfig config)
         {
+            var mutableOptions = (OrleansOptions)_options;
             var tcpPort = config.TcpPort > 0 ? config.TcpPort : _options.TcpPort;
             if (tcpPort > 0)
-                _options.TcpPort = tcpPort;
+                mutableOptions.TcpPort = tcpPort;
             var wsPort = config.WsPort > 0 ? config.WsPort : _options.WsPort;
             if (wsPort > 0)
             {
-                _options.WsPort = wsPort;
-                _options.WsEnabled = true;
+                mutableOptions.WsPort = wsPort;
+                mutableOptions.WsEnabled = true;
             }
             if (config.MinDesiredConnections > 0)
-                _options.MinDesiredConnections = config.MinDesiredConnections;
+                mutableOptions.MinDesiredConnections = config.MinDesiredConnections;
 
             if (_listener != null)
-                await _listener.StartAsync(tcpPort, _options.TcpBindAddress);
+                await _listener.StartAsync(tcpPort, mutableOptions.TcpBindAddress);
 
             var maxConnections = config.MaxConnections > 0 ? config.MaxConnections : _options.MaxConnections;
             var maxConnectionsPerAddress = config.MaxConnectionsPerAddress > 0
@@ -337,9 +339,9 @@ namespace Neo.Orleans.Bridge
     internal class OrleansTaskManagerRuntime : ITaskManagerRuntime
     {
         private readonly IGrainFactory _grainFactory;
-        private readonly NeoOrleansOptions _options;
+        private readonly IOrleansOptions _options;
 
-        public OrleansTaskManagerRuntime(IGrainFactory grainFactory, NeoOrleansOptions options)
+        public OrleansTaskManagerRuntime(IGrainFactory grainFactory, IOrleansOptions options)
         {
             _grainFactory = grainFactory;
             _options = options ?? throw new ArgumentNullException(nameof(options));

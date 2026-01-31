@@ -10,19 +10,23 @@
 // modifications are permitted.
 
 using Neo;
+using Neo.Core;
 using Neo.Cryptography;
 using Neo.Extensions;
 using Neo.IO;
 using Neo.Ledger;
 using Neo.Network.P2P;
 using Neo.Network.P2P.Payloads;
+using Neo.Orleans.Adapters;
 using Neo.Orleans.Dbft;
 using Neo.Orleans.Dbft.Consensus;
 using Neo.Orleans.Dbft.Messages;
 using Neo.Orleans.Dbft.Types;
 using Neo.Orleans.Hosting;
 using Neo.Orleans.Interfaces;
+using Neo.Orleans.Options;
 using Neo.Orleans.States;
+using Neo.Orleans.Utilities;
 using Neo.Persistence;
 using Neo.Sign;
 using Neo.SmartContract;
@@ -32,25 +36,31 @@ using Orleans.Runtime;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Threading;
 
+#pragma warning disable CS0618 // OrleansOptions is obsolete during migration
 namespace Neo.Orleans.Grains
 {
     /// <summary>
     /// Orleans Grain implementation for dBFT consensus management.
     /// </summary>
+    /// <remarks>
+    /// This grain implements the dBFT (delegated Byzantine Fault Tolerance) consensus algorithm,
+    /// handling prepare requests, prepare responses, change views, commits, and recovery messages.
+    /// It manages the consensus state and coordinates with other consensus participants.
+    /// </remarks>
     public class ConsensusGrain : Grain, IConsensusGrain
     {
         private const string DbftCategory = "dBFT";
-        private static readonly Script OnPersistScript;
-        private static readonly Script PostPersistScript;
 
         private readonly IPersistentState<ConsensusGrainState> _state;
         private readonly IGrainFactory _grainFactory;
-        private readonly NeoSystem _system;
-        private readonly NeoOrleansOptions _options;
+        private readonly INeoSystem _system;
+        private readonly IOrleansOptions _options;
         private readonly DbftSettings _dbftSettings;
-        private readonly HashSet<UInt256> _knownHashes = new();
+        private readonly ITimeProvider _timeProvider;
+        private readonly Dictionary<(uint blockIndex, byte viewNumber, UInt256 hash), DateTime> _knownHashes = new();
 
         private ConsensusContext? _context;
         private ISigner _signer = NullSigner.Instance;
@@ -58,7 +68,7 @@ namespace Neo.Orleans.Grains
         private DateTime _prepareRequestReceivedTime;
         private uint _prepareRequestReceivedBlockIndex;
         private uint _blockReceivedIndex;
-        private DateTime _clockStarted = TimeProvider.Current.UtcNow;
+        private DateTime _clockStarted;
         private TimeSpan _expectedDelay = TimeSpan.Zero;
         private uint _timerHeight;
         private byte _timerViewNumber;
@@ -66,28 +76,20 @@ namespace Neo.Orleans.Grains
         private bool _isRecovering;
         private bool _started;
 
-        static ConsensusGrain()
-        {
-            using var onPersistBuilder = new ScriptBuilder();
-            onPersistBuilder.EmitSysCall(ApplicationEngine.System_Contract_NativeOnPersist);
-            OnPersistScript = new Script(onPersistBuilder.ToArray(), true);
-
-            using var postPersistBuilder = new ScriptBuilder();
-            postPersistBuilder.EmitSysCall(ApplicationEngine.System_Contract_NativePostPersist);
-            PostPersistScript = new Script(postPersistBuilder.ToArray(), true);
-        }
-
         public ConsensusGrain(
             [PersistentState("consensus", "ConsensusStore")]
             IPersistentState<ConsensusGrainState> state,
             IGrainFactory grainFactory,
-            NeoSystem system,
-            NeoOrleansOptions? options = null)
+            INeoSystem system,
+            ITimeProvider timeProvider,
+            IOrleansOptions? options = null)
         {
             _state = state;
             _grainFactory = grainFactory;
             _system = system;
-            _options = options ?? new NeoOrleansOptions();
+            _timeProvider = timeProvider;
+            _clockStarted = timeProvider.UtcNow;
+            _options = options ?? new OrleansOptions();
             _dbftSettings = new DbftSettings(system.Settings);
         }
 
@@ -117,6 +119,9 @@ namespace Neo.Orleans.Grains
             await _state.WriteStateAsync();
         }
 
+        /// <summary>
+        /// Starts the consensus process.
+        /// </summary>
         public async Task StartAsync()
         {
             if (_started)
@@ -170,12 +175,17 @@ namespace Neo.Orleans.Grains
             await _state.WriteStateAsync();
         }
 
+        /// <summary>
+        /// Handles an incoming consensus message.
+        /// </summary>
+        /// <param name="message">The raw message bytes.</param>
+        /// <param name="senderAddress">The address of the peer that sent the message.</param>
         public async Task OnConsensusMessageAsync(byte[] message, string senderAddress)
         {
             if (!_started || message == null || message.Length == 0 || _context == null)
                 return;
 
-            if (!TryDeserializeExtensible(message, out var payload))
+            if (!SerializationHelper.TryDeserializeExtensible(message, out var payload))
                 return;
 
             if (!string.Equals(payload.Category, DbftCategory, StringComparison.Ordinal))
@@ -189,6 +199,10 @@ namespace Neo.Orleans.Grains
             await OnConsensusPayloadAsync(payload);
         }
 
+        /// <summary>
+        /// Gets the current consensus state.
+        /// </summary>
+        /// <returns>The consensus state including view number, block height, and phase.</returns>
         public Task<ConsensusState> GetStateAsync()
         {
             if (!_started || _context == null)
@@ -201,12 +215,24 @@ namespace Neo.Orleans.Grains
                 _context.IsPrimary));
         }
 
+        /// <summary>
+        /// Gets the current view number.
+        /// </summary>
+        /// <returns>The current view number, or 0 if consensus is not started.</returns>
         public Task<byte> GetViewNumberAsync() =>
             Task.FromResult(_context?.ViewNumber ?? (byte)0);
 
+        /// <summary>
+        /// Checks if this node is the primary validator for the current view.
+        /// </summary>
+        /// <returns>True if this node is primary, false otherwise.</returns>
         public Task<bool> IsPrimaryAsync() =>
             Task.FromResult(_context?.IsPrimary ?? false);
 
+        /// <summary>
+        /// Handles a new transaction that should be considered for inclusion.
+        /// </summary>
+        /// <param name="transaction">The transaction to process.</param>
         public Task OnTransactionAsync(Transaction transaction)
         {
             if (!_started || _context == null || transaction == null)
@@ -215,6 +241,10 @@ namespace Neo.Orleans.Grains
             return OnTransactionInternalAsync(transaction);
         }
 
+        /// <summary>
+        /// Called when a block has been persisted to the blockchain.
+        /// </summary>
+        /// <param name="block">The persisted block.</param>
         public Task OnPersistCompletedAsync(Block block)
         {
             if (!_started || _context == null || block == null)
@@ -224,7 +254,7 @@ namespace Neo.Orleans.Grains
             return Task.CompletedTask;
         }
 
-        private void Blockchain_Committed(NeoSystem system, Block block)
+        private void Blockchain_Committed(INeoSystem system, Block block)
         {
             if (!ReferenceEquals(system, _system))
                 return;
@@ -300,11 +330,17 @@ namespace Neo.Orleans.Grains
             if (message.Version != _context.Block.Version || message.PrevHash != _context.Block.PrevHash) return;
             if (message.TransactionHashes.Length > _system.Settings.MaxTransactionsPerBlock) return;
             Log($"{nameof(OnPrepareRequestReceivedAsync)}: height={message.BlockIndex} view={message.ViewNumber} index={message.ValidatorIndex} tx={message.TransactionHashes.Length}");
-            if (message.Timestamp <= _context.PrevHeader.Timestamp || message.Timestamp > TimeProvider.Current.UtcNow.AddMilliseconds(8 * _context.TimePerBlock.TotalMilliseconds).ToTimestampMS())
+            if (message.Timestamp <= _context.PrevHeader.Timestamp || message.Timestamp > _timeProvider.UtcNow.AddMilliseconds(8 * _context.TimePerBlock.TotalMilliseconds).ToTimestampMS())
             {
                 Log($"Timestamp incorrect: {message.Timestamp}", LogLevel.Warning);
                 return;
             }
+
+            // SECURITY NOTE: _timeProvider.UtcNow is used for timestamp validation.
+            // In production deployments, ensure all consensus nodes have their system clocks
+            // synchronized via NTP (Network Time Protocol) with a reliable time source.
+            // Clock drift between nodes can cause valid blocks to be rejected, leading to
+            // consensus failures. Recommended: synchronize clocks within 500ms of each other.
 
             if (message.TransactionHashes.Any(p => NativeContract.Ledger.ContainsTransaction(_context.Snapshot, p)))
             {
@@ -314,7 +350,7 @@ namespace Neo.Orleans.Grains
 
             ExtendTimerByFactor(2);
 
-            _prepareRequestReceivedTime = TimeProvider.Current.UtcNow;
+            _prepareRequestReceivedTime = _timeProvider.UtcNow;
             _prepareRequestReceivedBlockIndex = message.BlockIndex;
 
             _context.Block.Header.Timestamp = message.Timestamp;
@@ -349,7 +385,7 @@ namespace Neo.Orleans.Grains
                 {
                     if (tx is null)
                         continue;
-                    if (NativeContract.Ledger.ContainsConflictHash(_context.Snapshot, hash, tx.Signers.Select(s => s.Account), mtb))
+                    if (NativeContract.Ledger.ContainsConflictHash(_context.Snapshot, hash, System.Runtime.InteropServices.MemoryMarshal.CreateReadOnlySpan(ref System.Runtime.CompilerServices.Unsafe.As<Signer, UInt160>(ref tx.Signers[0]), tx.Signers.Length), mtb))
                     {
                         Log("Invalid request: transaction has on-chain conflict", LogLevel.Warning);
                         return;
@@ -364,7 +400,7 @@ namespace Neo.Orleans.Grains
                     {
                         if (tx is null)
                             continue;
-                        if (NativeContract.Ledger.ContainsConflictHash(_context.Snapshot, hash, tx.Signers.Select(s => s.Account), mtb))
+                        if (NativeContract.Ledger.ContainsConflictHash(_context.Snapshot, hash, System.Runtime.InteropServices.MemoryMarshal.CreateReadOnlySpan(ref System.Runtime.CompilerServices.Unsafe.As<Signer, UInt160>(ref tx.Signers[0]), tx.Signers.Length), mtb))
                         {
                             Log("Invalid request: transaction has on-chain conflict", LogLevel.Warning);
                             return;
@@ -378,9 +414,15 @@ namespace Neo.Orleans.Grains
                     return;
             if (_context.Transactions.Count < _context.TransactionHashes.Length)
             {
-                UInt256[] hashes = _context.TransactionHashes.Where(i => !_context.Transactions.ContainsKey(i)).ToArray();
+                var missingHashes = new List<UInt256>(_context.TransactionHashes.Length);
+                foreach (var hash in _context.TransactionHashes)
+                    if (!_context.Transactions.ContainsKey(hash))
+                        missingHashes.Add(hash);
                 var taskManager = _grainFactory.GetGrain<ITaskManagerGrain>(0);
-                await taskManager.RestartTasksAsync(hashes.Select(h => h.GetSpan().ToArray()), (byte)InventoryType.TX);
+                var hashDataArray = new byte[missingHashes.Count][];
+                for (int i = 0; i < missingHashes.Count; i++)
+                    hashDataArray[i] = missingHashes[i].GetSpan().ToArray();
+                await taskManager.RestartTasksAsync(hashDataArray, (byte)InventoryType.TX);
             }
         }
 
@@ -510,10 +552,16 @@ namespace Neo.Orleans.Grains
 
         private async Task OnRecoveryRequestReceivedAsync(ExtensiblePayload payload, ConsensusMessage message)
         {
-            if (_context == null)
-                return;
+            if (_context == null) return;
 
-            if (!_knownHashes.Add(payload.Hash)) return;
+            var key = (message.BlockIndex, message.ViewNumber, payload.Hash);
+            var now = _timeProvider.UtcNow;
+            if (_knownHashes.TryGetValue(key, out var timestamp))
+            {
+                if ((now - timestamp) < TimeSpan.FromMinutes(5))
+                    return;
+            }
+            _knownHashes[key] = now;
 
             Log($"{nameof(OnRecoveryRequestReceivedAsync)}: height={message.BlockIndex} index={message.ValidatorIndex} view={message.ViewNumber}");
             if (_context.WatchOnly) return;
@@ -590,7 +638,9 @@ namespace Neo.Orleans.Grains
         private async Task CheckExpectedViewAsync(byte viewNumber)
         {
             if (_context == null || _context.ViewNumber >= viewNumber) return;
-            var messages = _context.ChangeViewPayloads.Select(p => _context.GetMessage<ChangeView>(p)).ToArray();
+            var messages = new List<ChangeView?>(_context.ChangeViewPayloads.Length);
+            foreach (var p in _context.ChangeViewPayloads)
+                messages.Add(_context.GetMessage<ChangeView>(p));
             if (messages.Count(p => p != null && p.NewViewNumber >= viewNumber) >= _context.M)
             {
                 if (!_context.WatchOnly)
@@ -645,9 +695,9 @@ namespace Neo.Orleans.Grains
                     return false;
                 }
 
-                foreach (var h in tx.GetAttributes<Conflicts>().Select(attr => attr.Hash))
+                foreach (var h in tx.GetAttributes<Conflicts>())
                 {
-                    if (_context.TransactionHashes.Contains(h))
+                    if (_context.TransactionHashes.Contains(h.Hash))
                     {
                         Log($"Rejected tx: {tx.Hash}, {VerifyResult.HasConflicts}{Environment.NewLine}{tx.ToArray().ToHexString()}", LogLevel.Warning);
                         await RequestChangeViewAsync(ChangeViewReason.TxInvalid);
@@ -656,11 +706,14 @@ namespace Neo.Orleans.Grains
                 }
                 foreach (var pooledTx in _context.Transactions.Values)
                 {
-                    if (pooledTx.GetAttributes<Conflicts>().Select(attr => attr.Hash).Contains(tx.Hash))
+                    foreach (var conflictAttr in pooledTx.GetAttributes<Conflicts>())
                     {
-                        Log($"Rejected tx: {tx.Hash}, {VerifyResult.HasConflicts}{Environment.NewLine}{tx.ToArray().ToHexString()}", LogLevel.Warning);
-                        await RequestChangeViewAsync(ChangeViewReason.TxInvalid);
-                        return false;
+                        if (conflictAttr.Hash == tx.Hash)
+                        {
+                            Log($"Rejected tx: {tx.Hash}, {VerifyResult.HasConflicts}{Environment.NewLine}{tx.ToArray().ToHexString()}", LogLevel.Warning);
+                            await RequestChangeViewAsync(ChangeViewReason.TxInvalid);
+                            return false;
+                        }
                     }
                 }
 
@@ -700,7 +753,7 @@ namespace Neo.Orleans.Grains
                     TimeSpan span = _context.TimePerBlock;
                     if (_blockReceivedIndex + 1 == _context.Block.Index && _prepareRequestReceivedBlockIndex + 1 == _context.Block.Index)
                     {
-                        var diff = TimeProvider.Current.UtcNow - _prepareRequestReceivedTime;
+                        var diff = _timeProvider.UtcNow - _prepareRequestReceivedTime;
                         if (diff >= span)
                             span = TimeSpan.Zero;
                         else
@@ -810,17 +863,20 @@ namespace Neo.Orleans.Grains
             if (_context == null)
                 return;
 
-            _clockStarted = TimeProvider.Current.UtcNow;
+            _clockStarted = _timeProvider.UtcNow;
             _expectedDelay = delay;
             _timerHeight = _context.Block.Index;
             _timerViewNumber = _context.ViewNumber;
+
+            var jitterMs = RandomNumberGenerator.GetInt32(0, 500);
+            var finalDelay = delay + TimeSpan.FromMilliseconds(jitterMs);
 
             _timer?.Dispose();
             _timer = this.RegisterGrainTimer(
                 _ => OnTimerAsync(),
                 new GrainTimerCreationOptions
                 {
-                    DueTime = delay,
+                    DueTime = finalDelay,
                     Period = Timeout.InfiniteTimeSpan
                 });
         }
@@ -830,7 +886,7 @@ namespace Neo.Orleans.Grains
             if (_context == null)
                 return;
 
-            TimeSpan nextDelay = _expectedDelay - (TimeProvider.Current.UtcNow - _clockStarted)
+            TimeSpan nextDelay = _expectedDelay - (_timeProvider.UtcNow - _clockStarted)
                 + TimeSpan.FromMilliseconds(maxDelayInBlockTimes * _context.TimePerBlock.TotalMilliseconds / (double)_context.M);
             if (!_context.WatchOnly && !_context.ViewChanging && !_context.CommitSent && (nextDelay > TimeSpan.Zero))
                 ChangeTimer(nextDelay);
@@ -838,15 +894,18 @@ namespace Neo.Orleans.Grains
 
         private void OnPersistCompleted(Block block)
         {
-            if (_context == null)
-                return;
+            if (_context == null) return;
 
-            if (block.Index <= _lastPersistedIndex)
-                return;
+            if (block.Index <= _lastPersistedIndex) return;
 
             _lastPersistedIndex = block.Index;
             Log($"Persisted {nameof(Block)}: height={block.Index} hash={block.Hash} tx={block.Transactions.Length} nonce={block.Nonce}");
-            _knownHashes.Clear();
+            var keysToRemove = new List<(uint blockIndex, byte viewNumber, UInt256 hash)>(_knownHashes.Count);
+            foreach (var kvp in _knownHashes)
+                if (kvp.Key.blockIndex <= block.Index)
+                    keysToRemove.Add(kvp.Key);
+            foreach (var key in keysToRemove)
+                _knownHashes.Remove(key);
             InitializeConsensus(0);
         }
 
@@ -886,7 +945,8 @@ namespace Neo.Orleans.Grains
             if (_context != null)
                 return;
 
-            _context = new ConsensusContext(_system, _dbftSettings, _signer);
+            var neoSystem = _system is NeoSystemAdapter adapter ? adapter.NeoSystem : (NeoSystem)_system;
+            _context = new ConsensusContext(neoSystem, _dbftSettings, _signer);
         }
 
         private bool IsLedgerReady()
@@ -922,7 +982,7 @@ namespace Neo.Orleans.Grains
 
             using (var engine = ApplicationEngine.Create(TriggerType.OnPersist, null, snapshot, genesis, _system.Settings, 0))
             {
-                engine.LoadScript(OnPersistScript);
+                engine.LoadScript(NativeContractScripts.OnPersist);
                 if (engine.Execute() != VMState.HALT)
                 {
                     if (engine.FaultException != null)
@@ -935,7 +995,7 @@ namespace Neo.Orleans.Grains
 
             using (var engine = ApplicationEngine.Create(TriggerType.PostPersist, null, snapshot, genesis, _system.Settings, 0))
             {
-                engine.LoadScript(PostPersistScript);
+                engine.LoadScript(NativeContractScripts.PostPersist);
                 if (engine.Execute() != VMState.HALT)
                 {
                     if (engine.FaultException != null)
@@ -961,28 +1021,6 @@ namespace Neo.Orleans.Grains
             return NullSigner.Instance;
         }
 
-        private static bool TryDeserializeExtensible(byte[] data, out ExtensiblePayload payload)
-        {
-            payload = null!;
-            if (data.Length == 0)
-                return false;
-
-            try
-            {
-                var reader = new MemoryReader(data);
-                payload = reader.ReadSerializable<ExtensiblePayload>();
-                return true;
-            }
-            catch (FormatException)
-            {
-                return false;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
         private static void Log(string message, LogLevel level = LogLevel.Info)
         {
             Utility.Log(nameof(ConsensusGrain), level, message);
@@ -1002,3 +1040,4 @@ namespace Neo.Orleans.Grains
         }
     }
 }
+#pragma warning restore CS0618

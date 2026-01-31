@@ -14,8 +14,10 @@ using Neo;
 using Neo.Network.P2P.Payloads;
 using Neo.Orleans.Hosting;
 using Neo.Orleans.Interfaces;
+using Neo.Orleans.Options;
 using System.Linq;
 
+#pragma warning disable CS0618 // NeoOrleansOptions is obsolete during migration
 namespace Neo.Orleans.Tests
 {
     [TestClass]
@@ -238,3 +240,4 @@ namespace Neo.Orleans.Tests
         }
     }
 }
+#pragma warning restore CS0618

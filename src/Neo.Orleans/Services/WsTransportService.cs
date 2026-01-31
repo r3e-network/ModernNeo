@@ -9,7 +9,7 @@
 // Redistribution and use in source and binary forms with or without
 // modifications are permitted.
 
-using Neo.Network.P2P;
+using Neo.Orleans.Utilities;
 using System;
 using System.Buffers;
 using System.Buffers.Binary;
@@ -28,7 +28,6 @@ namespace Neo.Orleans.Services
     /// </summary>
     public sealed class WsTransportService : ITransportService, IAsyncDisposable
     {
-        private static readonly int MaxMessageBytes = Message.PayloadMaxSize + 16;
 
         private sealed class WsConnection : IAsyncDisposable
         {
@@ -108,10 +107,10 @@ namespace Neo.Orleans.Services
         {
             if (_disposed || message.Length == 0)
                 return false;
-            if (message.Length > MaxMessageBytes)
+            if (message.Length > TransportConstants.MaxMessageBytes)
                 return false;
 
-            var key = TcpTransportService.FormatConnectionKey(address, port);
+            var key = TransportConstants.FormatConnectionKey(address, port);
 
             WsConnection? connection = null;
             try
@@ -158,7 +157,7 @@ namespace Neo.Orleans.Services
             if (_disposed)
                 return false;
 
-            var key = TcpTransportService.FormatConnectionKey(address, port);
+            var key = TransportConstants.FormatConnectionKey(address, port);
 
             if (_connections.TryGetValue(key, out var existing) && existing.IsConnected)
                 return true;
@@ -208,7 +207,7 @@ namespace Neo.Orleans.Services
 
         public async Task DisconnectAsync(string address, int port, CancellationToken cancellationToken = default)
         {
-            var key = TcpTransportService.FormatConnectionKey(address, port);
+            var key = TransportConstants.FormatConnectionKey(address, port);
             if (_connections.TryRemove(key, out var connection))
             {
                 await connection.DisposeAsync();
@@ -217,7 +216,7 @@ namespace Neo.Orleans.Services
 
         public bool IsConnected(string address, int port)
         {
-            var key = TcpTransportService.FormatConnectionKey(address, port);
+            var key = TransportConstants.FormatConnectionKey(address, port);
             return _connections.TryGetValue(key, out var connection) && connection.IsConnected;
         }
 
@@ -244,7 +243,7 @@ namespace Neo.Orleans.Services
                 throw new ObjectDisposedException(nameof(WsTransportService));
             }
 
-            var key = TcpTransportService.FormatConnectionKey(remoteEndPoint.Address.ToString(), remoteEndPoint.Port);
+            var key = TransportConstants.FormatConnectionKey(remoteEndPoint.Address.ToString(), remoteEndPoint.Port);
             RemoveConnection(key, dispose: true);
             _connections[key] = new WsConnection(socket);
             return key;

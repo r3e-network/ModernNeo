@@ -41,11 +41,12 @@ namespace Neo.Orleans.Dbft.Messages
             Timestamp = reader.ReadUInt64();
             Nonce = reader.ReadUInt64();
             TransactionHashes = reader.ReadSerializableArray<UInt256>(ushort.MaxValue);
-            if (TransactionHashes.Distinct().Count() != TransactionHashes.Length)
-                throw new FormatException($"Transaction hashes are duplicate");
+            var seen = new HashSet<UInt256>();
+            if (!TransactionHashes.All(seen.Add))
+                throw new FormatException("Transaction hashes are duplicate");
         }
 
-        public override bool Verify(ProtocolSettings protocolSettings)
+        public override bool Verify(IProtocolSettings protocolSettings)
         {
             if (!base.Verify(protocolSettings)) return false;
             return TransactionHashes.Length <= protocolSettings.MaxTransactionsPerBlock;

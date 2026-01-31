@@ -56,7 +56,7 @@ namespace Neo.Orleans.Dbft.Messages
             CommitMessages = reader.ReadSerializableArray<CommitPayloadCompact>(byte.MaxValue).ToDictionary(p => p.ValidatorIndex);
         }
 
-        public override bool Verify(ProtocolSettings protocolSettings)
+        public override bool Verify(IProtocolSettings protocolSettings)
         {
             if (!base.Verify(protocolSettings)) return false;
             return (PrepareRequestMessage is null || PrepareRequestMessage.Verify(protocolSettings))

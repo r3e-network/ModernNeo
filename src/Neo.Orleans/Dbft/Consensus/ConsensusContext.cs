@@ -25,6 +25,22 @@ using Neo.VM;
 
 namespace Neo.Orleans.Dbft.Consensus
 {
+    /// <summary>
+    /// Consensus context for dBFT consensus algorithm.
+    /// NOTE: This class intentionally mixes data storage and business logic for performance.
+    /// The dBFT protocol requires tight coordination between state management and consensus
+    /// operations. Splitting these concerns would introduce unacceptable latency.
+    ///
+    /// Design considerations:
+    /// - State is serialized/deserialized frequently for persistence
+    /// - Business logic depends on immediate access to state
+    /// - The consensus protocol is performance-critical
+    ///
+    /// If refactoring is needed in the future, consider:
+    /// 1. Extracting ISerializable to a separate data-only DTO
+    /// 2. Using a state machine pattern with clear transition methods
+    /// 3. Ensuring any split maintains transaction semantics
+    /// </summary>
     public sealed partial class ConsensusContext : IDisposable, ISerializable
     {
         /// <summary>

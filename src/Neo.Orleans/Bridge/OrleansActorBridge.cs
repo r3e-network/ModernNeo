@@ -17,6 +17,7 @@ using Neo.IO;
 using Neo.Network.P2P.Payloads;
 using Neo.Orleans.Hosting;
 using Neo.Orleans.Interfaces;
+using Neo.Orleans.Options;
 using Neo.Orleans.Services;
 
 namespace Neo.Orleans.Bridge
@@ -47,7 +48,7 @@ namespace Neo.Orleans.Bridge
         {
             _host = host;
             _grainFactory = host.Services.GetRequiredService<IGrainFactory>();
-            var options = host.Services.GetService<NeoOrleansOptions>() ?? new NeoOrleansOptions();
+            var options = host.Services.GetService<IOrleansOptions>() ?? new OrleansOptions();
             _listener = host.Services.GetService<IP2PListener>();
             _blockchain = new OrleansBlockchainBridge(_grainFactory);
             _memoryPool = new OrleansMemoryPoolBridge(_grainFactory);
@@ -66,7 +67,7 @@ namespace Neo.Orleans.Bridge
         /// <summary>
         /// Creates an Orleans actor bridge with custom configuration.
         /// </summary>
-        public static OrleansActorBridge Create(Action<NeoOrleansOptions> configure)
+        public static OrleansActorBridge Create(Action<IOrleansOptions> configure)
         {
             var host = new NeoOrleansHostBuilder()
                 .UseDevelopment()
@@ -200,10 +201,10 @@ namespace Neo.Orleans.Bridge
     internal class OrleansLocalNodeBridge : ILocalNodeBridge
     {
         private readonly IGrainFactory _grainFactory;
-        private readonly NeoOrleansOptions _options;
+        private readonly IOrleansOptions _options;
         private readonly IP2PListener? _listener;
 
-        public OrleansLocalNodeBridge(IGrainFactory grainFactory, NeoOrleansOptions options, IP2PListener? listener)
+        public OrleansLocalNodeBridge(IGrainFactory grainFactory, IOrleansOptions options, IP2PListener? listener)
         {
             _grainFactory = grainFactory;
             _options = options ?? throw new ArgumentNullException(nameof(options));
@@ -214,20 +215,21 @@ namespace Neo.Orleans.Bridge
 
         public async Task StartAsync(LocalNodeStartConfig config)
         {
+            var mutableOptions = (OrleansOptions)_options;
             var tcpPort = config.TcpPort > 0 ? config.TcpPort : _options.TcpPort;
             if (tcpPort > 0)
-                _options.TcpPort = tcpPort;
+                mutableOptions.TcpPort = tcpPort;
             var wsPort = config.WsPort > 0 ? config.WsPort : _options.WsPort;
             if (wsPort > 0)
             {
-                _options.WsPort = wsPort;
-                _options.WsEnabled = true;
+                mutableOptions.WsPort = wsPort;
+                mutableOptions.WsEnabled = true;
             }
             if (config.MinDesiredConnections > 0)
-                _options.MinDesiredConnections = config.MinDesiredConnections;
+                mutableOptions.MinDesiredConnections = config.MinDesiredConnections;
 
             if (_listener != null)
-                await _listener.StartAsync(tcpPort, _options.TcpBindAddress);
+                await _listener.StartAsync(tcpPort, mutableOptions.TcpBindAddress);
 
             var maxConnections = config.MaxConnections > 0 ? config.MaxConnections : _options.MaxConnections;
             var maxConnectionsPerAddress = config.MaxConnectionsPerAddress > 0
